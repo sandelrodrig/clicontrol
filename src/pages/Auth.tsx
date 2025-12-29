@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Users, Shield, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Users, Shield, AlertTriangle, Phone } from 'lucide-react';
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
@@ -26,6 +26,7 @@ export default function Auth() {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
+  const [registerWhatsapp, setRegisterWhatsapp] = useState('');
 
   if (loading) {
     return (
@@ -93,7 +94,7 @@ export default function Auth() {
       return;
     }
 
-    const { error } = await signUp(registerEmail, registerPassword, registerName);
+    const { error } = await signUp(registerEmail, registerPassword, registerName, registerWhatsapp);
 
     if (error) {
       if (error.message.includes('already registered')) {
@@ -213,6 +214,24 @@ export default function Auth() {
                       required
                       disabled={isLoading}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="register-whatsapp">WhatsApp</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="register-whatsapp"
+                        type="tel"
+                        placeholder="5511999999999"
+                        className="pl-10"
+                        value={registerWhatsapp}
+                        onChange={(e) => setRegisterWhatsapp(e.target.value.replace(/\D/g, ''))}
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Apenas números com código do país (ex: 5511999999999)</p>
                   </div>
 
                   <div className="space-y-2">
