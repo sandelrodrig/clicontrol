@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCrypto } from '@/hooks/useCrypto';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -72,6 +73,7 @@ type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid';
 export default function Clients() {
   const { user } = useAuth();
   const { encrypt, decrypt } = useCrypto();
+  const { isPrivacyMode, maskData } = usePrivacyMode();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -754,7 +756,7 @@ export default function Clients() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <h3 className="font-semibold text-lg">{client.name}</h3>
+                      <h3 className="font-semibold text-lg">{maskData(client.name, 'name')}</h3>
                       <span className={cn('text-xs px-2 py-0.5 rounded-full', statusBadges[status])}>
                         {statusLabels[status]} {daysLeft > 0 && status !== 'expired' && `(${daysLeft}d)`}
                       </span>
@@ -770,13 +772,13 @@ export default function Clients() {
                     {client.phone && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Phone className="h-3.5 w-3.5" />
-                        <span>{client.phone}</span>
+                        <span>{maskData(client.phone, 'phone')}</span>
                       </div>
                     )}
                     {client.email && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Mail className="h-3.5 w-3.5" />
-                        <span className="truncate">{client.email}</span>
+                        <span className="truncate">{maskData(client.email, 'email')}</span>
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -786,10 +788,10 @@ export default function Clients() {
                     {client.plan_name && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <CreditCard className="h-3.5 w-3.5" />
-                        <span>{client.plan_name} {client.plan_price && `- R$ ${client.plan_price.toFixed(2)}`}</span>
+                        <span>{client.plan_name} {client.plan_price && `- ${maskData(`R$ ${client.plan_price.toFixed(2)}`, 'money')}`}</span>
                       </div>
                     )}
-                    {hasCredentials && (
+                    {hasCredentials && !isPrivacyMode && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Lock className="h-3.5 w-3.5" />
                         <span className="flex-1">
@@ -812,7 +814,13 @@ export default function Clients() {
                         </button>
                       </div>
                     )}
-                    {showPassword === client.id && isDecrypted && (
+                    {hasCredentials && isPrivacyMode && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>●●●●●● (oculto)</span>
+                      </div>
+                    )}
+                    {showPassword === client.id && isDecrypted && !isPrivacyMode && (
                       <div className="text-xs bg-muted p-2 rounded font-mono space-y-1">
                         {isDecrypted.login && <p>Login: {isDecrypted.login}</p>}
                         {isDecrypted.password && <p>Senha: {isDecrypted.password}</p>}

@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -20,9 +21,12 @@ import {
   ChevronRight,
   Tv,
   History,
+  EyeOff,
+  Eye,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface NavItem {
   title: string;
@@ -51,6 +55,7 @@ const navItems: NavItem[] = [
 
 export function Sidebar() {
   const { profile, isAdmin, isSeller, signOut } = useAuth();
+  const { isPrivacyMode, togglePrivacyMode } = usePrivacyMode();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -116,9 +121,40 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-2">
+          {/* Privacy Mode Toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={isPrivacyMode ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'w-full justify-start',
+                    isPrivacyMode && 'bg-warning/20 text-warning hover:bg-warning/30',
+                    collapsed && 'justify-center px-0'
+                  )}
+                  onClick={togglePrivacyMode}
+                >
+                  {isPrivacyMode ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                  {!collapsed && (
+                    <span className="ml-2">
+                      {isPrivacyMode ? 'Modo Privacidade' : 'Ocultar Dados'}
+                    </span>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>{isPrivacyMode ? 'Desativar modo privacidade' : 'Ocultar dados sensíveis para gravação'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {!collapsed && (
-            <div className="mb-3 px-2">
+            <div className="mb-1 px-2">
               <p className="text-xs text-sidebar-foreground/60 truncate">
                 {profile?.full_name || profile?.email}
               </p>
