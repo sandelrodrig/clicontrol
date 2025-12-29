@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -16,8 +17,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Package, DollarSign, Clock, Edit, Trash2 } from 'lucide-react';
+import { Plus, Package, DollarSign, Clock, Edit, Trash2, Wand2, Monitor } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Plan {
@@ -27,19 +35,55 @@ interface Plan {
   price: number;
   duration_days: number;
   is_active: boolean;
+  category: string;
+  screens: number;
 }
+
+type CategoryFilter = 'all' | 'IPTV' | 'SSH';
+
+const DEFAULT_PLANS_TEMPLATE = [
+  // IPTV Plans
+  { name: 'IPTV Mensal 1 Tela', duration_days: 30, category: 'IPTV', screens: 1 },
+  { name: 'IPTV Mensal 2 Telas', duration_days: 30, category: 'IPTV', screens: 2 },
+  { name: 'IPTV Mensal 3 Telas', duration_days: 30, category: 'IPTV', screens: 3 },
+  { name: 'IPTV Trimestral 1 Tela', duration_days: 90, category: 'IPTV', screens: 1 },
+  { name: 'IPTV Trimestral 2 Telas', duration_days: 90, category: 'IPTV', screens: 2 },
+  { name: 'IPTV Trimestral 3 Telas', duration_days: 90, category: 'IPTV', screens: 3 },
+  { name: 'IPTV Semestral 1 Tela', duration_days: 180, category: 'IPTV', screens: 1 },
+  { name: 'IPTV Semestral 2 Telas', duration_days: 180, category: 'IPTV', screens: 2 },
+  { name: 'IPTV Semestral 3 Telas', duration_days: 180, category: 'IPTV', screens: 3 },
+  { name: 'IPTV Anual 1 Tela', duration_days: 365, category: 'IPTV', screens: 1 },
+  { name: 'IPTV Anual 2 Telas', duration_days: 365, category: 'IPTV', screens: 2 },
+  { name: 'IPTV Anual 3 Telas', duration_days: 365, category: 'IPTV', screens: 3 },
+  // SSH Plans
+  { name: 'SSH Mensal 1 Tela', duration_days: 30, category: 'SSH', screens: 1 },
+  { name: 'SSH Mensal 2 Telas', duration_days: 30, category: 'SSH', screens: 2 },
+  { name: 'SSH Mensal 3 Telas', duration_days: 30, category: 'SSH', screens: 3 },
+  { name: 'SSH Trimestral 1 Tela', duration_days: 90, category: 'SSH', screens: 1 },
+  { name: 'SSH Trimestral 2 Telas', duration_days: 90, category: 'SSH', screens: 2 },
+  { name: 'SSH Trimestral 3 Telas', duration_days: 90, category: 'SSH', screens: 3 },
+  { name: 'SSH Semestral 1 Tela', duration_days: 180, category: 'SSH', screens: 1 },
+  { name: 'SSH Semestral 2 Telas', duration_days: 180, category: 'SSH', screens: 2 },
+  { name: 'SSH Semestral 3 Telas', duration_days: 180, category: 'SSH', screens: 3 },
+  { name: 'SSH Anual 1 Tela', duration_days: 365, category: 'SSH', screens: 1 },
+  { name: 'SSH Anual 2 Telas', duration_days: 365, category: 'SSH', screens: 2 },
+  { name: 'SSH Anual 3 Telas', duration_days: 365, category: 'SSH', screens: 3 },
+];
 
 export default function Plans() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     duration_days: '30',
     is_active: true,
+    category: 'IPTV',
+    screens: '1',
   });
 
   const { data: plans = [], isLoading } = useQuery({
@@ -49,7 +93,9 @@ export default function Plans() {
         .from('plans')
         .select('*')
         .eq('seller_id', user!.id)
-        .order('price');
+        .order('category')
+        .order('duration_days')
+        .order('screens');
       if (error) throw error;
       return data as Plan[];
     },
@@ -57,7 +103,7 @@ export default function Plans() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string | null; price: number; duration_days: number; is_active: boolean }) => {
+    mutationFn: async (data: { name: string; description?: string | null; price: number; duration_days: number; is_active: boolean; category: string; screens: number }) => {
       const { error } = await supabase.from('plans').insert([{
         ...data,
         seller_id: user!.id,
@@ -69,6 +115,28 @@ export default function Plans() {
       toast.success('Plano criado com sucesso!');
       resetForm();
       setIsDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const createDefaultPlansMutation = useMutation({
+    mutationFn: async () => {
+      const plansToCreate = DEFAULT_PLANS_TEMPLATE.map(plan => ({
+        ...plan,
+        price: 0, // Seller will set prices
+        is_active: true,
+        description: `${plan.screens} ${plan.screens === 1 ? 'tela' : 'telas'} - ${plan.duration_days} dias`,
+        seller_id: user!.id,
+      }));
+      
+      const { error } = await supabase.from('plans').insert(plansToCreate);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plans'] });
+      toast.success('Planos padrão criados! Defina os preços para cada plano.');
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -113,6 +181,8 @@ export default function Plans() {
       price: '',
       duration_days: '30',
       is_active: true,
+      category: 'IPTV',
+      screens: '1',
     });
   };
 
@@ -124,6 +194,8 @@ export default function Plans() {
       price: parseFloat(formData.price) || 0,
       duration_days: parseInt(formData.duration_days) || 30,
       is_active: formData.is_active,
+      category: formData.category,
+      screens: parseInt(formData.screens) || 1,
     };
 
     if (editingPlan) {
@@ -141,8 +213,23 @@ export default function Plans() {
       price: plan.price.toString(),
       duration_days: plan.duration_days.toString(),
       is_active: plan.is_active,
+      category: plan.category || 'IPTV',
+      screens: (plan.screens || 1).toString(),
     });
     setIsDialogOpen(true);
+  };
+
+  const filteredPlans = plans.filter(plan => {
+    if (categoryFilter === 'all') return true;
+    return plan.category === categoryFilter;
+  });
+
+  const getDurationLabel = (days: number) => {
+    if (days === 30) return 'Mensal';
+    if (days === 90) return 'Trimestral';
+    if (days === 180) return 'Semestral';
+    if (days === 365) return 'Anual';
+    return `${days} dias`;
   };
 
   return (
@@ -150,92 +237,165 @@ export default function Plans() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Planos</h1>
-          <p className="text-muted-foreground">Gerencie os planos de assinatura</p>
+          <p className="text-muted-foreground">Gerencie os planos de assinatura IPTV e SSH</p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) {
-            setEditingPlan(null);
-            resetForm();
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo Plano
+        <div className="flex gap-2">
+          {plans.length === 0 && (
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => {
+                if (confirm('Isso criará 24 planos padrão (IPTV e SSH) com preço R$ 0,00. Você poderá definir os preços depois. Continuar?')) {
+                  createDefaultPlansMutation.mutate();
+                }
+              }}
+              disabled={createDefaultPlansMutation.isPending}
+            >
+              <Wand2 className="h-4 w-4" />
+              Gerar Planos Padrão
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingPlan ? 'Editar Plano' : 'Novo Plano'}</DialogTitle>
-              <DialogDescription>
-                {editingPlan ? 'Atualize os dados do plano' : 'Crie um novo plano de assinatura'}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nome *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Plano Mensal"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição</Label>
-                <Input
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Acesso completo por 30 dias"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+          )}
+
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingPlan(null);
+              resetForm();
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Plano
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingPlan ? 'Editar Plano' : 'Novo Plano'}</DialogTitle>
+                <DialogDescription>
+                  {editingPlan ? 'Atualize os dados do plano' : 'Crie um novo plano de assinatura'}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Preço (R$) *</Label>
+                  <Label htmlFor="name">Nome *</Label>
                   <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="IPTV Mensal 1 Tela"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="duration_days">Duração (dias) *</Label>
+                  <Label htmlFor="description">Descrição</Label>
                   <Input
-                    id="duration_days"
-                    type="number"
-                    value={formData.duration_days}
-                    onChange={(e) => setFormData({ ...formData, duration_days: e.target.value })}
-                    required
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Acesso completo por 30 dias"
                   />
                 </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="is_active">Plano Ativo</Label>
-                <Switch
-                  id="is_active"
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {editingPlan ? 'Salvar' : 'Criar Plano'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Categoria</Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="IPTV">IPTV</SelectItem>
+                        <SelectItem value="SSH">SSH</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Número de Telas</Label>
+                    <Select
+                      value={formData.screens}
+                      onValueChange={(value) => setFormData({ ...formData, screens: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Tela</SelectItem>
+                        <SelectItem value="2">2 Telas</SelectItem>
+                        <SelectItem value="3">3 Telas</SelectItem>
+                        <SelectItem value="4">4 Telas</SelectItem>
+                        <SelectItem value="5">5 Telas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Preço (R$) *</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Duração</Label>
+                    <Select
+                      value={formData.duration_days}
+                      onValueChange={(value) => setFormData({ ...formData, duration_days: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30">Mensal (30 dias)</SelectItem>
+                        <SelectItem value="90">Trimestral (90 dias)</SelectItem>
+                        <SelectItem value="180">Semestral (180 dias)</SelectItem>
+                        <SelectItem value="365">Anual (365 dias)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="is_active">Plano Ativo</Label>
+                  <Switch
+                    id="is_active"
+                    checked={formData.is_active}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                    {editingPlan ? 'Salvar' : 'Criar Plano'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Category Filter */}
+      {plans.length > 0 && (
+        <Tabs value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}>
+          <TabsList>
+            <TabsTrigger value="all">Todos ({plans.length})</TabsTrigger>
+            <TabsTrigger value="IPTV">IPTV ({plans.filter(p => p.category === 'IPTV').length})</TabsTrigger>
+            <TabsTrigger value="SSH">SSH ({plans.filter(p => p.category === 'SSH').length})</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -253,27 +413,53 @@ export default function Plans() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Package className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhum plano cadastrado</h3>
-            <p className="text-muted-foreground text-center">
-              Crie seu primeiro plano de assinatura
+            <p className="text-muted-foreground text-center mb-4">
+              Crie planos manualmente ou gere os planos padrão
             </p>
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={() => {
+                if (confirm('Isso criará 24 planos padrão (IPTV e SSH). Você poderá definir os preços depois. Continuar?')) {
+                  createDefaultPlansMutation.mutate();
+                }
+              }}
+              disabled={createDefaultPlansMutation.isPending}
+            >
+              <Wand2 className="h-4 w-4" />
+              Gerar Planos Padrão
+            </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {plans.map((plan) => (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredPlans.map((plan) => (
             <Card
               key={plan.id}
               className={cn(
                 'transition-all duration-200 hover:shadow-lg animate-slide-up',
-                !plan.is_active && 'opacity-60'
+                !plan.is_active && 'opacity-60',
+                plan.price === 0 && 'ring-2 ring-warning/50'
               )}
             >
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="text-lg">{plan.name}</CardTitle>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={cn(
+                        'text-xs px-2 py-0.5 rounded-full font-medium',
+                        plan.category === 'IPTV' ? 'bg-primary/10 text-primary' : 'bg-secondary text-secondary-foreground'
+                      )}>
+                        {plan.category}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
+                        <Monitor className="h-3 w-3" />
+                        {plan.screens || 1}
+                      </span>
+                    </div>
+                    <CardTitle className="text-base">{plan.name}</CardTitle>
                     {plan.description && (
-                      <CardDescription>{plan.description}</CardDescription>
+                      <CardDescription className="text-xs">{plan.description}</CardDescription>
                     )}
                   </div>
                   <span className={cn(
@@ -285,14 +471,19 @@ export default function Plans() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3 mb-4">
+                <div className="space-y-2 mb-4">
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-success" />
-                    <span className="text-2xl font-bold">R$ {plan.price.toFixed(2)}</span>
+                    <span className={cn(
+                      "text-xl font-bold",
+                      plan.price === 0 && "text-warning"
+                    )}>
+                      {plan.price === 0 ? 'Definir preço' : `R$ ${plan.price.toFixed(2)}`}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
-                    <span>{plan.duration_days} dias</span>
+                    <span>{getDurationLabel(plan.duration_days)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pt-3 border-t border-border">

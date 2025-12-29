@@ -331,6 +331,7 @@ export type Database = {
       }
       plans: {
         Row: {
+          category: string | null
           created_at: string | null
           description: string | null
           duration_days: number
@@ -338,10 +339,12 @@ export type Database = {
           is_active: boolean | null
           name: string
           price: number
+          screens: number | null
           seller_id: string
           updated_at: string | null
         }
         Insert: {
+          category?: string | null
           created_at?: string | null
           description?: string | null
           duration_days?: number
@@ -349,10 +352,12 @@ export type Database = {
           is_active?: boolean | null
           name: string
           price?: number
+          screens?: number | null
           seller_id: string
           updated_at?: string | null
         }
         Update: {
+          category?: string | null
           created_at?: string | null
           description?: string | null
           duration_days?: number
@@ -360,6 +365,7 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           price?: number
+          screens?: number | null
           seller_id?: string
           updated_at?: string | null
         }
