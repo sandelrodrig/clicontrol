@@ -514,11 +514,13 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           id: string
+          iptv_per_credit: number | null
           is_active: boolean | null
           login: string | null
           monthly_cost: number
           name: string
           notes: string | null
+          p2p_per_credit: number | null
           panel_type: string
           password: string | null
           seller_id: string
@@ -531,11 +533,13 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           id?: string
+          iptv_per_credit?: number | null
           is_active?: boolean | null
           login?: string | null
           monthly_cost?: number
           name: string
           notes?: string | null
+          p2p_per_credit?: number | null
           panel_type?: string
           password?: string | null
           seller_id: string
@@ -548,11 +552,13 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           id?: string
+          iptv_per_credit?: number | null
           is_active?: boolean | null
           login?: string | null
           monthly_cost?: number
           name?: string
           notes?: string | null
+          p2p_per_credit?: number | null
           panel_type?: string
           password?: string | null
           seller_id?: string
