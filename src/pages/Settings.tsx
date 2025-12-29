@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { User, Phone, Mail, Save, Shield } from 'lucide-react';
+import { User, Phone, Mail, Save, Shield, Palette, Smartphone } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ThemeSelector } from '@/components/ThemeSelector';
+import { InstallPWA } from '@/components/InstallPWA';
 
 export default function Settings() {
   const { user, profile, isAdmin, isSeller } = useAuth();
@@ -67,6 +69,23 @@ export default function Settings() {
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
         <p className="text-muted-foreground">Gerencie suas preferências e informações</p>
       </div>
+
+      {/* Theme Selector Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="h-5 w-5" />
+            Tema do Sistema
+          </CardTitle>
+          <CardDescription>Personalize a aparência do aplicativo</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeSelector />
+        </CardContent>
+      </Card>
+
+      {/* PWA Install Card */}
+      <InstallPWA />
 
       {/* Profile Card */}
       <Card>

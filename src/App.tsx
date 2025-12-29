@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ThemeProvider } from "@/hooks/useTheme";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -24,33 +25,35 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/clients" element={<Clients />} />
-              <Route path="/servers" element={<Servers />} />
-              <Route path="/plans" element={<Plans />} />
-              <Route path="/bills" element={<Bills />} />
-              <Route path="/coupons" element={<Coupons />} />
-              <Route path="/referrals" element={<Referrals />} />
-              <Route path="/templates" element={<Templates />} />
-              <Route path="/sellers" element={<Sellers />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/backup" element={<Backup />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route element={<AppLayout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/clients" element={<Clients />} />
+                <Route path="/servers" element={<Servers />} />
+                <Route path="/plans" element={<Plans />} />
+                <Route path="/bills" element={<Bills />} />
+                <Route path="/coupons" element={<Coupons />} />
+                <Route path="/referrals" element={<Referrals />} />
+                <Route path="/templates" element={<Templates />} />
+                <Route path="/sellers" element={<Sellers />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/backup" element={<Backup />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
