@@ -863,7 +863,7 @@ export default function Clients() {
                 <div className="space-y-2">
                   <Label>Data de Vencimento</Label>
                   <div className="flex items-center gap-2">
-                    <Popover>
+                    <Popover modal={false}>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
@@ -876,7 +876,7 @@ export default function Clients() {
                             : "Selecione um plano"}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                      <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={5}>
                         <Calendar
                           mode="single"
                           selected={formData.expiration_date ? new Date(formData.expiration_date) : undefined}
@@ -887,7 +887,7 @@ export default function Clients() {
                           }}
                           initialFocus
                           locale={ptBR}
-                          className={cn("p-3 pointer-events-auto")}
+                          className="p-3 pointer-events-auto"
                         />
                       </PopoverContent>
                     </Popover>
