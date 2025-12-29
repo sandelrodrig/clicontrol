@@ -26,8 +26,10 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
@@ -53,6 +55,9 @@ interface Client {
   category: string | null;
   is_paid: boolean;
   notes: string | null;
+  has_paid_apps: boolean | null;
+  paid_apps_duration: string | null;
+  paid_apps_expiration: string | null;
 }
 
 interface ClientCategory {
@@ -111,6 +116,9 @@ export default function Clients() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [newCategoryName, setNewCategoryName] = useState('');
 
+  // State for add category popover
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -129,6 +137,9 @@ export default function Clients() {
     category: 'IPTV',
     is_paid: true,
     notes: '',
+    has_paid_apps: false,
+    paid_apps_duration: '',
+    paid_apps_expiration: '',
   });
 
   const { data: clients = [], isLoading } = useQuery({
@@ -345,14 +356,13 @@ export default function Clients() {
       category: 'IPTV',
       is_paid: true,
       notes: '',
+      has_paid_apps: false,
+      paid_apps_duration: '',
+      paid_apps_expiration: '',
     });
   };
 
   const handlePlanChange = (planId: string) => {
-    if (planId === 'manual') {
-      setFormData({ ...formData, plan_id: '', plan_name: '', plan_price: '' });
-      return;
-    }
     const plan = plans.find(p => p.id === planId);
     if (plan) {
       const newExpDate = format(addDays(new Date(), plan.duration_days), 'yyyy-MM-dd');
@@ -364,6 +374,27 @@ export default function Clients() {
         expiration_date: newExpDate,
       });
     }
+  };
+
+  const handlePaidAppsDurationChange = (duration: string) => {
+    let daysToAdd = 30;
+    switch (duration) {
+      case '3_months':
+        daysToAdd = 90;
+        break;
+      case '6_months':
+        daysToAdd = 180;
+        break;
+      case '1_year':
+        daysToAdd = 365;
+        break;
+    }
+    const newExpDate = format(addDays(new Date(), daysToAdd), 'yyyy-MM-dd');
+    setFormData({
+      ...formData,
+      paid_apps_duration: duration,
+      paid_apps_expiration: newExpDate,
+    });
   };
 
   const handleServerChange = (serverId: string) => {
@@ -383,7 +414,7 @@ export default function Clients() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const data = {
+    const data: Record<string, unknown> = {
       name: formData.name,
       phone: formData.phone || null,
       email: formData.email || null,
@@ -400,12 +431,15 @@ export default function Clients() {
       category: formData.category || 'IPTV',
       is_paid: formData.is_paid,
       notes: formData.notes || null,
+      has_paid_apps: formData.has_paid_apps || false,
+      paid_apps_duration: formData.paid_apps_duration || null,
+      paid_apps_expiration: formData.paid_apps_expiration || null,
     };
 
     if (editingClient) {
-      updateMutation.mutate({ id: editingClient.id, data });
+      updateMutation.mutate({ id: editingClient.id, data: data as Partial<Client> });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(data as Parameters<typeof createMutation.mutate>[0]);
     }
   };
 
@@ -445,6 +479,9 @@ export default function Clients() {
       category: client.category || 'IPTV',
       is_paid: client.is_paid,
       notes: client.notes || '',
+      has_paid_apps: client.has_paid_apps || false,
+      paid_apps_duration: client.paid_apps_duration || '',
+      paid_apps_expiration: client.paid_apps_expiration || '',
     });
     setIsDialogOpen(true);
   };
@@ -533,6 +570,7 @@ export default function Clients() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['client-categories'] });
       setNewCategoryName('');
+      setAddCategoryOpen(false);
       toast.success('Categoria criada com sucesso!');
     },
     onError: (error: Error) => {
@@ -593,48 +631,66 @@ export default function Clients() {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Category Select - FIRST */}
+                {/* Category Select with Add Button */}
                 <div className="space-y-2 md:col-span-2">
                   <Label>Categoria *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allCategories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {/* Add New Category */}
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Nova Categoria</Label>
                   <div className="flex gap-2">
-                    <Input
-                      placeholder="Nome da categoria"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        if (newCategoryName.trim()) {
-                          addCategoryMutation.mutate(newCategoryName.trim());
-                        }
-                      }}
-                      disabled={!newCategoryName.trim() || addCategoryMutation.isPending}
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => setFormData({ ...formData, category: value })}
                     >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allCategories.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Popover open={addCategoryOpen} onOpenChange={setAddCategoryOpen}>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" size="icon">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-3" align="end">
+                        <div className="space-y-3">
+                          <Label className="text-sm font-medium">Nova Categoria</Label>
+                          <Input
+                            placeholder="Nome da categoria"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && newCategoryName.trim()) {
+                                e.preventDefault();
+                                addCategoryMutation.mutate(newCategoryName.trim());
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              if (newCategoryName.trim()) {
+                                addCategoryMutation.mutate(newCategoryName.trim());
+                              }
+                            }}
+                            disabled={!newCategoryName.trim() || addCategoryMutation.isPending}
+                          >
+                            {addCategoryMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                              <Plus className="h-4 w-4 mr-2" />
+                            )}
+                            Adicionar
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
@@ -739,19 +795,24 @@ export default function Clients() {
                   <div className="space-y-2">
                     <Label>Plano</Label>
                     <Select
-                      value={formData.plan_id || 'manual'}
+                      value={formData.plan_id || ''}
                       onValueChange={handlePlanChange}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione um plano" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="manual">Inserir manualmente</SelectItem>
-                        {plans.map((plan) => (
-                          <SelectItem key={plan.id} value={plan.id}>
-                            {plan.name} - R$ {plan.price.toFixed(2)} ({plan.duration_days} dias)
-                          </SelectItem>
-                        ))}
+                        {plans.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            Nenhum plano cadastrado
+                          </div>
+                        ) : (
+                          plans.map((plan) => (
+                            <SelectItem key={plan.id} value={plan.id}>
+                              {plan.name} - R$ {plan.price.toFixed(2)} ({plan.duration_days} dias)
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -780,30 +841,6 @@ export default function Clients() {
                   </div>
                 )}
 
-                {/* Manual plan inputs if needed - Not for Contas Premium */}
-                {formData.category !== 'Contas Premium' && !formData.plan_id && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="plan_name">Nome do Plano</Label>
-                      <Input
-                        id="plan_name"
-                        value={formData.plan_name}
-                        onChange={(e) => setFormData({ ...formData, plan_name: e.target.value })}
-                        placeholder="Plano Mensal"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="plan_price">Preço (R$)</Label>
-                      <Input
-                        id="plan_price"
-                        type="number"
-                        step="0.01"
-                        value={formData.plan_price}
-                        onChange={(e) => setFormData({ ...formData, plan_price: e.target.value })}
-                      />
-                    </div>
-                  </>
-                )}
 
                 {/* Expiration Date with Calendar */}
                 <div className="space-y-2">
@@ -885,12 +922,84 @@ export default function Clients() {
                   </Select>
                 </div>
               </div>
+              {/* Paid Apps Section */}
+              <div className="space-y-4 p-4 rounded-lg bg-muted/50 border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AppWindow className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="has_paid_apps" className="cursor-pointer">Apps Pagos</Label>
+                  </div>
+                  <Switch
+                    id="has_paid_apps"
+                    checked={formData.has_paid_apps}
+                    onCheckedChange={(checked) => setFormData({ ...formData, has_paid_apps: checked, paid_apps_duration: '', paid_apps_expiration: '' })}
+                  />
+                </div>
+                
+                {formData.has_paid_apps && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Duração do App</Label>
+                      <Select
+                        value={formData.paid_apps_duration}
+                        onValueChange={handlePaidAppsDurationChange}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a duração" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="3_months">3 Meses</SelectItem>
+                          <SelectItem value="6_months">6 Meses</SelectItem>
+                          <SelectItem value="1_year">1 Ano</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Vencimento do App</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !formData.paid_apps_expiration && "text-muted-foreground"
+                            )}
+                            type="button"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {formData.paid_apps_expiration 
+                              ? format(new Date(formData.paid_apps_expiration), "dd/MM/yyyy", { locale: ptBR })
+                              : "Selecione a data"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={formData.paid_apps_expiration ? new Date(formData.paid_apps_expiration) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                setFormData({ ...formData, paid_apps_expiration: format(date, 'yyyy-MM-dd') });
+                              }
+                            }}
+                            initialFocus
+                            locale={ptBR}
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="notes">Observações</Label>
-                <Input
+                <Textarea
                   id="notes"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="E-mail, senhas, MAC de apps, informações adicionais..."
+                  className="min-h-[100px] resize-y"
                 />
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">

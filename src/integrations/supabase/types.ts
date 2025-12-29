@@ -90,11 +90,14 @@ export type Database = {
           device: string | null
           email: string | null
           expiration_date: string
+          has_paid_apps: boolean | null
           id: string
           is_paid: boolean | null
           login: string | null
           name: string
           notes: string | null
+          paid_apps_duration: string | null
+          paid_apps_expiration: string | null
           password: string | null
           phone: string | null
           plan_id: string | null
@@ -113,11 +116,14 @@ export type Database = {
           device?: string | null
           email?: string | null
           expiration_date: string
+          has_paid_apps?: boolean | null
           id?: string
           is_paid?: boolean | null
           login?: string | null
           name: string
           notes?: string | null
+          paid_apps_duration?: string | null
+          paid_apps_expiration?: string | null
           password?: string | null
           phone?: string | null
           plan_id?: string | null
@@ -136,11 +142,14 @@ export type Database = {
           device?: string | null
           email?: string | null
           expiration_date?: string
+          has_paid_apps?: boolean | null
           id?: string
           is_paid?: boolean | null
           login?: string | null
           name?: string
           notes?: string | null
+          paid_apps_duration?: string | null
+          paid_apps_expiration?: string | null
           password?: string | null
           phone?: string | null
           plan_id?: string | null
