@@ -24,10 +24,11 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle } from 'lucide-react';
-import { format, addDays, isBefore, isAfter, startOfToday } from 'date-fns';
+import { Plus, Search, Phone, Mail, Calendar, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw } from 'lucide-react';
+import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { SendMessageDialog } from '@/components/SendMessageDialog';
 
 interface Client {
   id: string;
@@ -47,6 +48,20 @@ interface Client {
   notes: string | null;
 }
 
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  duration_days: number;
+  is_active: boolean;
+}
+
+interface ServerData {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
+
 type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid';
 
 export default function Clients() {
@@ -57,6 +72,7 @@ export default function Clients() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [showPassword, setShowPassword] = useState<string | null>(null);
+  const [messageClient, setMessageClient] = useState<Client | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -65,8 +81,10 @@ export default function Clients() {
     email: '',
     device: '',
     expiration_date: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+    plan_id: '',
     plan_name: '',
     plan_price: '',
+    server_id: '',
     server_name: '',
     login: '',
     password: '',
@@ -88,8 +106,38 @@ export default function Clients() {
     enabled: !!user?.id,
   });
 
+  const { data: plans = [] } = useQuery({
+    queryKey: ['plans', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('plans')
+        .select('*')
+        .eq('seller_id', user!.id)
+        .eq('is_active', true)
+        .order('price');
+      if (error) throw error;
+      return data as Plan[];
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: servers = [] } = useQuery({
+    queryKey: ['servers', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('servers')
+        .select('*')
+        .eq('seller_id', user!.id)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data as ServerData[];
+    },
+    enabled: !!user?.id,
+  });
+
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_name?: string | null; plan_price?: number | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null }) => {
+    mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null }) => {
       const { error } = await supabase.from('clients').insert([{
         ...data,
         seller_id: user!.id,
@@ -138,6 +186,34 @@ export default function Clients() {
     },
   });
 
+  const renewMutation = useMutation({
+    mutationFn: async ({ id, days }: { id: string; days: number }) => {
+      const client = clients.find(c => c.id === id);
+      if (!client) throw new Error('Cliente não encontrado');
+      
+      const baseDate = new Date(client.expiration_date);
+      const newDate = isAfter(baseDate, new Date()) 
+        ? addDays(baseDate, days) 
+        : addDays(new Date(), days);
+      
+      const { error } = await supabase
+        .from('clients')
+        .update({ 
+          expiration_date: format(newDate, 'yyyy-MM-dd'),
+          is_paid: true 
+        })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Cliente renovado com sucesso!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -145,14 +221,49 @@ export default function Clients() {
       email: '',
       device: '',
       expiration_date: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
+      plan_id: '',
       plan_name: '',
       plan_price: '',
+      server_id: '',
       server_name: '',
       login: '',
       password: '',
       is_paid: true,
       notes: '',
     });
+  };
+
+  const handlePlanChange = (planId: string) => {
+    if (planId === 'manual') {
+      setFormData({ ...formData, plan_id: '', plan_name: '', plan_price: '' });
+      return;
+    }
+    const plan = plans.find(p => p.id === planId);
+    if (plan) {
+      const newExpDate = format(addDays(new Date(), plan.duration_days), 'yyyy-MM-dd');
+      setFormData({
+        ...formData,
+        plan_id: plan.id,
+        plan_name: plan.name,
+        plan_price: plan.price.toString(),
+        expiration_date: newExpDate,
+      });
+    }
+  };
+
+  const handleServerChange = (serverId: string) => {
+    if (serverId === 'manual') {
+      setFormData({ ...formData, server_id: '', server_name: '' });
+      return;
+    }
+    const server = servers.find(s => s.id === serverId);
+    if (server) {
+      setFormData({
+        ...formData,
+        server_id: server.id,
+        server_name: server.name,
+      });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -163,8 +274,10 @@ export default function Clients() {
       email: formData.email || null,
       device: formData.device || null,
       expiration_date: formData.expiration_date,
+      plan_id: formData.plan_id || null,
       plan_name: formData.plan_name || null,
       plan_price: formData.plan_price ? parseFloat(formData.plan_price) : null,
+      server_id: formData.server_id || null,
       server_name: formData.server_name || null,
       login: formData.login || null,
       password: formData.password || null,
@@ -187,8 +300,10 @@ export default function Clients() {
       email: client.email || '',
       device: client.device || '',
       expiration_date: client.expiration_date,
+      plan_id: client.plan_id || '',
       plan_name: client.plan_name || '',
       plan_price: client.plan_price?.toString() || '',
+      server_id: client.server_id || '',
       server_name: client.server_name || '',
       login: client.login || '',
       password: client.password || '',
@@ -196,6 +311,14 @@ export default function Clients() {
       notes: client.notes || '',
     });
     setIsDialogOpen(true);
+  };
+
+  const handleRenew = (client: Client) => {
+    const plan = plans.find(p => p.id === client.plan_id);
+    const days = plan?.duration_days || 30;
+    if (confirm(`Renovar ${client.name} por ${days} dias?`)) {
+      renewMutation.mutate({ id: client.id, days });
+    }
   };
 
   const today = startOfToday();
@@ -247,12 +370,6 @@ export default function Clients() {
     active: 'Ativo',
     expiring: 'Vencendo',
     expired: 'Vencido',
-  };
-
-  const openWhatsApp = (phone: string, name: string) => {
-    const message = `Olá ${name}!`;
-    const url = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
   };
 
   return (
@@ -322,6 +439,85 @@ export default function Clients() {
                     placeholder="Smart TV, Celular..."
                   />
                 </div>
+
+                {/* Plan Select */}
+                <div className="space-y-2">
+                  <Label>Plano</Label>
+                  <Select
+                    value={formData.plan_id || 'manual'}
+                    onValueChange={handlePlanChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um plano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Inserir manualmente</SelectItem>
+                      {plans.map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.name} - R$ {plan.price.toFixed(2)} ({plan.duration_days} dias)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Server Select */}
+                <div className="space-y-2">
+                  <Label>Servidor</Label>
+                  <Select
+                    value={formData.server_id || 'manual'}
+                    onValueChange={handleServerChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um servidor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Inserir manualmente</SelectItem>
+                      {servers.map((server) => (
+                        <SelectItem key={server.id} value={server.id}>
+                          {server.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Manual inputs if needed */}
+                {!formData.plan_id && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="plan_name">Nome do Plano</Label>
+                      <Input
+                        id="plan_name"
+                        value={formData.plan_name}
+                        onChange={(e) => setFormData({ ...formData, plan_name: e.target.value })}
+                        placeholder="Plano Mensal"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="plan_price">Preço (R$)</Label>
+                      <Input
+                        id="plan_price"
+                        type="number"
+                        step="0.01"
+                        value={formData.plan_price}
+                        onChange={(e) => setFormData({ ...formData, plan_price: e.target.value })}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {!formData.server_id && (
+                  <div className="space-y-2">
+                    <Label htmlFor="server_name">Nome do Servidor</Label>
+                    <Input
+                      id="server_name"
+                      value={formData.server_name}
+                      onChange={(e) => setFormData({ ...formData, server_name: e.target.value })}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="expiration_date">Data de Vencimento *</Label>
                   <Input
@@ -330,33 +526,6 @@ export default function Clients() {
                     value={formData.expiration_date}
                     onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
                     required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="plan_name">Nome do Plano</Label>
-                  <Input
-                    id="plan_name"
-                    value={formData.plan_name}
-                    onChange={(e) => setFormData({ ...formData, plan_name: e.target.value })}
-                    placeholder="Plano Mensal"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="plan_price">Preço (R$)</Label>
-                  <Input
-                    id="plan_price"
-                    type="number"
-                    step="0.01"
-                    value={formData.plan_price}
-                    onChange={(e) => setFormData({ ...formData, plan_price: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="server_name">Servidor</Label>
-                  <Input
-                    id="server_name"
-                    value={formData.server_name}
-                    onChange={(e) => setFormData({ ...formData, server_name: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -463,6 +632,7 @@ export default function Clients() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredClients.map((client) => {
             const status = getClientStatus(client);
+            const daysLeft = differenceInDays(new Date(client.expiration_date), today);
             return (
               <Card
                 key={client.id}
@@ -477,7 +647,7 @@ export default function Clients() {
                     <div>
                       <h3 className="font-semibold text-lg">{client.name}</h3>
                       <span className={cn('text-xs px-2 py-0.5 rounded-full', statusBadges[status])}>
-                        {statusLabels[status]}
+                        {statusLabels[status]} {daysLeft > 0 && status !== 'expired' && `(${daysLeft}d)`}
                       </span>
                     </div>
                     {!client.is_paid && (
@@ -487,75 +657,87 @@ export default function Clients() {
                     )}
                   </div>
 
-                  <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="space-y-2 text-sm">
                     {client.phone && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <Phone className="h-3.5 w-3.5" />
                         <span>{client.phone}</span>
                       </div>
                     )}
                     {client.email && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <Mail className="h-3.5 w-3.5" />
                         <span className="truncate">{client.email}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="h-3.5 w-3.5" />
-                      <span>Vence: {format(new Date(client.expiration_date), "dd 'de' MMM, yyyy", { locale: ptBR })}</span>
+                      <span>{format(new Date(client.expiration_date), "dd/MM/yyyy")}</span>
                     </div>
-                    {client.plan_price && (
-                      <div className="flex items-center gap-2">
+                    {client.plan_name && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <CreditCard className="h-3.5 w-3.5" />
-                        <span>R$ {client.plan_price.toFixed(2)}</span>
+                        <span>{client.plan_name} {client.plan_price && `- R$ ${client.plan_price.toFixed(2)}`}</span>
                       </div>
                     )}
                     {client.login && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <User className="h-3.5 w-3.5" />
-                        <span>Login: {client.login}</span>
+                        <span>{client.login}</span>
                         {client.password && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5"
+                          <button
                             onClick={() => setShowPassword(showPassword === client.id ? null : client.id)}
+                            className="ml-auto"
                           >
                             {showPassword === client.id ? (
-                              <EyeOff className="h-3 w-3" />
+                              <EyeOff className="h-3.5 w-3.5" />
                             ) : (
-                              <Eye className="h-3 w-3" />
+                              <Eye className="h-3.5 w-3.5" />
                             )}
-                          </Button>
+                          </button>
                         )}
                       </div>
                     )}
                     {showPassword === client.id && client.password && (
-                      <div className="text-xs bg-muted px-2 py-1 rounded">
+                      <div className="text-xs bg-muted p-2 rounded font-mono">
                         Senha: {client.password}
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
+                  <div className="flex items-center gap-1 mt-4 pt-3 border-t border-border">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleRenew(client)}
+                      title="Renovar"
+                    >
+                      <RefreshCw className="h-4 w-4 text-success" />
+                    </Button>
                     {client.phone && (
                       <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => openWhatsApp(client.phone!, client.name)}
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setMessageClient(client)}
+                        title="Enviar mensagem"
                       >
-                        <MessageCircle className="h-4 w-4 mr-1" />
-                        WhatsApp
+                        <MessageCircle className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button variant="outline" size="icon" onClick={() => handleEdit(client)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleEdit(client)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="icon"
-                      className="text-destructive hover:text-destructive"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
                       onClick={() => {
                         if (confirm('Tem certeza que deseja excluir este cliente?')) {
                           deleteMutation.mutate(client.id);
@@ -570,6 +752,15 @@ export default function Clients() {
             );
           })}
         </div>
+      )}
+
+      {/* Send Message Dialog */}
+      {messageClient && (
+        <SendMessageDialog
+          client={messageClient}
+          open={!!messageClient}
+          onOpenChange={(open) => !open && setMessageClient(null)}
+        />
       )}
     </div>
   );

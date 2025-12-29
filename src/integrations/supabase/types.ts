@@ -191,6 +191,93 @@ export type Database = {
         }
         Relationships: []
       }
+      message_history: {
+        Row: {
+          client_id: string
+          id: string
+          message_content: string
+          message_type: string
+          phone: string
+          seller_id: string
+          sent_at: string | null
+          template_id: string | null
+        }
+        Insert: {
+          client_id: string
+          id?: string
+          message_content: string
+          message_type: string
+          phone: string
+          seller_id: string
+          sent_at?: string | null
+          template_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          id?: string
+          message_content?: string
+          message_type?: string
+          phone?: string
+          seller_id?: string
+          sent_at?: string | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_history_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_history_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      panel_clients: {
+        Row: {
+          assigned_at: string | null
+          client_id: string
+          id: string
+          panel_id: string
+          seller_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          client_id: string
+          id?: string
+          panel_id: string
+          seller_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          client_id?: string
+          id?: string
+          panel_id?: string
+          seller_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "panel_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "panel_clients_panel_id_fkey"
+            columns: ["panel_id"]
+            isOneToOne: false
+            referencedRelation: "shared_panels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           created_at: string | null
@@ -347,6 +434,60 @@ export type Database = {
           notes?: string | null
           seller_id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      shared_panels: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          login: string | null
+          monthly_cost: number
+          name: string
+          notes: string | null
+          panel_type: string
+          password: string | null
+          seller_id: string
+          total_slots: number
+          updated_at: string | null
+          url: string | null
+          used_slots: number
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          login?: string | null
+          monthly_cost?: number
+          name: string
+          notes?: string | null
+          panel_type?: string
+          password?: string | null
+          seller_id: string
+          total_slots?: number
+          updated_at?: string | null
+          url?: string | null
+          used_slots?: number
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          login?: string | null
+          monthly_cost?: number
+          name?: string
+          notes?: string | null
+          panel_type?: string
+          password?: string | null
+          seller_id?: string
+          total_slots?: number
+          updated_at?: string | null
+          url?: string | null
+          used_slots?: number
         }
         Relationships: []
       }
