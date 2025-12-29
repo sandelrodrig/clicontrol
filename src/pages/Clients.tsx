@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -58,6 +58,7 @@ interface Client {
   has_paid_apps: boolean | null;
   paid_apps_duration: string | null;
   paid_apps_expiration: string | null;
+  telegram: string | null;
 }
 
 interface ClientCategory {
@@ -123,6 +124,7 @@ export default function Clients() {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    telegram: '',
     email: '',
     device: '',
     expiration_date: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
@@ -342,6 +344,7 @@ export default function Clients() {
     setFormData({
       name: '',
       phone: '',
+      telegram: '',
       email: '',
       device: '',
       expiration_date: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
@@ -417,6 +420,7 @@ export default function Clients() {
     const data: Record<string, unknown> = {
       name: formData.name,
       phone: formData.phone || null,
+      telegram: formData.telegram || null,
       email: formData.email || null,
       device: formData.device || null,
       expiration_date: formData.expiration_date,
@@ -465,6 +469,7 @@ export default function Clients() {
     setFormData({
       name: client.name,
       phone: client.phone || '',
+      telegram: client.telegram || '',
       email: client.email || '',
       device: client.device || '',
       expiration_date: client.expiration_date,
@@ -704,12 +709,24 @@ export default function Clients() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone</Label>
+                  <Label htmlFor="phone">Telefone (WhatsApp)</Label>
                   <Input
                     id="phone"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+55 11 99999-9999"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="telegram" className="flex items-center gap-1">
+                    <Send className="h-3 w-3" />
+                    Telegram
+                  </Label>
+                  <Input
+                    id="telegram"
+                    value={formData.telegram}
+                    onChange={(e) => setFormData({ ...formData, telegram: e.target.value })}
+                    placeholder="@usuario"
                   />
                 </div>
 

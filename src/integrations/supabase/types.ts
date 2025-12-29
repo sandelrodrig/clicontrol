@@ -108,6 +108,7 @@ export type Database = {
           seller_id: string
           server_id: string | null
           server_name: string | null
+          telegram: string | null
           updated_at: string | null
         }
         Insert: {
@@ -134,6 +135,7 @@ export type Database = {
           seller_id: string
           server_id?: string | null
           server_name?: string | null
+          telegram?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -160,6 +162,7 @@ export type Database = {
           seller_id?: string
           server_id?: string | null
           server_name?: string | null
+          telegram?: string | null
           updated_at?: string | null
         }
         Relationships: [
