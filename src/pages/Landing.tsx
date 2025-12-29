@@ -1,8 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   Users, 
+  LogIn,
   Calendar, 
   Bell, 
   MessageSquare, 
@@ -52,6 +53,27 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <span className="font-bold text-lg">Controle de Clientes</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={() => navigate('/auth')}>
+              <LogIn className="h-4 w-4 mr-2" />
+              Entrar
+            </Button>
+            <Button onClick={() => navigate('/auth')}>
+              Criar Conta
+            </Button>
+          </div>
+        </div>
+      </header>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         {/* Background Effects */}
