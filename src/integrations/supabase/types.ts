@@ -385,6 +385,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          company_name: string | null
           created_at: string | null
           email: string
           full_name: string | null
@@ -392,11 +393,13 @@ export type Database = {
           is_active: boolean | null
           is_permanent: boolean | null
           needs_password_update: boolean | null
+          pix_key: string | null
           subscription_expires_at: string | null
           updated_at: string | null
           whatsapp: string | null
         }
         Insert: {
+          company_name?: string | null
           created_at?: string | null
           email: string
           full_name?: string | null
@@ -404,11 +407,13 @@ export type Database = {
           is_active?: boolean | null
           is_permanent?: boolean | null
           needs_password_update?: boolean | null
+          pix_key?: string | null
           subscription_expires_at?: string | null
           updated_at?: string | null
           whatsapp?: string | null
         }
         Update: {
+          company_name?: string | null
           created_at?: string | null
           email?: string
           full_name?: string | null
@@ -416,6 +421,7 @@ export type Database = {
           is_active?: boolean | null
           is_permanent?: boolean | null
           needs_password_update?: boolean | null
+          pix_key?: string | null
           subscription_expires_at?: string | null
           updated_at?: string | null
           whatsapp?: string | null
