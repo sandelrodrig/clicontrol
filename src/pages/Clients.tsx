@@ -48,8 +48,16 @@ interface Client {
   server_name: string | null;
   login: string | null;
   password: string | null;
+  premium_password: string | null;
+  category: string | null;
   is_paid: boolean;
   notes: string | null;
+}
+
+interface ClientCategory {
+  id: string;
+  name: string;
+  seller_id: string;
 }
 
 interface DecryptedCredentials {
@@ -71,6 +79,9 @@ interface ServerData {
 }
 
 type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid';
+type CategoryFilterType = 'all' | 'IPTV' | 'P2P' | 'Contas Premium' | 'SSH' | 'custom';
+
+const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH'] as const;
 
 const DEVICE_OPTIONS = [
   { value: 'Smart TV', label: 'Smart TV', icon: Tv },
@@ -95,6 +106,8 @@ export default function Clients() {
   const [messageClient, setMessageClient] = useState<Client | null>(null);
   const [decryptedCredentials, setDecryptedCredentials] = useState<DecryptedCredentials>({});
   const [decrypting, setDecrypting] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   // Form state
   const [formData, setFormData] = useState({
@@ -110,6 +123,8 @@ export default function Clients() {
     server_name: '',
     login: '',
     password: '',
+    premium_password: '',
+    category: 'IPTV',
     is_paid: true,
     notes: '',
   });
@@ -157,6 +172,22 @@ export default function Clients() {
     },
     enabled: !!user?.id,
   });
+
+  const { data: customCategories = [] } = useQuery({
+    queryKey: ['client-categories', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('client_categories')
+        .select('*')
+        .eq('seller_id', user!.id)
+        .order('name');
+      if (error) throw error;
+      return data as ClientCategory[];
+    },
+    enabled: !!user?.id,
+  });
+
+  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories.map(c => c.name)];
 
   // Encrypt credentials before saving
   const encryptCredentials = async (login: string | null, password: string | null) => {
@@ -306,6 +337,8 @@ export default function Clients() {
       server_name: '',
       login: '',
       password: '',
+      premium_password: '',
+      category: 'IPTV',
       is_paid: true,
       notes: '',
     });
@@ -359,6 +392,8 @@ export default function Clients() {
       server_name: formData.server_name || null,
       login: formData.login || null,
       password: formData.password || null,
+      premium_password: formData.premium_password || null,
+      category: formData.category || 'IPTV',
       is_paid: formData.is_paid,
       notes: formData.notes || null,
     };
@@ -402,6 +437,8 @@ export default function Clients() {
       server_name: client.server_name || '',
       login: decryptedLogin,
       password: decryptedPassword,
+      premium_password: client.premium_password || '',
+      category: client.category || 'IPTV',
       is_paid: client.is_paid,
       notes: client.notes || '',
     });
@@ -448,6 +485,11 @@ export default function Clients() {
 
     if (!matchesSearch) return false;
 
+    // Filter by category
+    if (categoryFilter !== 'all' && client.category !== categoryFilter) {
+      return false;
+    }
+
     const status = getClientStatus(client);
     switch (filter) {
       case 'active':
@@ -461,6 +503,27 @@ export default function Clients() {
       default:
         return true;
     }
+  });
+
+  const addCategoryMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { error } = await supabase
+        .from('client_categories')
+        .insert({ seller_id: user!.id, name });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client-categories'] });
+      setNewCategoryName('');
+      toast.success('Categoria criada com sucesso!');
+    },
+    onError: (error: Error) => {
+      if (error.message.includes('duplicate')) {
+        toast.error('Esta categoria já existe');
+      } else {
+        toast.error(error.message);
+      }
+    },
   });
 
   const statusColors = {
@@ -531,13 +594,69 @@ export default function Clients() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email (Conta Premium)</Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="email@premium.com"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="premium_password">Senha da Conta Premium</Label>
+                  <Input
+                    id="premium_password"
+                    type="password"
+                    value={formData.premium_password}
+                    onChange={(e) => setFormData({ ...formData, premium_password: e.target.value })}
+                    placeholder="Senha da conta premium"
+                  />
+                </div>
+                
+                {/* Category Select */}
+                <div className="space-y-2">
+                  <Label>Categoria</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Add New Category */}
+                <div className="space-y-2">
+                  <Label>Nova Categoria</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Nome da categoria"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        if (newCategoryName.trim()) {
+                          addCategoryMutation.mutate(newCategoryName.trim());
+                        }
+                      }}
+                      disabled={!newCategoryName.trim() || addCategoryMutation.isPending}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>Dispositivos</Label>
@@ -742,18 +861,33 @@ export default function Clients() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome, telefone ou email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome, telefone ou email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas Categorias</SelectItem>
+              {allCategories.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterType)} className="w-full sm:w-auto">
-          <TabsList>
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterType)} className="w-full">
+          <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="all">Todos ({clients.length})</TabsTrigger>
             <TabsTrigger value="active">Ativos</TabsTrigger>
             <TabsTrigger value="expiring">Vencendo</TabsTrigger>
@@ -808,11 +942,18 @@ export default function Clients() {
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
-                    <div>
+                    <div className="space-y-1">
                       <h3 className="font-semibold text-lg">{maskData(client.name, 'name')}</h3>
-                      <span className={cn('text-xs px-2 py-0.5 rounded-full', statusBadges[status])}>
-                        {statusLabels[status]} {daysLeft > 0 && status !== 'expired' && `(${daysLeft}d)`}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <span className={cn('text-xs px-2 py-0.5 rounded-full', statusBadges[status])}>
+                          {statusLabels[status]} {daysLeft > 0 && status !== 'expired' && `(${daysLeft}d)`}
+                        </span>
+                        {client.category && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                            {client.category}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {!client.is_paid && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">
