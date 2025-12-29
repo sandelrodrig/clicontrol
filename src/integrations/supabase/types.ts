@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      bills_to_pay: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string
+          due_date: string
+          id: string
+          is_paid: boolean | null
+          notes: string | null
+          paid_at: string | null
+          recipient_name: string
+          recipient_pix: string | null
+          recipient_whatsapp: string | null
+          seller_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description: string
+          due_date: string
+          id?: string
+          is_paid?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          recipient_name: string
+          recipient_pix?: string | null
+          recipient_whatsapp?: string | null
+          seller_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string
+          due_date?: string
+          id?: string
+          is_paid?: boolean | null
+          notes?: string | null
+          paid_at?: string | null
+          recipient_name?: string
+          recipient_pix?: string | null
+          recipient_whatsapp?: string | null
+          seller_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           created_at: string | null
@@ -30,6 +78,7 @@ export type Database = {
           plan_id: string | null
           plan_name: string | null
           plan_price: number | null
+          referral_code: string | null
           seller_id: string
           server_id: string | null
           server_name: string | null
@@ -50,6 +99,7 @@ export type Database = {
           plan_id?: string | null
           plan_name?: string | null
           plan_price?: number | null
+          referral_code?: string | null
           seller_id: string
           server_id?: string | null
           server_name?: string | null
@@ -70,6 +120,7 @@ export type Database = {
           plan_id?: string | null
           plan_name?: string | null
           plan_price?: number | null
+          referral_code?: string | null
           seller_id?: string
           server_id?: string | null
           server_name?: string | null
@@ -91,6 +142,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coupons: {
+        Row: {
+          code: string
+          created_at: string | null
+          current_uses: number | null
+          discount_type: Database["public"]["Enums"]["discount_type"] | null
+          discount_value: number
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          min_plan_value: number | null
+          name: string
+          seller_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          current_uses?: number | null
+          discount_type?: Database["public"]["Enums"]["discount_type"] | null
+          discount_value: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_plan_value?: number | null
+          name: string
+          seller_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          current_uses?: number | null
+          discount_type?: Database["public"]["Enums"]["discount_type"] | null
+          discount_value?: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_plan_value?: number | null
+          name?: string
+          seller_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       plans: {
         Row: {
@@ -167,6 +266,57 @@ export type Database = {
         }
         Relationships: []
       }
+      referrals: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          discount_percentage: number | null
+          id: string
+          referred_client_id: string
+          referrer_client_id: string
+          seller_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          discount_percentage?: number | null
+          id?: string
+          referred_client_id: string
+          referrer_client_id: string
+          seller_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          discount_percentage?: number | null
+          id?: string
+          referred_client_id?: string
+          referrer_client_id?: string
+          seller_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_referred_client_id_fkey"
+            columns: ["referred_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_client_id_fkey"
+            columns: ["referrer_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       servers: {
         Row: {
           created_at: string | null
@@ -221,6 +371,39 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_templates: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_default: boolean | null
+          message: string
+          name: string
+          seller_id: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          message: string
+          name: string
+          seller_id: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_default?: boolean | null
+          message?: string
+          name?: string
+          seller_id?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -236,6 +419,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "seller"
+      discount_type: "percentage" | "fixed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -364,6 +548,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "seller"],
+      discount_type: ["percentage", "fixed"],
     },
   },
 } as const
