@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
@@ -76,6 +76,7 @@ interface ServerData {
   id: string;
   name: string;
   is_active: boolean;
+  panel_url: string | null;
 }
 
 type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid';
@@ -159,19 +160,21 @@ export default function Clients() {
   });
 
   const { data: servers = [] } = useQuery({
-    queryKey: ['servers', user?.id],
+    queryKey: ['servers-all', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('servers')
-        .select('*')
+        .select('id, name, is_active, panel_url')
         .eq('seller_id', user!.id)
-        .eq('is_active', true)
         .order('name');
       if (error) throw error;
       return data as ServerData[];
     },
     enabled: !!user?.id,
   });
+
+  // Active servers for the form select
+  const activeServers = servers.filter(s => s.is_active);
 
   const { data: customCategories = [] } = useQuery({
     queryKey: ['client-categories', user?.id],
@@ -451,6 +454,20 @@ export default function Clients() {
     if (confirm(`Renovar ${client.name} por ${days} dias?`)) {
       renewMutation.mutate({ id: client.id, days });
     }
+  };
+
+  const handleOpenPanel = (client: Client) => {
+    // Find the server associated with this client
+    const server = servers.find(s => s.id === client.server_id);
+    if (server?.panel_url) {
+      window.open(server.panel_url, '_blank');
+    } else {
+      toast.error('Este servidor não tem URL do painel configurada');
+    }
+  };
+
+  const getClientServer = (client: Client) => {
+    return servers.find(s => s.id === client.server_id);
   };
 
   const handleShowPassword = async (client: Client) => {
@@ -742,7 +759,7 @@ export default function Clients() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="manual">Inserir manualmente</SelectItem>
-                      {servers.map((server) => (
+                      {activeServers.map((server) => (
                         <SelectItem key={server.id} value={server.id}>
                           {server.name}
                         </SelectItem>
@@ -1047,6 +1064,18 @@ export default function Clients() {
                     >
                       <RefreshCw className="h-4 w-4 text-success" />
                     </Button>
+                    {/* Open Panel Button */}
+                    {client.server_id && getClientServer(client)?.panel_url && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleOpenPanel(client)}
+                        title="Abrir Painel"
+                      >
+                        <ExternalLink className="h-4 w-4 text-primary" />
+                      </Button>
+                    )}
                     {client.phone && (
                       <Button
                         variant="ghost"

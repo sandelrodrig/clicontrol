@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Server, DollarSign, Edit, Trash2, Coins } from 'lucide-react';
+import { Plus, Server, DollarSign, Edit, Trash2, Coins, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ServerData {
@@ -31,6 +31,7 @@ interface ServerData {
   credit_value: number;
   total_credits: number;
   used_credits: number;
+  panel_url: string | null;
 }
 
 export default function Servers() {
@@ -47,6 +48,7 @@ export default function Servers() {
     credit_value: '',
     total_credits: '',
     used_credits: '',
+    panel_url: '',
   });
 
   const { data: servers = [], isLoading } = useQuery({
@@ -146,6 +148,7 @@ export default function Servers() {
       credit_value: '',
       total_credits: '',
       used_credits: '',
+      panel_url: '',
     });
   };
 
@@ -160,6 +163,7 @@ export default function Servers() {
       credit_value: parseFloat(formData.credit_value) || 0,
       total_credits: parseFloat(formData.total_credits) || 0,
       used_credits: parseFloat(formData.used_credits) || 0,
+      panel_url: formData.panel_url || null,
     };
 
     if (editingServer) {
@@ -180,6 +184,7 @@ export default function Servers() {
       credit_value: server.credit_value?.toString() || '',
       total_credits: server.total_credits?.toString() || '',
       used_credits: server.used_credits?.toString() || '',
+      panel_url: server.panel_url || '',
     });
     setIsDialogOpen(true);
   };
@@ -307,6 +312,17 @@ export default function Servers() {
                   checked={formData.is_active}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="panel_url">URL do Painel</Label>
+                <Input
+                  id="panel_url"
+                  type="url"
+                  value={formData.panel_url}
+                  onChange={(e) => setFormData({ ...formData, panel_url: e.target.value })}
+                  placeholder="https://painel.exemplo.com"
+                />
+                <p className="text-xs text-muted-foreground">Link do painel para renovar clientes</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="notes">Observações</Label>
