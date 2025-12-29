@@ -89,7 +89,7 @@ export default function Clients() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: Partial<Client>) => {
+    mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_name?: string | null; plan_price?: number | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null }) => {
       const { error } = await supabase.from('clients').insert([{
         ...data,
         seller_id: user!.id,
