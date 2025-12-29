@@ -62,8 +62,30 @@ export type Database = {
         }
         Relationships: []
       }
+      client_categories: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          seller_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          seller_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          seller_id?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
+          category: string | null
           created_at: string | null
           device: string | null
           email: string | null
@@ -78,6 +100,7 @@ export type Database = {
           plan_id: string | null
           plan_name: string | null
           plan_price: number | null
+          premium_password: string | null
           referral_code: string | null
           seller_id: string
           server_id: string | null
@@ -85,6 +108,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          category?: string | null
           created_at?: string | null
           device?: string | null
           email?: string | null
@@ -99,6 +123,7 @@ export type Database = {
           plan_id?: string | null
           plan_name?: string | null
           plan_price?: number | null
+          premium_password?: string | null
           referral_code?: string | null
           seller_id: string
           server_id?: string | null
@@ -106,6 +131,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          category?: string | null
           created_at?: string | null
           device?: string | null
           email?: string | null
@@ -120,6 +146,7 @@ export type Database = {
           plan_id?: string | null
           plan_name?: string | null
           plan_price?: number | null
+          premium_password?: string | null
           referral_code?: string | null
           seller_id?: string
           server_id?: string | null
