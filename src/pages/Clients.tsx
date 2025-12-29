@@ -26,7 +26,9 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2 } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -69,6 +71,16 @@ interface ServerData {
 }
 
 type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid';
+
+const DEVICE_OPTIONS = [
+  { value: 'Smart TV', label: 'Smart TV', icon: Tv },
+  { value: 'Celular', label: 'Celular', icon: Smartphone },
+  { value: 'TV Box', label: 'TV Box', icon: Monitor },
+  { value: 'Video Game', label: 'Video Game', icon: Gamepad2 },
+  { value: 'PC', label: 'PC', icon: Monitor },
+  { value: 'Notebook', label: 'Notebook', icon: Laptop },
+  { value: 'Fire Stick', label: 'Fire Stick', icon: Flame },
+] as const;
 
 export default function Clients() {
   const { user } = useAuth();
@@ -527,26 +539,55 @@ export default function Clients() {
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="device">Dispositivo</Label>
-                  <Select
-                    value={formData.device || 'none'}
-                    onValueChange={(value) => setFormData({ ...formData, device: value === 'none' ? '' : value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o dispositivo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Não informado</SelectItem>
-                      <SelectItem value="Smart TV">Smart TV</SelectItem>
-                      <SelectItem value="Celular">Celular</SelectItem>
-                      <SelectItem value="TV Box">TV Box</SelectItem>
-                      <SelectItem value="Video Game">Video Game</SelectItem>
-                      <SelectItem value="PC">PC</SelectItem>
-                      <SelectItem value="Notebook">Notebook</SelectItem>
-                      <SelectItem value="Fire Stick">Fire Stick</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Dispositivos</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between font-normal"
+                        type="button"
+                      >
+                        {formData.device 
+                          ? formData.device.split(', ').length > 2 
+                            ? `${formData.device.split(', ').slice(0, 2).join(', ')} +${formData.device.split(', ').length - 2}`
+                            : formData.device
+                          : 'Selecione os dispositivos'}
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-3" align="start">
+                      <div className="space-y-2">
+                        {DEVICE_OPTIONS.map((device) => {
+                          const isSelected = formData.device.split(', ').includes(device.value);
+                          return (
+                            <label
+                              key={device.value}
+                              className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={(checked) => {
+                                  const currentDevices = formData.device ? formData.device.split(', ').filter(Boolean) : [];
+                                  let newDevices: string[];
+                                  
+                                  if (checked) {
+                                    newDevices = [...currentDevices, device.value];
+                                  } else {
+                                    newDevices = currentDevices.filter(d => d !== device.value);
+                                  }
+                                  
+                                  setFormData({ ...formData, device: newDevices.join(', ') });
+                                }}
+                              />
+                              <device.icon className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm">{device.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {/* Plan Select */}
