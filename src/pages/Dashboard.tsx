@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/useAuth';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
   const { user, profile, isAdmin, isSeller } = useAuth();
+  const { isPrivacyMode, maskData } = usePrivacyMode();
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients', user?.id],
@@ -68,7 +70,7 @@ export default function Dashboard() {
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Bem-vindo, <span className="text-foreground font-medium">{profile?.full_name || 'Usuário'}</span>!
+          Bem-vindo, <span className="text-foreground font-medium">{maskData(profile?.full_name || 'Usuário', 'name')}</span>!
           {isAdmin && <span className="ml-2 text-primary">(Administrador)</span>}
         </p>
       </div>
@@ -79,25 +81,25 @@ export default function Dashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
               title="Total de Clientes"
-              value={clients.length}
+              value={isPrivacyMode ? '●●' : clients.length}
               icon={Users}
               variant="primary"
             />
             <StatCard
               title="Clientes Ativos"
-              value={activeClients.length}
+              value={isPrivacyMode ? '●●' : activeClients.length}
               icon={UserCheck}
               variant="success"
             />
             <StatCard
               title="Vencendo em 7 dias"
-              value={expiringClients.length}
+              value={isPrivacyMode ? '●●' : expiringClients.length}
               icon={Clock}
               variant="warning"
             />
             <StatCard
               title="Vencidos"
-              value={expiredClients.length}
+              value={isPrivacyMode ? '●●' : expiredClients.length}
               icon={AlertTriangle}
               variant="danger"
             />
@@ -114,7 +116,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold text-success">
-                  R$ {totalRevenue.toFixed(2)}
+                  {maskData(`R$ ${totalRevenue.toFixed(2)}`, 'money')}
                 </p>
               </CardContent>
             </Card>
@@ -130,12 +132,12 @@ export default function Dashboard() {
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Clientes não pagos:</span>
-                  <span className="font-medium text-destructive">{unpaidClients.length}</span>
+                  <span className="font-medium text-destructive">{isPrivacyMode ? '●●' : unpaidClients.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Média por cliente:</span>
                   <span className="font-medium">
-                    R$ {clients.length > 0 ? (totalRevenue / clients.length).toFixed(2) : '0.00'}
+                    {maskData(`R$ ${clients.length > 0 ? (totalRevenue / clients.length).toFixed(2) : '0.00'}`, 'money')}
                   </span>
                 </div>
               </CardContent>
@@ -155,7 +157,7 @@ export default function Dashboard() {
                 <div className="space-y-2">
                   {expiringClients.slice(0, 5).map((client) => (
                     <div key={client.id} className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
-                      <span className="font-medium">{client.name}</span>
+                      <span className="font-medium">{maskData(client.name, 'name')}</span>
                       <span className="text-sm text-muted-foreground">
                         {format(new Date(client.expiration_date), "dd 'de' MMM", { locale: ptBR })}
                       </span>
@@ -179,25 +181,25 @@ export default function Dashboard() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
               title="Total de Vendedores"
-              value={sellers.length}
+              value={isPrivacyMode ? '●●' : sellers.length}
               icon={Users}
               variant="primary"
             />
             <StatCard
               title="Vendedores Ativos"
-              value={activeSellers.length}
+              value={isPrivacyMode ? '●●' : activeSellers.length}
               icon={UserCheck}
               variant="success"
             />
             <StatCard
               title="Assinaturas Expiradas"
-              value={expiredSellers.length}
+              value={isPrivacyMode ? '●●' : expiredSellers.length}
               icon={AlertTriangle}
               variant="danger"
             />
             <StatCard
               title="Permanentes"
-              value={sellers.filter(s => s.is_permanent).length}
+              value={isPrivacyMode ? '●●' : sellers.filter(s => s.is_permanent).length}
               icon={TrendingUp}
               variant="default"
             />
