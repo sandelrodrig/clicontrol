@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { PrivacyModeProvider } from "@/hooks/usePrivacyMode";
 import { AppLayout } from "@/components/layout/AppLayout";
+import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -50,9 +51,9 @@ const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/force-password-update" element={<ForcePasswordUpdate />} />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route element={
           <PasswordUpdateGuard>
             <AppLayout />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -9,11 +9,34 @@ export function usePWA() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
     // Register service worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error);
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => {
+          setRegistration(reg);
+          
+          // Check for updates
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  setUpdateAvailable(true);
+                }
+              });
+            }
+          });
+        })
+        .catch(console.error);
+
+      // Listen for controller change (update activated)
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
     }
 
     // Check if already installed
@@ -59,10 +82,25 @@ export function usePWA() {
     return false;
   };
 
+  const checkForUpdates = useCallback(async () => {
+    if (registration) {
+      await registration.update();
+    }
+  }, [registration]);
+
+  const applyUpdate = useCallback(() => {
+    if (registration?.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+  }, [registration]);
+
   return {
     canInstall: !!installPrompt && !isInstalled,
     isInstalled,
     isIOS,
     install,
+    updateAvailable,
+    checkForUpdates,
+    applyUpdate,
   };
 }
