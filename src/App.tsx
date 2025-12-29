@@ -19,6 +19,8 @@ import Sellers from "./pages/Sellers";
 import Reports from "./pages/Reports";
 import Backup from "./pages/Backup";
 import Settings from "./pages/Settings";
+import SharedPanels from "./pages/SharedPanels";
+import MessageHistory from "./pages/MessageHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +45,8 @@ const App = () => (
                 <Route path="/coupons" element={<Coupons />} />
                 <Route path="/referrals" element={<Referrals />} />
                 <Route path="/templates" element={<Templates />} />
+                <Route path="/shared-panels" element={<SharedPanels />} />
+                <Route path="/message-history" element={<MessageHistory />} />
                 <Route path="/sellers" element={<Sellers />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/backup" element={<Backup />} />

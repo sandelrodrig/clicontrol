@@ -18,6 +18,8 @@ import {
   Database,
   ChevronLeft,
   ChevronRight,
+  Tv,
+  History,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -38,7 +40,9 @@ const navItems: NavItem[] = [
   { title: 'Contas a Pagar', href: '/bills', icon: CreditCard, sellerOnly: true },
   { title: 'Cupons', href: '/coupons', icon: Tag, sellerOnly: true },
   { title: 'Indicações', href: '/referrals', icon: UserPlus, sellerOnly: true },
+  { title: 'Créditos Compartilhados', href: '/shared-panels', icon: Tv, sellerOnly: true },
   { title: 'Templates', href: '/templates', icon: MessageSquare },
+  { title: 'Histórico Mensagens', href: '/message-history', icon: History, sellerOnly: true },
   { title: 'Vendedores', href: '/sellers', icon: UserCog, adminOnly: true },
   { title: 'Relatórios', href: '/reports', icon: BarChart3, adminOnly: true },
   { title: 'Backup', href: '/backup', icon: Database, adminOnly: true },
