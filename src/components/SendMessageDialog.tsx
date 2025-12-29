@@ -21,20 +21,24 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Send, Copy } from 'lucide-react';
+import { Send, Copy, MessageCircle, CreditCard } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Client {
   id: string;
   name: string;
   phone: string | null;
+  telegram: string | null;
+  email: string | null;
   expiration_date: string;
   plan_name: string | null;
   plan_price: number | null;
   server_name: string | null;
   login: string | null;
   password: string | null;
+  premium_password: string | null;
 }
 
 interface Template {
@@ -51,10 +55,18 @@ interface SendMessageDialogProps {
 }
 
 export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDialogProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [message, setMessage] = useState('');
+  const [platform, setPlatform] = useState<'whatsapp' | 'telegram'>('whatsapp');
+
+  // Get profile with pix_key and company_name
+  const sellerProfile = profile as { 
+    pix_key?: string; 
+    company_name?: string;
+    full_name?: string;
+  } | null;
 
   const { data: templates = [] } = useQuery({
     queryKey: ['templates', user?.id],
@@ -70,6 +82,12 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     enabled: !!user?.id,
   });
 
+  // Filter templates by platform
+  const filteredTemplates = templates.filter(t => {
+    if (platform === 'telegram') return t.name.startsWith('[TG]');
+    return !t.name.startsWith('[TG]');
+  });
+
   const saveHistoryMutation = useMutation({
     mutationFn: async (data: { message_content: string; template_id: string | null }) => {
       const { error } = await supabase.from('message_history').insert([{
@@ -78,7 +96,7 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
         template_id: data.template_id,
         message_type: selectedTemplate ? templates.find(t => t.id === selectedTemplate)?.type || 'custom' : 'custom',
         message_content: data.message_content,
-        phone: client.phone || '',
+        phone: platform === 'telegram' ? (client.telegram || '') : (client.phone || ''),
       }]);
       if (error) throw error;
     },
@@ -102,12 +120,18 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
       .replace(/{nome}/gi, client.name)
       .replace(/{login}/gi, client.login || '')
       .replace(/{senha}/gi, client.password || '')
+      .replace(/{email_premium}/gi, client.email || '')
+      .replace(/{senha_premium}/gi, client.premium_password || '')
       .replace(/{vencimento}/gi, format(expDate, 'dd/MM/yyyy'))
       .replace(/{vencimento_dinamico}/gi, dynamicDate)
       .replace(/{preco}/gi, client.plan_price?.toFixed(2) || '0.00')
+      .replace(/{valor}/gi, client.plan_price?.toFixed(2) || '0.00')
       .replace(/{dias_restantes}/gi, daysLeft.toString())
       .replace(/{servidor}/gi, client.server_name || '')
       .replace(/{plano}/gi, client.plan_name || '')
+      .replace(/{pix}/gi, sellerProfile?.pix_key || '[PIX não configurado]')
+      .replace(/{empresa}/gi, sellerProfile?.company_name || sellerProfile?.full_name || '')
+      .replace(/{telegram}/gi, client.telegram || '')
       .replace(/{app}/gi, 'App');
   };
 
@@ -119,8 +143,14 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     }
   };
 
+  const handlePlatformChange = (newPlatform: 'whatsapp' | 'telegram') => {
+    setPlatform(newPlatform);
+    setSelectedTemplate('');
+    setMessage('');
+  };
+
   const handleSend = async () => {
-    if (!message.trim() || !client.phone) return;
+    if (!message.trim()) return;
 
     // Save to history
     await saveHistoryMutation.mutateAsync({
@@ -128,12 +158,25 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
       template_id: selectedTemplate || null,
     });
 
-    // Open WhatsApp
-    const phoneNumber = client.phone.replace(/\D/g, '');
-    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    if (platform === 'whatsapp' && client.phone) {
+      // Open WhatsApp
+      const phoneNumber = client.phone.replace(/\D/g, '');
+      const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
+      toast.success('Mensagem enviada via WhatsApp!');
+    } else if (platform === 'telegram' && client.telegram) {
+      // Open Telegram
+      const username = client.telegram.replace('@', '');
+      const url = `https://t.me/${username}`;
+      window.open(url, '_blank');
+      // Copy message to clipboard for Telegram
+      navigator.clipboard.writeText(message);
+      toast.success('Telegram aberto e mensagem copiada!');
+    } else {
+      toast.error(`${platform === 'whatsapp' ? 'Telefone' : 'Telegram'} não configurado para este cliente`);
+      return;
+    }
 
-    toast.success('Mensagem enviada e salva no histórico!');
     onOpenChange(false);
   };
 
@@ -142,17 +185,45 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     toast.success('Mensagem copiada!');
   };
 
+  const handleCopyPix = () => {
+    if (sellerProfile?.pix_key) {
+      navigator.clipboard.writeText(sellerProfile.pix_key);
+      toast.success('Chave PIX copiada!');
+    }
+  };
+
+  const canSend = platform === 'whatsapp' ? !!client.phone : !!client.telegram;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Enviar Mensagem</DialogTitle>
           <DialogDescription>
-            Enviar mensagem para {client.name} via WhatsApp
+            Enviar mensagem para {client.name}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Platform Selector */}
+          <div className="space-y-2">
+            <Label>Plataforma</Label>
+            <Tabs value={platform} onValueChange={(v) => handlePlatformChange(v as 'whatsapp' | 'telegram')}>
+              <TabsList className="w-full">
+                <TabsTrigger value="whatsapp" className="flex-1 gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  WhatsApp
+                  {client.phone && <span className="text-xs text-muted-foreground">✓</span>}
+                </TabsTrigger>
+                <TabsTrigger value="telegram" className="flex-1 gap-2">
+                  <Send className="h-4 w-4" />
+                  Telegram
+                  {client.telegram && <span className="text-xs text-muted-foreground">✓</span>}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
           <div className="space-y-2">
             <Label>Template</Label>
             <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
@@ -160,17 +231,36 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
                 <SelectValue placeholder="Selecione um template" />
               </SelectTrigger>
               <SelectContent>
-                {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    {template.name}
-                  </SelectItem>
-                ))}
+                {filteredTemplates.length === 0 ? (
+                  <div className="p-2 text-sm text-muted-foreground text-center">
+                    Nenhum template para {platform === 'telegram' ? 'Telegram' : 'WhatsApp'}
+                  </div>
+                ) : (
+                  filteredTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name.replace('[TG] ', '')}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Mensagem</Label>
+            <div className="flex items-center justify-between">
+              <Label>Mensagem</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleCopy}
+                disabled={!message.trim()}
+                className="h-7 text-xs"
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                Copiar
+              </Button>
+            </div>
             <Textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -179,11 +269,41 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
             />
           </div>
 
+          {/* PIX Key Quick Copy */}
+          {sellerProfile?.pix_key && (
+            <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-xs font-medium">Chave PIX</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                    {sellerProfile.pix_key}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCopyPix}
+                className="h-7 text-xs"
+              >
+                <Copy className="h-3 w-3 mr-1" />
+                Copiar PIX
+              </Button>
+            </div>
+          )}
+
           <div className="bg-muted/50 p-3 rounded-lg text-xs text-muted-foreground">
             <p className="font-medium mb-1">Variáveis substituídas:</p>
-            <p>Nome: {client.name}</p>
-            <p>Vencimento: {format(new Date(client.expiration_date), 'dd/MM/yyyy')}</p>
-            {client.login && <p>Login: {client.login}</p>}
+            <div className="grid grid-cols-2 gap-1">
+              <p>Nome: {client.name}</p>
+              <p>Vencimento: {format(new Date(client.expiration_date), 'dd/MM/yyyy')}</p>
+              {client.login && <p>Login: {client.login}</p>}
+              {client.plan_name && <p>Plano: {client.plan_name}</p>}
+              {sellerProfile?.pix_key && <p>PIX: ✓ Configurado</p>}
+              {sellerProfile?.company_name && <p>Empresa: {sellerProfile.company_name}</p>}
+            </div>
           </div>
         </div>
 
@@ -192,9 +312,9 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
             <Copy className="h-4 w-4 mr-2" />
             Copiar
           </Button>
-          <Button onClick={handleSend} disabled={!message.trim() || !client.phone}>
+          <Button onClick={handleSend} disabled={!message.trim() || !canSend}>
             <Send className="h-4 w-4 mr-2" />
-            Enviar via WhatsApp
+            {platform === 'telegram' ? 'Abrir Telegram' : 'Enviar via WhatsApp'}
           </Button>
         </DialogFooter>
       </DialogContent>
