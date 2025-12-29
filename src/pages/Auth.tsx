@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useBruteForce } from '@/hooks/useBruteForce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Users, Shield } from 'lucide-react';
+import { Eye, EyeOff, Users, Shield, AlertTriangle } from 'lucide-react';
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
+  const { checkLoginAttempt, recordLoginAttempt } = useBruteForce();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState(10);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -39,15 +43,40 @@ export default function Auth() {
     e.preventDefault();
     setIsLoading(true);
 
+    // Check if user is blocked
+    const { isBlocked: blocked, remainingAttempts: remaining } = await checkLoginAttempt(loginEmail);
+    
+    if (blocked) {
+      setIsBlocked(true);
+      toast.error('Conta bloqueada temporariamente. Tente novamente em 15 minutos.');
+      setIsLoading(false);
+      return;
+    }
+
+    setRemainingAttempts(remaining);
+
     const { error } = await signIn(loginEmail, loginPassword);
 
     if (error) {
-      if (error.message.includes('Invalid login credentials')) {
+      // Record failed attempt
+      await recordLoginAttempt(loginEmail, false);
+      
+      const newRemaining = remaining - 1;
+      setRemainingAttempts(newRemaining);
+
+      if (newRemaining <= 0) {
+        setIsBlocked(true);
+        toast.error('Conta bloqueada após muitas tentativas. Aguarde 15 minutos.');
+      } else if (newRemaining <= 3) {
+        toast.error(`Email ou senha incorretos. ${newRemaining} tentativas restantes.`);
+      } else if (error.message.includes('Invalid login credentials')) {
         toast.error('Email ou senha incorretos');
       } else {
         toast.error(error.message);
       }
     } else {
+      // Record successful attempt (clears failed attempts)
+      await recordLoginAttempt(loginEmail, true);
       toast.success('Login realizado com sucesso!');
     }
 
@@ -94,6 +123,18 @@ export default function Auth() {
           <p className="text-muted-foreground mt-2">Sistema de gestão para revendedores</p>
         </div>
 
+        {isBlocked && (
+          <div className="mb-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-destructive">Conta bloqueada temporariamente</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Muitas tentativas de login falharam. Aguarde 15 minutos para tentar novamente.
+              </p>
+            </div>
+          </div>
+        )}
+
         <Card className="border-border/50 shadow-xl">
           <Tabs defaultValue="login" className="w-full">
             <CardHeader className="pb-2">
@@ -115,7 +156,7 @@ export default function Auth() {
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
                       required
-                      disabled={isLoading}
+                      disabled={isLoading || isBlocked}
                     />
                   </div>
 
@@ -129,7 +170,7 @@ export default function Auth() {
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         required
-                        disabled={isLoading}
+                        disabled={isLoading || isBlocked}
                       />
                       <Button
                         type="button"
@@ -147,7 +188,13 @@ export default function Auth() {
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  {remainingAttempts <= 5 && remainingAttempts > 0 && (
+                    <p className="text-xs text-warning">
+                      {remainingAttempts} tentativas restantes antes do bloqueio
+                    </p>
+                  )}
+
+                  <Button type="submit" className="w-full" disabled={isLoading || isBlocked}>
                     {isLoading ? 'Entrando...' : 'Entrar'}
                   </Button>
                 </form>

@@ -5,10 +5,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, UserCog, Calendar, Plus, Clock, Shield, Trash2 } from 'lucide-react';
+import { Search, UserCog, Calendar, Plus, Shield, Trash2, Key, UserPlus, Copy, Check } from 'lucide-react';
 import { format, addDays, isBefore, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -27,10 +37,23 @@ interface Seller {
 type FilterType = 'all' | 'active' | 'expired';
 
 export default function Sellers() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, session } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [tempPasswordDialog, setTempPasswordDialog] = useState<{ open: boolean; password: string; email: string }>({ 
+    open: false, 
+    password: '', 
+    email: '' 
+  });
+  const [copiedPassword, setCopiedPassword] = useState(false);
+
+  // Create seller form
+  const [newSellerEmail, setNewSellerEmail] = useState('');
+  const [newSellerName, setNewSellerName] = useState('');
+  const [newSellerWhatsapp, setNewSellerWhatsapp] = useState('');
+  const [newSellerDays, setNewSellerDays] = useState('30');
 
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -45,7 +68,6 @@ export default function Sellers() {
         .order('created_at', { ascending: false });
       if (error) throw error;
 
-      // Get roles to filter out admin
       const { data: roles } = await supabase
         .from('user_roles')
         .select('user_id, role');
@@ -53,6 +75,62 @@ export default function Sellers() {
       const adminIds = roles?.filter(r => r.role === 'admin').map(r => r.user_id) || [];
       
       return (profiles as Seller[]).filter(p => !adminIds.includes(p.id));
+    },
+  });
+
+  const createSellerMutation = useMutation({
+    mutationFn: async (data: { email: string; full_name: string; whatsapp?: string; subscription_days: number }) => {
+      const { data: result, error } = await supabase.functions.invoke('create-seller', {
+        body: data,
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
+
+      if (error) throw error;
+      if (result.error) throw new Error(result.error);
+      
+      return result;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['sellers'] });
+      setCreateDialogOpen(false);
+      setNewSellerEmail('');
+      setNewSellerName('');
+      setNewSellerWhatsapp('');
+      setNewSellerDays('30');
+      
+      setTempPasswordDialog({
+        open: true,
+        password: data.tempPassword,
+        email: data.email
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async (sellerId: string) => {
+      const { data: result, error } = await supabase.functions.invoke('change-seller-password', {
+        body: { seller_id: sellerId },
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
+
+      if (error) throw error;
+      if (result.error) throw new Error(result.error);
+      
+      return result;
+    },
+    onSuccess: (data) => {
+      const seller = sellers.find(s => s.id === data.seller_id);
+      setTempPasswordDialog({
+        open: true,
+        password: data.tempPassword,
+        email: seller?.email || ''
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
@@ -99,15 +177,53 @@ export default function Sellers() {
     },
   });
 
+  const deleteSellerMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Deactivate the seller (we can't delete auth users from client)
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: false })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sellers'] });
+      toast.success('Vendedor desativado!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const handleCreateSeller = (e: React.FormEvent) => {
+    e.preventDefault();
+    createSellerMutation.mutate({
+      email: newSellerEmail,
+      full_name: newSellerName,
+      whatsapp: newSellerWhatsapp || undefined,
+      subscription_days: parseInt(newSellerDays)
+    });
+  };
+
+  const copyPassword = () => {
+    navigator.clipboard.writeText(tempPasswordDialog.password);
+    setCopiedPassword(true);
+    toast.success('Senha copiada!');
+    setTimeout(() => setCopiedPassword(false), 2000);
+  };
+
   const today = startOfToday();
 
   const getSellerStatus = (seller: Seller) => {
+    if (!seller.is_active) return 'inactive';
     if (seller.is_permanent) return 'permanent';
     if (!seller.subscription_expires_at) return 'expired';
     return isBefore(new Date(seller.subscription_expires_at), today) ? 'expired' : 'active';
   };
 
   const filteredSellers = sellers.filter((seller) => {
+    if (!seller.is_active) return false;
+    
     const matchesSearch =
       seller.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       seller.email.toLowerCase().includes(search.toLowerCase());
@@ -129,25 +245,95 @@ export default function Sellers() {
     active: 'border-l-success',
     expired: 'border-l-destructive',
     permanent: 'border-l-primary',
+    inactive: 'border-l-muted',
   };
 
   const statusBadges = {
     active: 'bg-success/10 text-success',
     expired: 'bg-destructive/10 text-destructive',
     permanent: 'bg-primary/10 text-primary',
+    inactive: 'bg-muted text-muted-foreground',
   };
 
   const statusLabels = {
     active: 'Ativo',
     expired: 'Expirado',
     permanent: 'Permanente',
+    inactive: 'Inativo',
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Vendedores</h1>
-        <p className="text-muted-foreground">Gerencie os vendedores do sistema</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Vendedores</h1>
+          <p className="text-muted-foreground">Gerencie os vendedores do sistema</p>
+        </div>
+
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              Novo Vendedor
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Criar Novo Vendedor</DialogTitle>
+              <DialogDescription>
+                Uma senha temporária será gerada automaticamente
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateSeller} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="seller-email">Email *</Label>
+                <Input
+                  id="seller-email"
+                  type="email"
+                  value={newSellerEmail}
+                  onChange={(e) => setNewSellerEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="seller-name">Nome Completo *</Label>
+                <Input
+                  id="seller-name"
+                  value={newSellerName}
+                  onChange={(e) => setNewSellerName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="seller-whatsapp">WhatsApp</Label>
+                <Input
+                  id="seller-whatsapp"
+                  value={newSellerWhatsapp}
+                  onChange={(e) => setNewSellerWhatsapp(e.target.value)}
+                  placeholder="+55 11 99999-9999"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="seller-days">Dias de Assinatura</Label>
+                <Input
+                  id="seller-days"
+                  type="number"
+                  min="1"
+                  value={newSellerDays}
+                  onChange={(e) => setNewSellerDays(e.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={createSellerMutation.isPending}>
+                  {createSellerMutation.isPending ? 'Criando...' : 'Criar Vendedor'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filters */}
@@ -163,7 +349,7 @@ export default function Sellers() {
         </div>
         <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
           <TabsList>
-            <TabsTrigger value="all">Todos ({sellers.length})</TabsTrigger>
+            <TabsTrigger value="all">Todos ({sellers.filter(s => s.is_active).length})</TabsTrigger>
             <TabsTrigger value="active">Ativos</TabsTrigger>
             <TabsTrigger value="expired">Expirados</TabsTrigger>
           </TabsList>
@@ -188,7 +374,7 @@ export default function Sellers() {
             <UserCog className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhum vendedor encontrado</h3>
             <p className="text-muted-foreground text-center">
-              {search ? 'Tente ajustar sua busca' : 'Os vendedores aparecem aqui quando se cadastram'}
+              {search ? 'Tente ajustar sua busca' : 'Crie seu primeiro vendedor clicando no botão acima'}
             </p>
           </CardContent>
         </Card>
@@ -216,6 +402,9 @@ export default function Sellers() {
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">{seller.email}</p>
+                      {seller.whatsapp && (
+                        <p className="text-sm text-muted-foreground">{seller.whatsapp}</p>
+                      )}
                       {seller.subscription_expires_at && !seller.is_permanent && (
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                           <Calendar className="h-3.5 w-3.5" />
@@ -252,7 +441,31 @@ export default function Sellers() {
                         })}
                       >
                         <Shield className="h-3.5 w-3.5 mr-1" />
-                        {seller.is_permanent ? 'Remover Permanente' : 'Tornar Permanente'}
+                        {seller.is_permanent ? 'Remover Permanente' : 'Permanente'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Gerar nova senha temporária para ${seller.email}?`)) {
+                            changePasswordMutation.mutate(seller.id);
+                          }
+                        }}
+                      >
+                        <Key className="h-3.5 w-3.5 mr-1" />
+                        Nova Senha
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (confirm(`Desativar vendedor ${seller.full_name || seller.email}?`)) {
+                            deleteSellerMutation.mutate(seller.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -262,6 +475,43 @@ export default function Sellers() {
           })}
         </div>
       )}
+
+      {/* Temp Password Dialog */}
+      <Dialog open={tempPasswordDialog.open} onOpenChange={(open) => !open && setTempPasswordDialog({ open: false, password: '', email: '' })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Senha Temporária Gerada</DialogTitle>
+            <DialogDescription>
+              Envie esta senha para o vendedor. Ele precisará alterá-la no primeiro login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">Email:</p>
+              <p className="font-medium">{tempPasswordDialog.email}</p>
+            </div>
+            <div className="p-3 bg-primary/10 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">Senha Temporária:</p>
+              <div className="flex items-center gap-2">
+                <code className="text-lg font-mono font-bold text-primary">
+                  {tempPasswordDialog.password}
+                </code>
+                <Button variant="ghost" size="icon" onClick={copyPassword}>
+                  {copiedPassword ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O vendedor será obrigado a alterar esta senha no primeiro acesso.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setTempPasswordDialog({ open: false, password: '', email: '' })}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
