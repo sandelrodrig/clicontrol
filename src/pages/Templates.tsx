@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Edit, Trash2, Copy, Info, Wand2, Tv, Wifi, Crown, Tag } from 'lucide-react';
+import { Plus, MessageSquare, Edit, Trash2, Copy, Info, Wand2, Tv, Wifi, Crown, Tag, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Template {
@@ -44,6 +44,12 @@ interface TemplateCategory {
 
 // Default categories
 const DEFAULT_CATEGORIES = ['IPTV', 'SSH', 'Contas Premium'] as const;
+
+// Platforms for message sending
+const PLATFORMS = [
+  { value: 'whatsapp', label: 'WhatsApp', icon: '📱' },
+  { value: 'telegram', label: 'Telegram', icon: '✈️' },
+] as const;
 
 // Message types
 const MESSAGE_TYPES = [
@@ -72,16 +78,18 @@ const variables = [
   { name: '{plano}', description: 'Nome do plano' },
   { name: '{servidor}', description: 'Nome do servidor' },
   { name: '{pix}', description: 'Chave PIX para pagamento' },
+  { name: '{telegram}', description: 'Username do Telegram (@usuario)' },
 ];
 
-// Default templates for each category and type
-const getDefaultTemplates = (category: string) => {
+// Default templates for each category, type, and platform
+const getDefaultTemplates = (category: string, platform: 'whatsapp' | 'telegram' = 'whatsapp') => {
   const templates: { name: string; type: string; message: string }[] = [];
+  const platformPrefix = platform === 'telegram' ? '[TG] ' : '';
   
   if (category === 'IPTV') {
     templates.push(
       {
-        name: 'IPTV - Boas-vindas',
+        name: `${platformPrefix}IPTV - Boas-vindas`,
         type: 'welcome',
         message: `👋 Olá {nome}!
 
@@ -99,7 +107,7 @@ Seus dados de acesso IPTV:
 Qualquer dúvida estamos à disposição! 🙏`
       },
       {
-        name: 'IPTV - Cobrança',
+        name: `${platformPrefix}IPTV - Cobrança`,
         type: 'billing',
         message: `💰 Olá {nome}!
 
@@ -116,7 +124,7 @@ Após o pagamento, envie o comprovante aqui! ✅
 *{empresa}*`
       },
       {
-        name: 'IPTV - Vencendo em 3 dias',
+        name: `${platformPrefix}IPTV - Vencendo em 3 dias`,
         type: 'expiring_3days',
         message: `⏰ Olá {nome}!
 
@@ -130,7 +138,7 @@ Renove agora e continue assistindo sem interrupções! 📺
 *{empresa}*`
       },
       {
-        name: 'IPTV - Vencendo em 2 dias',
+        name: `${platformPrefix}IPTV - Vencendo em 2 dias`,
         type: 'expiring_2days',
         message: `⚠️ Olá {nome}!
 
@@ -144,7 +152,7 @@ Não fique sem seu entretenimento! Renove agora! 🎬
 *{empresa}*`
       },
       {
-        name: 'IPTV - Vencendo amanhã',
+        name: `${platformPrefix}IPTV - Vencendo amanhã`,
         type: 'expiring_1day',
         message: `🔔 Olá {nome}!
 
@@ -158,7 +166,7 @@ Renove agora para não perder o acesso! 📺
 *{empresa}*`
       },
       {
-        name: 'IPTV - Vencido',
+        name: `${platformPrefix}IPTV - Vencido`,
         type: 'expired',
         message: `❌ Olá {nome}!
 
@@ -172,7 +180,7 @@ Entre em contato para renovar e voltar a assistir! 📺
 *{empresa}*`
       },
       {
-        name: 'IPTV - Renovação Confirmada',
+        name: `${platformPrefix}IPTV - Renovação Confirmada`,
         type: 'renewal',
         message: `✅ Olá {nome}!
 
@@ -193,7 +201,7 @@ Obrigado por continuar conosco! 🙏
   if (category === 'SSH') {
     templates.push(
       {
-        name: 'SSH - Boas-vindas',
+        name: `${platformPrefix}SSH - Boas-vindas`,
         type: 'welcome',
         message: `👋 Olá {nome}!
 
@@ -211,7 +219,7 @@ Seus dados de acesso SSH:
 Qualquer dúvida estamos à disposição! 🙏`
       },
       {
-        name: 'SSH - Cobrança',
+        name: `${platformPrefix}SSH - Cobrança`,
         type: 'billing',
         message: `💰 Olá {nome}!
 
@@ -228,7 +236,7 @@ Após o pagamento, envie o comprovante aqui! ✅
 *{empresa}*`
       },
       {
-        name: 'SSH - Vencendo em 3 dias',
+        name: `${platformPrefix}SSH - Vencendo em 3 dias`,
         type: 'expiring_3days',
         message: `⏰ Olá {nome}!
 
@@ -242,7 +250,7 @@ Renove agora e continue navegando! 🚀
 *{empresa}*`
       },
       {
-        name: 'SSH - Vencendo em 2 dias',
+        name: `${platformPrefix}SSH - Vencendo em 2 dias`,
         type: 'expiring_2days',
         message: `⚠️ Olá {nome}!
 
@@ -256,7 +264,7 @@ Não fique sem internet! Renove agora! 📶
 *{empresa}*`
       },
       {
-        name: 'SSH - Vencendo amanhã',
+        name: `${platformPrefix}SSH - Vencendo amanhã`,
         type: 'expiring_1day',
         message: `🔔 Olá {nome}!
 
@@ -270,7 +278,7 @@ Renove agora para não perder o acesso! 🚀
 *{empresa}*`
       },
       {
-        name: 'SSH - Vencido',
+        name: `${platformPrefix}SSH - Vencido`,
         type: 'expired',
         message: `❌ Olá {nome}!
 
@@ -284,7 +292,7 @@ Entre em contato para renovar! 📶
 *{empresa}*`
       },
       {
-        name: 'SSH - Renovação Confirmada',
+        name: `${platformPrefix}SSH - Renovação Confirmada`,
         type: 'renewal',
         message: `✅ Olá {nome}!
 
@@ -305,7 +313,7 @@ Obrigado por continuar conosco! 🙏
   if (category === 'Contas Premium') {
     templates.push(
       {
-        name: 'Premium - Boas-vindas',
+        name: `${platformPrefix}Premium - Boas-vindas`,
         type: 'welcome',
         message: `👋 Olá {nome}!
 
@@ -324,7 +332,7 @@ Aproveite sua conta! 👑
 Qualquer dúvida estamos à disposição! 🙏`
       },
       {
-        name: 'Premium - Cobrança',
+        name: `${platformPrefix}Premium - Cobrança`,
         type: 'billing',
         message: `💰 Olá {nome}!
 
@@ -341,7 +349,7 @@ Após o pagamento, envie o comprovante aqui! ✅
 *{empresa}*`
       },
       {
-        name: 'Premium - Vencendo em 3 dias',
+        name: `${platformPrefix}Premium - Vencendo em 3 dias`,
         type: 'expiring_3days',
         message: `⏰ Olá {nome}!
 
@@ -355,7 +363,7 @@ Renove agora e continue aproveitando! 🌟
 *{empresa}*`
       },
       {
-        name: 'Premium - Vencendo em 2 dias',
+        name: `${platformPrefix}Premium - Vencendo em 2 dias`,
         type: 'expiring_2days',
         message: `⚠️ Olá {nome}!
 
@@ -369,7 +377,7 @@ Não perca seu acesso Premium! Renove agora! 👑
 *{empresa}*`
       },
       {
-        name: 'Premium - Vencendo amanhã',
+        name: `${platformPrefix}Premium - Vencendo amanhã`,
         type: 'expiring_1day',
         message: `🔔 Olá {nome}!
 
@@ -383,7 +391,7 @@ Renove agora para não perder o acesso! 🌟
 *{empresa}*`
       },
       {
-        name: 'Premium - Vencido',
+        name: `${platformPrefix}Premium - Vencido`,
         type: 'expired',
         message: `❌ Olá {nome}!
 
@@ -397,7 +405,7 @@ Entre em contato para renovar e voltar a aproveitar! 👑
 *{empresa}*`
       },
       {
-        name: 'Premium - Renovação Confirmada',
+        name: `${platformPrefix}Premium - Renovação Confirmada`,
         type: 'renewal',
         message: `✅ Olá {nome}!
 
@@ -426,6 +434,7 @@ export default function Templates() {
   const [showVariables, setShowVariables] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [formData, setFormData] = useState({
     name: '',
@@ -484,8 +493,8 @@ export default function Templates() {
   });
 
   const createDefaultTemplatesMutation = useMutation({
-    mutationFn: async (category: string) => {
-      const defaultTemplates = getDefaultTemplates(category);
+    mutationFn: async ({ category, platform }: { category: string; platform: 'whatsapp' | 'telegram' }) => {
+      const defaultTemplates = getDefaultTemplates(category, platform);
       const templatesToInsert = defaultTemplates.map(t => ({
         ...t,
         seller_id: user!.id,
@@ -494,9 +503,10 @@ export default function Templates() {
       const { error } = await supabase.from('whatsapp_templates').insert(templatesToInsert);
       if (error) throw error;
     },
-    onSuccess: (_, category) => {
+    onSuccess: (_, { category, platform }) => {
       queryClient.invalidateQueries({ queryKey: ['templates'] });
-      toast.success(`Templates padrão de ${category} criados com sucesso!`);
+      const platformName = platform === 'telegram' ? 'Telegram' : 'WhatsApp';
+      toast.success(`Templates ${platformName} de ${category} criados com sucesso!`);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -625,9 +635,13 @@ export default function Templates() {
 
   // Filter templates
   const filteredTemplates = templates.filter(template => {
+    // Platform filter (Telegram templates have [TG] prefix)
+    if (platformFilter === 'telegram' && !template.name.startsWith('[TG]')) return false;
+    if (platformFilter === 'whatsapp' && template.name.startsWith('[TG]')) return false;
+    
     // Category filter by name prefix
     if (categoryFilter !== 'all') {
-      const prefix = template.name.split(' - ')[0];
+      const prefix = template.name.replace('[TG] ', '').split(' - ')[0];
       if (categoryFilter === 'IPTV' && !prefix.includes('IPTV')) return false;
       if (categoryFilter === 'SSH' && !prefix.includes('SSH')) return false;
       if (categoryFilter === 'Contas Premium' && !prefix.includes('Premium')) return false;
@@ -642,10 +656,13 @@ export default function Templates() {
     return true;
   });
 
-  // Check which categories have templates
-  const hasIPTVTemplates = templates.some(t => t.name.includes('IPTV'));
-  const hasSSHTemplates = templates.some(t => t.name.includes('SSH'));
-  const hasPremiumTemplates = templates.some(t => t.name.includes('Premium'));
+  // Check which categories have templates (for each platform)
+  const hasIPTVWhatsApp = templates.some(t => t.name.includes('IPTV') && !t.name.startsWith('[TG]'));
+  const hasSSHWhatsApp = templates.some(t => t.name.includes('SSH') && !t.name.startsWith('[TG]'));
+  const hasPremiumWhatsApp = templates.some(t => t.name.includes('Premium') && !t.name.startsWith('[TG]'));
+  const hasIPTVTelegram = templates.some(t => t.name.includes('IPTV') && t.name.startsWith('[TG]'));
+  const hasSSHTelegram = templates.some(t => t.name.includes('SSH') && t.name.startsWith('[TG]'));
+  const hasPremiumTelegram = templates.some(t => t.name.includes('Premium') && t.name.startsWith('[TG]'));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -775,60 +792,127 @@ export default function Templates() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {!hasIPTVTemplates && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (confirm('Criar 7 templates padrão para IPTV?')) {
-                    createDefaultTemplatesMutation.mutate('IPTV');
-                  }
-                }}
-                disabled={createDefaultTemplatesMutation.isPending}
-                className="gap-2"
-              >
-                <Tv className="h-4 w-4" />
-                Gerar Templates IPTV
-              </Button>
-            )}
-            {!hasSSHTemplates && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (confirm('Criar 7 templates padrão para SSH?')) {
-                    createDefaultTemplatesMutation.mutate('SSH');
-                  }
-                }}
-                disabled={createDefaultTemplatesMutation.isPending}
-                className="gap-2"
-              >
-                <Wifi className="h-4 w-4" />
-                Gerar Templates SSH
-              </Button>
-            )}
-            {!hasPremiumTemplates && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (confirm('Criar 7 templates padrão para Contas Premium?')) {
-                    createDefaultTemplatesMutation.mutate('Contas Premium');
-                  }
-                }}
-                disabled={createDefaultTemplatesMutation.isPending}
-                className="gap-2"
-              >
-                <Crown className="h-4 w-4" />
-                Gerar Templates Premium
-              </Button>
-            )}
-            {hasIPTVTemplates && hasSSHTemplates && hasPremiumTemplates && (
-              <p className="text-sm text-muted-foreground">
-                ✅ Todos os templates padrão já foram criados
+          <div className="space-y-4">
+            {/* WhatsApp Templates */}
+            <div>
+              <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                📱 WhatsApp
               </p>
-            )}
+              <div className="flex flex-wrap gap-2">
+                {!hasIPTVWhatsApp && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Criar 7 templates WhatsApp para IPTV?')) {
+                        createDefaultTemplatesMutation.mutate({ category: 'IPTV', platform: 'whatsapp' });
+                      }
+                    }}
+                    disabled={createDefaultTemplatesMutation.isPending}
+                    className="gap-2"
+                  >
+                    <Tv className="h-4 w-4" />
+                    IPTV
+                  </Button>
+                )}
+                {!hasSSHWhatsApp && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Criar 7 templates WhatsApp para SSH?')) {
+                        createDefaultTemplatesMutation.mutate({ category: 'SSH', platform: 'whatsapp' });
+                      }
+                    }}
+                    disabled={createDefaultTemplatesMutation.isPending}
+                    className="gap-2"
+                  >
+                    <Wifi className="h-4 w-4" />
+                    SSH
+                  </Button>
+                )}
+                {!hasPremiumWhatsApp && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Criar 7 templates WhatsApp para Contas Premium?')) {
+                        createDefaultTemplatesMutation.mutate({ category: 'Contas Premium', platform: 'whatsapp' });
+                      }
+                    }}
+                    disabled={createDefaultTemplatesMutation.isPending}
+                    className="gap-2"
+                  >
+                    <Crown className="h-4 w-4" />
+                    Premium
+                  </Button>
+                )}
+                {hasIPTVWhatsApp && hasSSHWhatsApp && hasPremiumWhatsApp && (
+                  <span className="text-xs text-muted-foreground">✅ Todos criados</span>
+                )}
+              </div>
+            </div>
+            
+            {/* Telegram Templates */}
+            <div>
+              <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                <Send className="h-4 w-4" />
+                Telegram
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {!hasIPTVTelegram && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Criar 7 templates Telegram para IPTV?')) {
+                        createDefaultTemplatesMutation.mutate({ category: 'IPTV', platform: 'telegram' });
+                      }
+                    }}
+                    disabled={createDefaultTemplatesMutation.isPending}
+                    className="gap-2"
+                  >
+                    <Tv className="h-4 w-4" />
+                    IPTV
+                  </Button>
+                )}
+                {!hasSSHTelegram && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Criar 7 templates Telegram para SSH?')) {
+                        createDefaultTemplatesMutation.mutate({ category: 'SSH', platform: 'telegram' });
+                      }
+                    }}
+                    disabled={createDefaultTemplatesMutation.isPending}
+                    className="gap-2"
+                  >
+                    <Wifi className="h-4 w-4" />
+                    SSH
+                  </Button>
+                )}
+                {!hasPremiumTelegram && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Criar 7 templates Telegram para Contas Premium?')) {
+                        createDefaultTemplatesMutation.mutate({ category: 'Contas Premium', platform: 'telegram' });
+                      }
+                    }}
+                    disabled={createDefaultTemplatesMutation.isPending}
+                    className="gap-2"
+                  >
+                    <Crown className="h-4 w-4" />
+                    Premium
+                  </Button>
+                )}
+                {hasIPTVTelegram && hasSSHTelegram && hasPremiumTelegram && (
+                  <span className="text-xs text-muted-foreground">✅ Todos criados</span>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -906,6 +990,37 @@ export default function Templates() {
       {templates.length > 0 && (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-4">
+            {/* Platform Filter */}
+            <div className="space-y-1">
+              <Label className="text-sm text-muted-foreground">Plataforma</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={platformFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPlatformFilter('all')}
+                >
+                  Todas
+                </Button>
+                <Button
+                  variant={platformFilter === 'whatsapp' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPlatformFilter('whatsapp')}
+                  className="gap-1"
+                >
+                  📱 WhatsApp
+                </Button>
+                <Button
+                  variant={platformFilter === 'telegram' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPlatformFilter('telegram')}
+                  className="gap-1"
+                >
+                  <Send className="h-3 w-3" />
+                  Telegram
+                </Button>
+              </div>
+            </div>
+            
             {/* Category Filter */}
             <div className="space-y-1">
               <Label className="text-sm text-muted-foreground">Categoria</Label>
