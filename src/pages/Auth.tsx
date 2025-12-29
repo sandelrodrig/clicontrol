@@ -339,9 +339,8 @@ export default function Auth() {
                     {isLoading ? 'Criando conta...' : 'Criar conta'}
                   </Button>
 
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                    <Shield className="w-4 h-4 flex-shrink-0" />
-                    <span>O primeiro usuário cadastrado se torna administrador automaticamente.</span>
+                  <div className="flex items-center justify-center gap-2 text-sm font-medium text-green-500 bg-green-500/10 p-3 rounded-lg">
+                    <span>🎁 Cadastre-se e ganhe 5 dias grátis</span>
                   </div>
                 </form>
               </TabsContent>
