@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useBruteForce } from '@/hooks/useBruteForce';
 import { validatePasswordStrength } from '@/hooks/usePasswordValidation';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Users, Shield, AlertTriangle, Phone, Check, X } from 'lucide-react';
+import { Eye, EyeOff, Users, Shield, AlertTriangle, Phone, Check, X, Info } from 'lucide-react';
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
@@ -145,6 +145,13 @@ export default function Auth() {
           </div>
           <h1 className="text-3xl font-bold text-foreground">Controle de Clientes</h1>
           <p className="text-muted-foreground mt-2">Sistema de gestão para revendedores</p>
+          <Link 
+            to="/landing" 
+            className="inline-flex items-center gap-1 text-sm text-primary hover:underline mt-2"
+          >
+            <Info className="h-4 w-4" />
+            Saiba mais sobre o sistema
+          </Link>
         </div>
 
         {isBlocked && (
