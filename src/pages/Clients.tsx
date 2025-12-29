@@ -32,7 +32,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
+import { format, addDays, addMonths, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { SendMessageDialog } from '@/components/SendMessageDialog';
@@ -859,40 +859,68 @@ export default function Clients() {
                 )}
 
 
-                {/* Expiration Date with Calendar */}
+                {/* Expiration Date with adjustment buttons */}
                 <div className="space-y-2">
-                  <Label>Data de Vencimento *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !formData.expiration_date && "text-muted-foreground"
-                        )}
-                        type="button"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                  <Label>Data de Vencimento</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 p-2 rounded-md border border-border bg-muted/50">
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">
                         {formData.expiration_date 
                           ? format(new Date(formData.expiration_date), "dd/MM/yyyy", { locale: ptBR })
-                          : "Selecione a data"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={formData.expiration_date ? new Date(formData.expiration_date) : undefined}
-                        onSelect={(date) => {
-                          if (date) {
-                            setFormData({ ...formData, expiration_date: format(date, 'yyyy-MM-dd') });
-                          }
-                        }}
-                        initialFocus
-                        locale={ptBR}
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                          : "Selecione um plano"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const currentDate = new Date(formData.expiration_date);
+                        setFormData({ ...formData, expiration_date: format(addDays(currentDate, -1), 'yyyy-MM-dd') });
+                      }}
+                    >
+                      -1 dia
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const currentDate = new Date(formData.expiration_date);
+                        setFormData({ ...formData, expiration_date: format(addDays(currentDate, 1), 'yyyy-MM-dd') });
+                      }}
+                    >
+                      +1 dia
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const currentDate = new Date(formData.expiration_date);
+                        setFormData({ ...formData, expiration_date: format(addMonths(currentDate, -1), 'yyyy-MM-dd') });
+                      }}
+                    >
+                      -1 mês
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const currentDate = new Date(formData.expiration_date);
+                        setFormData({ ...formData, expiration_date: format(addMonths(currentDate, 1), 'yyyy-MM-dd') });
+                      }}
+                    >
+                      +1 mês
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    A data é calculada automaticamente pelo plano. Use os botões para ajustar se necessário.
+                  </p>
                 </div>
 
                 {/* IPTV/SSH Login and Password - Only show for IPTV, P2P, or SSH categories */}
