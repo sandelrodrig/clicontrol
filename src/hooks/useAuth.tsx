@@ -4,26 +4,32 @@ import { supabase } from '@/integrations/supabase/client';
 
 type AppRole = 'admin' | 'seller';
 
+interface Profile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  whatsapp: string | null;
+  subscription_expires_at: string | null;
+  is_permanent: boolean;
+  is_active: boolean;
+  needs_password_update: boolean;
+  created_at: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: {
-    id: string;
-    email: string;
-    full_name: string | null;
-    whatsapp: string | null;
-    subscription_expires_at: string | null;
-    is_permanent: boolean;
-    is_active: boolean;
-    created_at: string;
-  } | null;
+  profile: Profile | null;
   role: AppRole | null;
   isAdmin: boolean;
   isSeller: boolean;
   loading: boolean;
+  needsPasswordUpdate: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
+  clearPasswordUpdateFlag: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +37,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<AuthContextType['profile']>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -75,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]);
 
       if (profileResult.data) {
-        setProfile(profileResult.data);
+        setProfile(profileResult.data as Profile);
       }
 
       if (roleResult.data) {
@@ -114,6 +120,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole(null);
   };
 
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error as Error | null };
+  };
+
+  const clearPasswordUpdateFlag = async () => {
+    if (!user) return;
+    
+    await supabase
+      .from('profiles')
+      .update({ needs_password_update: false })
+      .eq('id', user.id);
+    
+    if (profile) {
+      setProfile({ ...profile, needs_password_update: false });
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -123,9 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: role === 'admin',
       isSeller: role === 'seller',
       loading,
+      needsPasswordUpdate: profile?.needs_password_update ?? false,
       signIn,
       signUp,
-      signOut
+      signOut,
+      updatePassword,
+      clearPasswordUpdateFlag
     }}>
       {children}
     </AuthContext.Provider>

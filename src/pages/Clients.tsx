@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useCrypto } from '@/hooks/useCrypto';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2 } from 'lucide-react';
 import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,10 @@ interface Client {
   notes: string | null;
 }
 
+interface DecryptedCredentials {
+  [clientId: string]: { login: string; password: string };
+}
+
 interface Plan {
   id: string;
   name: string;
@@ -66,6 +71,7 @@ type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid';
 
 export default function Clients() {
   const { user } = useAuth();
+  const { encrypt, decrypt } = useCrypto();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -73,6 +79,8 @@ export default function Clients() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [showPassword, setShowPassword] = useState<string | null>(null);
   const [messageClient, setMessageClient] = useState<Client | null>(null);
+  const [decryptedCredentials, setDecryptedCredentials] = useState<DecryptedCredentials>({});
+  const [decrypting, setDecrypting] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -136,10 +144,51 @@ export default function Clients() {
     enabled: !!user?.id,
   });
 
+  // Encrypt credentials before saving
+  const encryptCredentials = async (login: string | null, password: string | null) => {
+    try {
+      const encryptedLogin = login ? await encrypt(login) : null;
+      const encryptedPassword = password ? await encrypt(password) : null;
+      return { login: encryptedLogin, password: encryptedPassword };
+    } catch (error) {
+      console.error('Encryption error:', error);
+      // Fallback to plain text if encryption fails
+      return { login, password };
+    }
+  };
+
+  // Decrypt credentials for display
+  const decryptCredentialsForClient = useCallback(async (clientId: string, encryptedLogin: string | null, encryptedPassword: string | null) => {
+    if (decryptedCredentials[clientId]) {
+      return decryptedCredentials[clientId];
+    }
+
+    setDecrypting(clientId);
+    try {
+      const decryptedLogin = encryptedLogin ? await decrypt(encryptedLogin) : '';
+      const decryptedPassword = encryptedPassword ? await decrypt(encryptedPassword) : '';
+      
+      const result = { login: decryptedLogin, password: decryptedPassword };
+      setDecryptedCredentials(prev => ({ ...prev, [clientId]: result }));
+      return result;
+    } catch (error) {
+      console.error('Decryption error:', error);
+      // If decryption fails, it might be plain text (old data)
+      return { login: encryptedLogin || '', password: encryptedPassword || '' };
+    } finally {
+      setDecrypting(null);
+    }
+  }, [decrypt, decryptedCredentials]);
+
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null }) => {
+      // Encrypt login and password before saving
+      const encrypted = await encryptCredentials(data.login || null, data.password || null);
+      
       const { error } = await supabase.from('clients').insert([{
         ...data,
+        login: encrypted.login,
+        password: encrypted.password,
         seller_id: user!.id,
       }]);
       if (error) throw error;
@@ -157,8 +206,23 @@ export default function Clients() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Client> }) => {
-      const { error } = await supabase.from('clients').update(data).eq('id', id);
+      // Encrypt login and password if they were changed
+      let updateData = { ...data };
+      if (data.login !== undefined || data.password !== undefined) {
+        const encrypted = await encryptCredentials(data.login || null, data.password || null);
+        updateData.login = encrypted.login;
+        updateData.password = encrypted.password;
+      }
+      
+      const { error } = await supabase.from('clients').update(updateData).eq('id', id);
       if (error) throw error;
+      
+      // Clear cached decrypted credentials for this client
+      setDecryptedCredentials(prev => {
+        const newState = { ...prev };
+        delete newState[id];
+        return newState;
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -292,8 +356,25 @@ export default function Clients() {
     }
   };
 
-  const handleEdit = (client: Client) => {
+  const handleEdit = async (client: Client) => {
     setEditingClient(client);
+    
+    // Decrypt credentials for editing
+    let decryptedLogin = '';
+    let decryptedPassword = '';
+    
+    if (client.login || client.password) {
+      try {
+        const decrypted = await decryptCredentialsForClient(client.id, client.login, client.password);
+        decryptedLogin = decrypted.login;
+        decryptedPassword = decrypted.password;
+      } catch (error) {
+        // Fallback to raw values (might be unencrypted old data)
+        decryptedLogin = client.login || '';
+        decryptedPassword = client.password || '';
+      }
+    }
+    
     setFormData({
       name: client.name,
       phone: client.phone || '',
@@ -305,8 +386,8 @@ export default function Clients() {
       plan_price: client.plan_price?.toString() || '',
       server_id: client.server_id || '',
       server_name: client.server_name || '',
-      login: client.login || '',
-      password: client.password || '',
+      login: decryptedLogin,
+      password: decryptedPassword,
       is_paid: client.is_paid,
       notes: client.notes || '',
     });
@@ -319,6 +400,20 @@ export default function Clients() {
     if (confirm(`Renovar ${client.name} por ${days} dias?`)) {
       renewMutation.mutate({ id: client.id, days });
     }
+  };
+
+  const handleShowPassword = async (client: Client) => {
+    if (showPassword === client.id) {
+      setShowPassword(null);
+      return;
+    }
+    
+    // Decrypt if not already decrypted
+    if (!decryptedCredentials[client.id] && (client.login || client.password)) {
+      await decryptCredentialsForClient(client.id, client.login, client.password);
+    }
+    
+    setShowPassword(client.id);
   };
 
   const today = startOfToday();
@@ -529,7 +624,10 @@ export default function Clients() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login">Login</Label>
+                  <Label htmlFor="login" className="flex items-center gap-1">
+                    Login
+                    <Lock className="h-3 w-3 text-muted-foreground" />
+                  </Label>
                   <Input
                     id="login"
                     value={formData.login}
@@ -537,7 +635,10 @@ export default function Clients() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
+                  <Label htmlFor="password" className="flex items-center gap-1">
+                    Senha
+                    <Lock className="h-3 w-3 text-muted-foreground" />
+                  </Label>
                   <Input
                     id="password"
                     value={formData.password}
@@ -567,6 +668,10 @@ export default function Clients() {
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 />
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                <Lock className="w-4 h-4 flex-shrink-0" />
+                <span>Login e senha são criptografados antes de serem salvos.</span>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -633,6 +738,10 @@ export default function Clients() {
           {filteredClients.map((client) => {
             const status = getClientStatus(client);
             const daysLeft = differenceInDays(new Date(client.expiration_date), today);
+            const hasCredentials = client.login || client.password;
+            const isDecrypted = decryptedCredentials[client.id];
+            const isDecrypting = decrypting === client.id;
+            
             return (
               <Card
                 key={client.id}
@@ -680,27 +789,33 @@ export default function Clients() {
                         <span>{client.plan_name} {client.plan_price && `- R$ ${client.plan_price.toFixed(2)}`}</span>
                       </div>
                     )}
-                    {client.login && (
+                    {hasCredentials && (
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <User className="h-3.5 w-3.5" />
-                        <span>{client.login}</span>
-                        {client.password && (
-                          <button
-                            onClick={() => setShowPassword(showPassword === client.id ? null : client.id)}
-                            className="ml-auto"
-                          >
-                            {showPassword === client.id ? (
-                              <EyeOff className="h-3.5 w-3.5" />
-                            ) : (
-                              <Eye className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        )}
+                        <Lock className="h-3.5 w-3.5" />
+                        <span className="flex-1">
+                          {showPassword === client.id && isDecrypted
+                            ? isDecrypted.login || '(sem login)'
+                            : '••••••'}
+                        </span>
+                        <button
+                          onClick={() => handleShowPassword(client)}
+                          className="ml-auto"
+                          disabled={isDecrypting}
+                        >
+                          {isDecrypting ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : showPassword === client.id ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       </div>
                     )}
-                    {showPassword === client.id && client.password && (
-                      <div className="text-xs bg-muted p-2 rounded font-mono">
-                        Senha: {client.password}
+                    {showPassword === client.id && isDecrypted && (
+                      <div className="text-xs bg-muted p-2 rounded font-mono space-y-1">
+                        {isDecrypted.login && <p>Login: {isDecrypted.login}</p>}
+                        {isDecrypted.password && <p>Senha: {isDecrypted.password}</p>}
                       </div>
                     )}
                   </div>

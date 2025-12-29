@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
@@ -21,9 +21,62 @@ import Backup from "./pages/Backup";
 import Settings from "./pages/Settings";
 import SharedPanels from "./pages/SharedPanels";
 import MessageHistory from "./pages/MessageHistory";
+import ForcePasswordUpdate from "./pages/ForcePasswordUpdate";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Wrapper to check if user needs password update
+function PasswordUpdateGuard({ children }: { children: React.ReactNode }) {
+  const { user, needsPasswordUpdate, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-primary text-xl">Carregando...</div>
+      </div>
+    );
+  }
+  
+  if (user && needsPasswordUpdate) {
+    return <ForcePasswordUpdate />;
+  }
+  
+  return <>{children}</>;
+}
+
+const AppRoutes = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/force-password-update" element={<ForcePasswordUpdate />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route element={
+          <PasswordUpdateGuard>
+            <AppLayout />
+          </PasswordUpdateGuard>
+        }>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/clients" element={<Clients />} />
+          <Route path="/servers" element={<Servers />} />
+          <Route path="/plans" element={<Plans />} />
+          <Route path="/bills" element={<Bills />} />
+          <Route path="/coupons" element={<Coupons />} />
+          <Route path="/referrals" element={<Referrals />} />
+          <Route path="/templates" element={<Templates />} />
+          <Route path="/shared-panels" element={<SharedPanels />} />
+          <Route path="/message-history" element={<MessageHistory />} />
+          <Route path="/sellers" element={<Sellers />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/backup" element={<Backup />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -32,29 +85,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/clients" element={<Clients />} />
-                <Route path="/servers" element={<Servers />} />
-                <Route path="/plans" element={<Plans />} />
-                <Route path="/bills" element={<Bills />} />
-                <Route path="/coupons" element={<Coupons />} />
-                <Route path="/referrals" element={<Referrals />} />
-                <Route path="/templates" element={<Templates />} />
-                <Route path="/shared-panels" element={<SharedPanels />} />
-                <Route path="/message-history" element={<MessageHistory />} />
-                <Route path="/sellers" element={<Sellers />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/backup" element={<Backup />} />
-                <Route path="/settings" element={<Settings />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+          <AppRoutes />
         </TooltipProvider>
       </AuthProvider>
     </ThemeProvider>
