@@ -458,33 +458,45 @@ export type Database = {
       servers: {
         Row: {
           created_at: string | null
+          credit_value: number | null
           id: string
           is_active: boolean | null
+          is_credit_based: boolean | null
           monthly_cost: number | null
           name: string
           notes: string | null
           seller_id: string
+          total_credits: number | null
           updated_at: string | null
+          used_credits: number | null
         }
         Insert: {
           created_at?: string | null
+          credit_value?: number | null
           id?: string
           is_active?: boolean | null
+          is_credit_based?: boolean | null
           monthly_cost?: number | null
           name: string
           notes?: string | null
           seller_id: string
+          total_credits?: number | null
           updated_at?: string | null
+          used_credits?: number | null
         }
         Update: {
           created_at?: string | null
+          credit_value?: number | null
           id?: string
           is_active?: boolean | null
+          is_credit_based?: boolean | null
           monthly_cost?: number | null
           name?: string
           notes?: string | null
           seller_id?: string
+          total_credits?: number | null
           updated_at?: string | null
+          used_credits?: number | null
         }
         Relationships: []
       }
