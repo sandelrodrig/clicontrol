@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useBruteForce } from '@/hooks/useBruteForce';
+import { validatePasswordStrength } from '@/hooks/usePasswordValidation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Users, Shield, AlertTriangle, Phone } from 'lucide-react';
+import { Eye, EyeOff, Users, Shield, AlertTriangle, Phone, Check, X } from 'lucide-react';
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
@@ -27,6 +29,19 @@ export default function Auth() {
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
   const [registerWhatsapp, setRegisterWhatsapp] = useState('');
+
+  // Password strength validation
+  const passwordValidation = useMemo(() => {
+    return validatePasswordStrength(registerPassword);
+  }, [registerPassword]);
+
+  const passwordRequirements = useMemo(() => [
+    { label: 'Mínimo 8 caracteres', met: registerPassword.length >= 8 },
+    { label: 'Letra maiúscula', met: /[A-Z]/.test(registerPassword) },
+    { label: 'Letra minúscula', met: /[a-z]/.test(registerPassword) },
+    { label: 'Número', met: /[0-9]/.test(registerPassword) },
+    { label: 'Símbolo especial', met: /[^a-zA-Z0-9]/.test(registerPassword) },
+  ], [registerPassword]);
 
   if (loading) {
     return (
@@ -88,8 +103,16 @@ export default function Auth() {
     e.preventDefault();
     setIsLoading(true);
 
-    if (registerPassword.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres');
+    // Validate password strength
+    if (!passwordValidation.isValid) {
+      toast.error('A senha não atende aos requisitos mínimos de segurança');
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate WhatsApp format
+    if (registerWhatsapp.length < 10 || registerWhatsapp.length > 15) {
+      toast.error('WhatsApp deve ter entre 10 e 15 dígitos');
       setIsLoading(false);
       return;
     }
@@ -253,11 +276,12 @@ export default function Auth() {
                       <Input
                         id="register-password"
                         type={showPassword ? 'text' : 'password'}
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Senha segura"
                         value={registerPassword}
                         onChange={(e) => setRegisterPassword(e.target.value)}
                         required
                         disabled={isLoading}
+                        className={registerPassword && !passwordValidation.isValid ? 'border-destructive' : ''}
                       />
                       <Button
                         type="button"
@@ -273,6 +297,42 @@ export default function Auth() {
                         )}
                       </Button>
                     </div>
+                    
+                    {/* Password strength indicator */}
+                    {registerPassword && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Progress 
+                            value={(passwordValidation.score / 5) * 100} 
+                            className="h-2 flex-1"
+                          />
+                          <span className={`text-xs font-medium ${
+                            passwordValidation.score <= 2 ? 'text-destructive' :
+                            passwordValidation.score <= 3 ? 'text-warning' :
+                            'text-green-500'
+                          }`}>
+                            {passwordValidation.score <= 2 ? 'Fraca' :
+                             passwordValidation.score <= 3 ? 'Média' :
+                             passwordValidation.score <= 4 ? 'Boa' : 'Forte'}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-1">
+                          {passwordRequirements.map((req, i) => (
+                            <div key={i} className="flex items-center gap-1 text-xs">
+                              {req.met ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <X className="h-3 w-3 text-muted-foreground" />
+                              )}
+                              <span className={req.met ? 'text-green-500' : 'text-muted-foreground'}>
+                                {req.label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <Button type="submit" className="w-full" disabled={isLoading}>
