@@ -1,1 +1,25 @@
 project_id = "vwumcbgtvqhnpioenagm"
+
+[functions.crypto]
+verify_jwt = true
+
+[functions.check-login-attempt]
+verify_jwt = false
+
+[functions.create-seller]
+verify_jwt = true
+
+[functions.change-seller-password]
+verify_jwt = true
+
+[functions.generate-temp-password]
+verify_jwt = false
+
+[functions.backup-data]
+verify_jwt = true
+
+[functions.restore-data]
+verify_jwt = true
+
+[functions.cleanup-trash]
+verify_jwt = true
