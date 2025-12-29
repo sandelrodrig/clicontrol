@@ -734,50 +734,54 @@ export default function Clients() {
                   </Popover>
                 </div>
 
-                {/* Plan Select */}
-                <div className="space-y-2">
-                  <Label>Plano</Label>
-                  <Select
-                    value={formData.plan_id || 'manual'}
-                    onValueChange={handlePlanChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um plano" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="manual">Inserir manualmente</SelectItem>
-                      {plans.map((plan) => (
-                        <SelectItem key={plan.id} value={plan.id}>
-                          {plan.name} - R$ {plan.price.toFixed(2)} ({plan.duration_days} dias)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Plan Select - Not for Contas Premium */}
+                {formData.category !== 'Contas Premium' && (
+                  <div className="space-y-2">
+                    <Label>Plano</Label>
+                    <Select
+                      value={formData.plan_id || 'manual'}
+                      onValueChange={handlePlanChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um plano" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual">Inserir manualmente</SelectItem>
+                        {plans.map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.name} - R$ {plan.price.toFixed(2)} ({plan.duration_days} dias)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
-                {/* Server Select */}
-                <div className="space-y-2">
-                  <Label>Servidor</Label>
-                  <Select
-                    value={formData.server_id || 'manual'}
-                    onValueChange={handleServerChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um servidor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="manual">Inserir manualmente</SelectItem>
-                      {activeServers.map((server) => (
-                        <SelectItem key={server.id} value={server.id}>
-                          {server.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Server Select - Only for IPTV/SSH/P2P, not for Contas Premium */}
+                {formData.category !== 'Contas Premium' && (
+                  <div className="space-y-2">
+                    <Label>Servidor</Label>
+                    <Select
+                      value={formData.server_id || 'manual'}
+                      onValueChange={handleServerChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um servidor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual">Nenhum</SelectItem>
+                        {activeServers.map((server) => (
+                          <SelectItem key={server.id} value={server.id}>
+                            {server.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
-                {/* Manual inputs if needed */}
-                {!formData.plan_id && (
+                {/* Manual plan inputs if needed - Not for Contas Premium */}
+                {formData.category !== 'Contas Premium' && !formData.plan_id && (
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="plan_name">Nome do Plano</Label>
@@ -799,17 +803,6 @@ export default function Clients() {
                       />
                     </div>
                   </>
-                )}
-
-                {!formData.server_id && (
-                  <div className="space-y-2">
-                    <Label htmlFor="server_name">Nome do Servidor</Label>
-                    <Input
-                      id="server_name"
-                      value={formData.server_name}
-                      onChange={(e) => setFormData({ ...formData, server_name: e.target.value })}
-                    />
-                  </div>
                 )}
 
                 {/* Expiration Date with Calendar */}

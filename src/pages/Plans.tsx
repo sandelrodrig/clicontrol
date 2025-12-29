@@ -56,18 +56,18 @@ const DEFAULT_PLANS_TEMPLATE = [
   { name: 'IPTV Anual 2 Telas', duration_days: 365, category: 'IPTV', screens: 2 },
   { name: 'IPTV Anual 3 Telas', duration_days: 365, category: 'IPTV', screens: 3 },
   // SSH Plans
-  { name: 'SSH Mensal 1 Tela', duration_days: 30, category: 'SSH', screens: 1 },
-  { name: 'SSH Mensal 2 Telas', duration_days: 30, category: 'SSH', screens: 2 },
-  { name: 'SSH Mensal 3 Telas', duration_days: 30, category: 'SSH', screens: 3 },
-  { name: 'SSH Trimestral 1 Tela', duration_days: 90, category: 'SSH', screens: 1 },
-  { name: 'SSH Trimestral 2 Telas', duration_days: 90, category: 'SSH', screens: 2 },
-  { name: 'SSH Trimestral 3 Telas', duration_days: 90, category: 'SSH', screens: 3 },
-  { name: 'SSH Semestral 1 Tela', duration_days: 180, category: 'SSH', screens: 1 },
-  { name: 'SSH Semestral 2 Telas', duration_days: 180, category: 'SSH', screens: 2 },
-  { name: 'SSH Semestral 3 Telas', duration_days: 180, category: 'SSH', screens: 3 },
-  { name: 'SSH Anual 1 Tela', duration_days: 365, category: 'SSH', screens: 1 },
-  { name: 'SSH Anual 2 Telas', duration_days: 365, category: 'SSH', screens: 2 },
-  { name: 'SSH Anual 3 Telas', duration_days: 365, category: 'SSH', screens: 3 },
+  { name: 'SSH Mensal 1 Conexão', duration_days: 30, category: 'SSH', screens: 1 },
+  { name: 'SSH Mensal 2 Conexões', duration_days: 30, category: 'SSH', screens: 2 },
+  { name: 'SSH Mensal 3 Conexões', duration_days: 30, category: 'SSH', screens: 3 },
+  { name: 'SSH Trimestral 1 Conexão', duration_days: 90, category: 'SSH', screens: 1 },
+  { name: 'SSH Trimestral 2 Conexões', duration_days: 90, category: 'SSH', screens: 2 },
+  { name: 'SSH Trimestral 3 Conexões', duration_days: 90, category: 'SSH', screens: 3 },
+  { name: 'SSH Semestral 1 Conexão', duration_days: 180, category: 'SSH', screens: 1 },
+  { name: 'SSH Semestral 2 Conexões', duration_days: 180, category: 'SSH', screens: 2 },
+  { name: 'SSH Semestral 3 Conexões', duration_days: 180, category: 'SSH', screens: 3 },
+  { name: 'SSH Anual 1 Conexão', duration_days: 365, category: 'SSH', screens: 1 },
+  { name: 'SSH Anual 2 Conexões', duration_days: 365, category: 'SSH', screens: 2 },
+  { name: 'SSH Anual 3 Conexões', duration_days: 365, category: 'SSH', screens: 3 },
 ];
 
 export default function Plans() {
@@ -123,13 +123,19 @@ export default function Plans() {
 
   const createDefaultPlansMutation = useMutation({
     mutationFn: async () => {
-      const plansToCreate = DEFAULT_PLANS_TEMPLATE.map(plan => ({
-        ...plan,
-        price: 0, // Seller will set prices
-        is_active: true,
-        description: `${plan.screens} ${plan.screens === 1 ? 'tela' : 'telas'} - ${plan.duration_days} dias`,
-        seller_id: user!.id,
-      }));
+      const plansToCreate = DEFAULT_PLANS_TEMPLATE.map(plan => {
+        const isSSH = plan.category === 'SSH';
+        const unitLabel = isSSH 
+          ? (plan.screens === 1 ? 'conexão' : 'conexões')
+          : (plan.screens === 1 ? 'tela' : 'telas');
+        return {
+          ...plan,
+          price: 0, // Seller will set prices
+          is_active: true,
+          description: `${plan.screens} ${unitLabel} - ${plan.duration_days} dias`,
+          seller_id: user!.id,
+        };
+      });
       
       const { error } = await supabase.from('plans').insert(plansToCreate);
       if (error) throw error;
@@ -315,7 +321,7 @@ export default function Plans() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Número de Telas</Label>
+                    <Label>{formData.category === 'SSH' ? 'Número de Conexões' : 'Número de Telas'}</Label>
                     <Select
                       value={formData.screens}
                       onValueChange={(value) => setFormData({ ...formData, screens: value })}
@@ -324,11 +330,23 @@ export default function Plans() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 Tela</SelectItem>
-                        <SelectItem value="2">2 Telas</SelectItem>
-                        <SelectItem value="3">3 Telas</SelectItem>
-                        <SelectItem value="4">4 Telas</SelectItem>
-                        <SelectItem value="5">5 Telas</SelectItem>
+                        {formData.category === 'SSH' ? (
+                          <>
+                            <SelectItem value="1">1 Conexão</SelectItem>
+                            <SelectItem value="2">2 Conexões</SelectItem>
+                            <SelectItem value="3">3 Conexões</SelectItem>
+                            <SelectItem value="4">4 Conexões</SelectItem>
+                            <SelectItem value="5">5 Conexões</SelectItem>
+                          </>
+                        ) : (
+                          <>
+                            <SelectItem value="1">1 Tela</SelectItem>
+                            <SelectItem value="2">2 Telas</SelectItem>
+                            <SelectItem value="3">3 Telas</SelectItem>
+                            <SelectItem value="4">4 Telas</SelectItem>
+                            <SelectItem value="5">5 Telas</SelectItem>
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -454,7 +472,7 @@ export default function Plans() {
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
                         <Monitor className="h-3 w-3" />
-                        {plan.screens || 1}
+                        {plan.screens || 1} {plan.category === 'SSH' ? (plan.screens === 1 ? 'Conexão' : 'Conexões') : (plan.screens === 1 ? 'Tela' : 'Telas')}
                       </span>
                     </div>
                     <CardTitle className="text-base">{plan.name}</CardTitle>
