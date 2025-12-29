@@ -55,7 +55,7 @@ export default function Servers() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: Partial<ServerData>) => {
+    mutationFn: async (data: { name: string; monthly_cost?: number; is_active?: boolean; notes?: string | null }) => {
       const { error } = await supabase.from('servers').insert([{
         ...data,
         seller_id: user!.id,
