@@ -51,7 +51,8 @@ const AppRoutes = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Navigate to="/auth" replace />} />
+        <Route path="/landing" element={<Landing />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/force-password-update" element={<ForcePasswordUpdate />} />
         <Route element={
