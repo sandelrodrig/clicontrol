@@ -9,6 +9,14 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
 import Servers from "./pages/Servers";
+import Plans from "./pages/Plans";
+import Bills from "./pages/Bills";
+import Coupons from "./pages/Coupons";
+import Referrals from "./pages/Referrals";
+import Templates from "./pages/Templates";
+import Sellers from "./pages/Sellers";
+import Reports from "./pages/Reports";
+import Backup from "./pages/Backup";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -28,6 +36,14 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/clients" element={<Clients />} />
               <Route path="/servers" element={<Servers />} />
+              <Route path="/plans" element={<Plans />} />
+              <Route path="/bills" element={<Bills />} />
+              <Route path="/coupons" element={<Coupons />} />
+              <Route path="/referrals" element={<Referrals />} />
+              <Route path="/templates" element={<Templates />} />
+              <Route path="/sellers" element={<Sellers />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/backup" element={<Backup />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
