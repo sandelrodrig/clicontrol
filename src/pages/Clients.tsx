@@ -862,33 +862,48 @@ export default function Clients() {
 
       {/* Filters */}
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome, telefone ou email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas Categorias</SelectItem>
-              {allCategories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, telefone ou email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
         </div>
+        
+        {/* Category Filter Tabs */}
+        <div className="space-y-2">
+          <Label className="text-sm text-muted-foreground">Filtrar por Categoria</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={categoryFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCategoryFilter('all')}
+            >
+              Todos ({clients.length})
+            </Button>
+            {allCategories.map((cat) => {
+              const count = clients.filter(c => c.category === cat).length;
+              return (
+                <Button
+                  key={cat}
+                  variant={categoryFilter === cat ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCategoryFilter(cat)}
+                >
+                  {cat} ({count})
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Status Filter Tabs */}
         <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterType)} className="w-full">
           <TabsList className="flex-wrap h-auto gap-1">
-            <TabsTrigger value="all">Todos ({clients.length})</TabsTrigger>
+            <TabsTrigger value="all">Todos</TabsTrigger>
             <TabsTrigger value="active">Ativos</TabsTrigger>
             <TabsTrigger value="expiring">Vencendo</TabsTrigger>
             <TabsTrigger value="expired">Vencidos</TabsTrigger>
