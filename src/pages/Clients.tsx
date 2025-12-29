@@ -859,18 +859,38 @@ export default function Clients() {
                 )}
 
 
-                {/* Expiration Date with adjustment buttons */}
+                {/* Expiration Date with adjustment buttons and calendar */}
                 <div className="space-y-2">
                   <Label>Data de Vencimento</Label>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 flex items-center gap-2 p-2 rounded-md border border-border bg-muted/50">
-                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">
-                        {formData.expiration_date 
-                          ? format(new Date(formData.expiration_date), "dd/MM/yyyy", { locale: ptBR })
-                          : "Selecione um plano"}
-                      </span>
-                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          type="button"
+                          className="flex-1 justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.expiration_date 
+                            ? format(new Date(formData.expiration_date), "dd/MM/yyyy", { locale: ptBR })
+                            : "Selecione um plano"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.expiration_date ? new Date(formData.expiration_date) : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              setFormData({ ...formData, expiration_date: format(date, 'yyyy-MM-dd') });
+                            }
+                          }}
+                          initialFocus
+                          locale={ptBR}
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -919,7 +939,7 @@ export default function Clients() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    A data é calculada automaticamente pelo plano. Use os botões para ajustar se necessário.
+                    Calculada pelo plano. Clique na data ou use os botões para ajustar.
                   </p>
                 </div>
 
