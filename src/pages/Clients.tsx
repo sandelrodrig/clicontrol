@@ -529,12 +529,24 @@ export default function Clients() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="device">Dispositivo</Label>
-                  <Input
-                    id="device"
-                    value={formData.device}
-                    onChange={(e) => setFormData({ ...formData, device: e.target.value })}
-                    placeholder="Smart TV, Celular..."
-                  />
+                  <Select
+                    value={formData.device || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, device: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o dispositivo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Não informado</SelectItem>
+                      <SelectItem value="Smart TV">Smart TV</SelectItem>
+                      <SelectItem value="Celular">Celular</SelectItem>
+                      <SelectItem value="TV Box">TV Box</SelectItem>
+                      <SelectItem value="Video Game">Video Game</SelectItem>
+                      <SelectItem value="PC">PC</SelectItem>
+                      <SelectItem value="Notebook">Notebook</SelectItem>
+                      <SelectItem value="Fire Stick">Fire Stick</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Plan Select */}
