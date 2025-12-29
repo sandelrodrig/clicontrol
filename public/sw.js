@@ -1,4 +1,4 @@
-const CACHE_NAME = 'controle-v1';
+const CACHE_NAME = 'controle-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -12,7 +12,6 @@ self.addEventListener('install', (event) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  self.skipWaiting();
 });
 
 // Activate event
@@ -46,4 +45,11 @@ self.addEventListener('fetch', (event) => {
         return caches.match(event.request);
       })
   );
+});
+
+// Listen for skip waiting message
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

@@ -17,8 +17,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
-import { Search, UserCog, Calendar, Plus, Shield, Trash2, Key, UserPlus, Copy, Check } from 'lucide-react';
+import { Search, UserCog, Calendar, Plus, Shield, Trash2, Key, UserPlus, Copy, Check, RefreshCw } from 'lucide-react';
 import { format, addDays, isBefore, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -48,6 +56,25 @@ export default function Sellers() {
     email: '' 
   });
   const [copiedPassword, setCopiedPassword] = useState(false);
+  
+  // Confirmation dialogs state
+  const [renewDialog, setRenewDialog] = useState<{ open: boolean; sellerId: string; sellerName: string; days: number }>({
+    open: false,
+    sellerId: '',
+    sellerName: '',
+    days: 30
+  });
+  const [permanentDialog, setPermanentDialog] = useState<{ open: boolean; sellerId: string; sellerName: string; isPermanent: boolean }>({
+    open: false,
+    sellerId: '',
+    sellerName: '',
+    isPermanent: false
+  });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; sellerId: string; sellerName: string }>({
+    open: false,
+    sellerId: '',
+    sellerName: ''
+  });
 
   // Create seller form
   const [newSellerEmail, setNewSellerEmail] = useState('');
@@ -414,30 +441,42 @@ export default function Sellers() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateExpirationMutation.mutate({ id: seller.id, days: 5 })}
-                        disabled={seller.is_permanent}
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1" />
-                        5 dias
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => updateExpirationMutation.mutate({ id: seller.id, days: 30 })}
-                        disabled={seller.is_permanent}
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1" />
-                        30 dias
-                      </Button>
+                      {/* Renovar Button with Select */}
+                      <div className="flex items-center gap-1">
+                        <Select
+                          disabled={seller.is_permanent}
+                          onValueChange={(value) => {
+                            const days = parseInt(value);
+                            setRenewDialog({
+                              open: true,
+                              sellerId: seller.id,
+                              sellerName: seller.full_name || seller.email,
+                              days
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-8 w-[140px]" disabled={seller.is_permanent}>
+                            <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                            <SelectValue placeholder="Renovar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="5">+5 dias</SelectItem>
+                            <SelectItem value="30">+1 mês (30 dias)</SelectItem>
+                            <SelectItem value="60">+2 meses</SelectItem>
+                            <SelectItem value="90">+3 meses</SelectItem>
+                            <SelectItem value="180">+6 meses</SelectItem>
+                            <SelectItem value="365">+1 ano</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <Button
                         variant={seller.is_permanent ? 'secondary' : 'outline'}
                         size="sm"
-                        onClick={() => togglePermanentMutation.mutate({ 
-                          id: seller.id, 
-                          is_permanent: !seller.is_permanent 
+                        onClick={() => setPermanentDialog({
+                          open: true,
+                          sellerId: seller.id,
+                          sellerName: seller.full_name || seller.email,
+                          isPermanent: !seller.is_permanent
                         })}
                       >
                         <Shield className="h-3.5 w-3.5 mr-1" />
@@ -459,11 +498,11 @@ export default function Sellers() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => {
-                          if (confirm(`Desativar vendedor ${seller.full_name || seller.email}?`)) {
-                            deleteSellerMutation.mutate(seller.id);
-                          }
-                        }}
+                        onClick={() => setDeleteDialog({
+                          open: true,
+                          sellerId: seller.id,
+                          sellerName: seller.full_name || seller.email
+                        })}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -512,6 +551,50 @@ export default function Sellers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Renew Confirmation Dialog */}
+      <ConfirmDialog
+        open={renewDialog.open}
+        onOpenChange={(open) => !open && setRenewDialog({ open: false, sellerId: '', sellerName: '', days: 30 })}
+        title="Confirmar Renovação"
+        description={`Deseja renovar a assinatura de "${renewDialog.sellerName}" por ${renewDialog.days} dias?`}
+        confirmText="Sim, Renovar"
+        onConfirm={() => {
+          updateExpirationMutation.mutate({ id: renewDialog.sellerId, days: renewDialog.days });
+          setRenewDialog({ open: false, sellerId: '', sellerName: '', days: 30 });
+        }}
+      />
+
+      {/* Permanent Confirmation Dialog */}
+      <ConfirmDialog
+        open={permanentDialog.open}
+        onOpenChange={(open) => !open && setPermanentDialog({ open: false, sellerId: '', sellerName: '', isPermanent: false })}
+        title={permanentDialog.isPermanent ? "Tornar Permanente" : "Remover Permanente"}
+        description={
+          permanentDialog.isPermanent 
+            ? `Deseja tornar "${permanentDialog.sellerName}" permanente? Este vendedor não terá mais data de expiração.`
+            : `Deseja remover o status permanente de "${permanentDialog.sellerName}"? Você precisará definir uma nova data de expiração.`
+        }
+        confirmText={permanentDialog.isPermanent ? "Sim, Tornar Permanente" : "Sim, Remover"}
+        onConfirm={() => {
+          togglePermanentMutation.mutate({ id: permanentDialog.sellerId, is_permanent: permanentDialog.isPermanent });
+          setPermanentDialog({ open: false, sellerId: '', sellerName: '', isPermanent: false });
+        }}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => !open && setDeleteDialog({ open: false, sellerId: '', sellerName: '' })}
+        title="Desativar Vendedor"
+        description={`Tem certeza que deseja desativar "${deleteDialog.sellerName}"? Esta ação pode ser revertida.`}
+        confirmText="Sim, Desativar"
+        variant="destructive"
+        onConfirm={() => {
+          deleteSellerMutation.mutate(deleteDialog.sellerId);
+          setDeleteDialog({ open: false, sellerId: '', sellerName: '' });
+        }}
+      />
     </div>
   );
 }

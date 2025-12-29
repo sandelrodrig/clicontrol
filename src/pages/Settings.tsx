@@ -7,14 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { User, Phone, Mail, Save, Shield, Palette, Smartphone, Building2, CreditCard, Copy } from 'lucide-react';
+import { User, Phone, Mail, Save, Shield, Palette, Smartphone, Building2, CreditCard, Copy, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { InstallPWA } from '@/components/InstallPWA';
+import { usePWA } from '@/hooks/usePWA';
 
 export default function Settings() {
   const { user, profile, isAdmin, isSeller } = useAuth();
+  const { updateAvailable, checkForUpdates, applyUpdate } = usePWA();
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState({
@@ -90,17 +93,56 @@ export default function Settings() {
         <p className="text-muted-foreground">Gerencie suas preferências e informações</p>
       </div>
 
-      {/* Theme Selector Card */}
+      {/* Theme Selector Card - Only for Admin */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              Tema do Sistema
+            </CardTitle>
+            <CardDescription>Personalize a aparência do aplicativo</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ThemeSelector />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* App Update Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
-            Tema do Sistema
+            <RefreshCw className="h-5 w-5" />
+            Atualização do App
           </CardTitle>
-          <CardDescription>Personalize a aparência do aplicativo</CardDescription>
+          <CardDescription>Verifique se há atualizações disponíveis</CardDescription>
         </CardHeader>
-        <CardContent>
-          <ThemeSelector />
+        <CardContent className="space-y-4">
+          {updateAvailable ? (
+            <div className="space-y-3">
+              <p className="text-sm text-success">Nova versão disponível!</p>
+              <Button onClick={applyUpdate} className="w-full">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Atualizar Agora
+              </Button>
+            </div>
+          ) : (
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={async () => {
+                setIsCheckingUpdates(true);
+                await checkForUpdates();
+                setIsCheckingUpdates(false);
+                toast.success('Você está usando a versão mais recente!');
+              }}
+              disabled={isCheckingUpdates}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
+              {isCheckingUpdates ? 'Verificando...' : 'Verificar Atualizações'}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
