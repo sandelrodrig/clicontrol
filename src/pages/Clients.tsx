@@ -26,9 +26,10 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -592,48 +593,9 @@ export default function Clients() {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+55 11 99999-9999"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email (Conta Premium)</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="email@premium.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="premium_password">Senha da Conta Premium</Label>
-                  <Input
-                    id="premium_password"
-                    type="password"
-                    value={formData.premium_password}
-                    onChange={(e) => setFormData({ ...formData, premium_password: e.target.value })}
-                    placeholder="Senha da conta premium"
-                  />
-                </div>
-                
-                {/* Category Select */}
-                <div className="space-y-2">
-                  <Label>Categoria</Label>
+                {/* Category Select - FIRST */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Categoria *</Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData({ ...formData, category: value })}
@@ -652,7 +614,7 @@ export default function Clients() {
                 </div>
                 
                 {/* Add New Category */}
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label>Nova Categoria</Label>
                   <div className="flex gap-2">
                     <Input
@@ -675,6 +637,52 @@ export default function Clients() {
                     </Button>
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="+55 11 99999-9999"
+                  />
+                </div>
+
+                {/* Premium Account Fields - Only show for Contas Premium category */}
+                {formData.category === 'Contas Premium' && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email (Conta Premium)</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        placeholder="email@premium.com"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="premium_password">Senha da Conta Premium</Label>
+                      <Input
+                        id="premium_password"
+                        type="password"
+                        value={formData.premium_password}
+                        onChange={(e) => setFormData({ ...formData, premium_password: e.target.value })}
+                        placeholder="Senha da conta premium"
+                      />
+                    </div>
+                  </>
+                )}
+                
                 <div className="space-y-2 md:col-span-2">
                   <Label>Dispositivos</Label>
                   <Popover>
@@ -804,38 +812,70 @@ export default function Clients() {
                   </div>
                 )}
 
+                {/* Expiration Date with Calendar */}
                 <div className="space-y-2">
-                  <Label htmlFor="expiration_date">Data de Vencimento *</Label>
-                  <Input
-                    id="expiration_date"
-                    type="date"
-                    value={formData.expiration_date}
-                    onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
-                    required
-                  />
+                  <Label>Data de Vencimento *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !formData.expiration_date && "text-muted-foreground"
+                        )}
+                        type="button"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.expiration_date 
+                          ? format(new Date(formData.expiration_date), "dd/MM/yyyy", { locale: ptBR })
+                          : "Selecione a data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={formData.expiration_date ? new Date(formData.expiration_date) : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setFormData({ ...formData, expiration_date: format(date, 'yyyy-MM-dd') });
+                          }
+                        }}
+                        initialFocus
+                        locale={ptBR}
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login" className="flex items-center gap-1">
-                    Login
-                    <Lock className="h-3 w-3 text-muted-foreground" />
-                  </Label>
-                  <Input
-                    id="login"
-                    value={formData.login}
-                    onChange={(e) => setFormData({ ...formData, login: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="flex items-center gap-1">
-                    Senha
-                    <Lock className="h-3 w-3 text-muted-foreground" />
-                  </Label>
-                  <Input
-                    id="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  />
-                </div>
+
+                {/* IPTV/SSH Login and Password - Only show for IPTV, P2P, or SSH categories */}
+                {(formData.category === 'IPTV' || formData.category === 'P2P' || formData.category === 'SSH') && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="login" className="flex items-center gap-1">
+                        Login (IPTV/SSH)
+                        <Lock className="h-3 w-3 text-muted-foreground" />
+                      </Label>
+                      <Input
+                        id="login"
+                        value={formData.login}
+                        onChange={(e) => setFormData({ ...formData, login: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password" className="flex items-center gap-1">
+                        Senha (IPTV/SSH)
+                        <Lock className="h-3 w-3 text-muted-foreground" />
+                      </Label>
+                      <Input
+                        id="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="is_paid">Status de Pagamento</Label>
                   <Select
