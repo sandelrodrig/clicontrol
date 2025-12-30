@@ -3,7 +3,7 @@ import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp, Bell, MessageCircle, Send, Copy, ExternalLink, Timer } from 'lucide-react';
+import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp, Bell, Send, Copy, ExternalLink, Timer, Server, Trash2, Archive } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +34,17 @@ interface Client {
   password: string | null;
   premium_password: string | null;
   server_name: string | null;
+  server_id: string | null;
   telegram: string | null;
+  is_archived: boolean | null;
+}
+
+interface ServerData {
+  id: string;
+  name: string;
+  monthly_cost: number | null;
+  is_credit_based: boolean | null;
+  is_active: boolean | null;
 }
 
 export default function Dashboard() {
@@ -49,9 +59,42 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from('clients')
         .select('*')
-        .eq('seller_id', user.id);
+        .eq('seller_id', user.id)
+        .eq('is_archived', false);
       if (error) throw error;
       return data as Client[] || [];
+    },
+    enabled: !!user?.id && isSeller,
+  });
+
+  // Fetch servers for profit calculation
+  const { data: serversData = [] } = useQuery({
+    queryKey: ['servers-dashboard', user?.id],
+    queryFn: async () => {
+      if (!user?.id || !isSeller) return [];
+      const { data, error } = await supabase
+        .from('servers')
+        .select('id, name, monthly_cost, is_credit_based, is_active')
+        .eq('seller_id', user.id)
+        .eq('is_active', true);
+      if (error) throw error;
+      return data as ServerData[] || [];
+    },
+    enabled: !!user?.id && isSeller,
+  });
+
+  // Fetch archived clients count
+  const { data: archivedCount = 0 } = useQuery({
+    queryKey: ['archived-clients-count', user?.id],
+    queryFn: async () => {
+      if (!user?.id || !isSeller) return 0;
+      const { count, error } = await supabase
+        .from('clients')
+        .select('id', { count: 'exact', head: true })
+        .eq('seller_id', user.id)
+        .eq('is_archived', true);
+      if (error) throw error;
+      return count || 0;
     },
     enabled: !!user?.id && isSeller,
   });
@@ -98,7 +141,38 @@ export default function Dashboard() {
   const expiredClients = clients.filter(c => isBefore(new Date(c.expiration_date), today));
   const unpaidClients = clients.filter(c => !c.is_paid);
 
-  const totalRevenue = clients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
+  // Only count active (not expired) and paid clients for revenue
+  const activeRevenue = clients
+    .filter(c => !isBefore(new Date(c.expiration_date), today) && c.is_paid)
+    .reduce((sum, c) => sum + (c.plan_price || 0), 0);
+
+  const totalRevenue = activeRevenue;
+
+  // Total server costs
+  const totalServerCosts = serversData.reduce((sum, s) => sum + (s.monthly_cost || 0), 0);
+  
+  // Net profit
+  const netProfit = totalRevenue - totalServerCosts;
+
+  // Calculate profit per server
+  const serverProfits = serversData.map(server => {
+    const serverClients = clients.filter(c => 
+      c.server_id === server.id && 
+      !isBefore(new Date(c.expiration_date), today) &&
+      c.is_paid
+    );
+    const serverRevenue = serverClients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
+    const serverCost = server.monthly_cost || 0;
+    const serverProfit = serverRevenue - serverCost;
+    
+    return {
+      ...server,
+      clientCount: serverClients.length,
+      revenue: serverRevenue,
+      cost: serverCost,
+      profit: serverProfit,
+    };
+  }).sort((a, b) => b.profit - a.profit);
 
   // Clients expiring in specific days (1, 2, 3, 4, 5 days)
   const getClientsExpiringInDays = (days: number) => {
@@ -346,14 +420,14 @@ export default function Dashboard() {
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5 text-success" />
-                  Receita Total
+                  Receita
                 </CardTitle>
-                <CardDescription>Soma dos valores dos planos</CardDescription>
+                <CardDescription>Clientes ativos e pagos</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-3xl font-bold text-success">
@@ -365,25 +439,132 @@ export default function Dashboard() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  Resumo Financeiro
+                  <Server className="h-5 w-5 text-destructive" />
+                  Custos Fixos
                 </CardTitle>
-                <CardDescription>Visão geral</CardDescription>
+                <CardDescription>Servidores ativos</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Clientes não pagos:</span>
-                  <span className="font-medium text-destructive">{isPrivacyMode ? '●●' : unpaidClients.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Média por cliente:</span>
-                  <span className="font-medium">
-                    {maskData(`R$ ${clients.length > 0 ? (totalRevenue / clients.length).toFixed(2) : '0.00'}`, 'money')}
-                  </span>
-                </div>
+              <CardContent>
+                <p className="text-3xl font-bold text-destructive">
+                  {maskData(`R$ ${totalServerCosts.toFixed(2)}`, 'money')}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className={cn(
+              "border-2",
+              netProfit >= 0 ? "border-success/50 bg-success/5" : "border-destructive/50 bg-destructive/5"
+            )}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className={cn("h-5 w-5", netProfit >= 0 ? "text-success" : "text-destructive")} />
+                  Lucro Líquido
+                </CardTitle>
+                <CardDescription>Receita - Custos</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className={cn("text-3xl font-bold", netProfit >= 0 ? "text-success" : "text-destructive")}>
+                  {maskData(`R$ ${netProfit.toFixed(2)}`, 'money')}
+                </p>
               </CardContent>
             </Card>
           </div>
+
+          {/* Server Profits Section */}
+          {serverProfits.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Server className="h-5 w-5" />
+                  Lucro por Servidor
+                </CardTitle>
+                <CardDescription>Receita dos clientes ativos menos custo mensal</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {serverProfits.map(server => (
+                    <div 
+                      key={server.id}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-lg border",
+                        server.profit >= 0 ? "bg-success/5 border-success/20" : "bg-destructive/5 border-destructive/20"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "p-2 rounded-full",
+                          server.profit >= 0 ? "bg-success/20" : "bg-destructive/20"
+                        )}>
+                          <Server className={cn("h-4 w-4", server.profit >= 0 ? "text-success" : "text-destructive")} />
+                        </div>
+                        <div>
+                          <p className="font-medium">{server.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {server.clientCount} cliente{server.clientCount !== 1 ? 's' : ''} • 
+                            Custo: {maskData(`R$ ${server.cost.toFixed(2)}`, 'money')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Receita: {maskData(`R$ ${server.revenue.toFixed(2)}`, 'money')}</p>
+                        <p className={cn("font-bold", server.profit >= 0 ? "text-success" : "text-destructive")}>
+                          {maskData(`R$ ${server.profit.toFixed(2)}`, 'money')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Archived Clients Card */}
+          {archivedCount > 0 && (
+            <Card className="border-muted bg-muted/20">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-muted">
+                      <Archive className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Lixeira</p>
+                      <p className="text-sm text-muted-foreground">{archivedCount} cliente{archivedCount !== 1 ? 's' : ''} arquivado{archivedCount !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                  <Link to="/clients?filter=archived">
+                    <Button variant="outline" size="sm">Ver lixeira</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Resumo */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Resumo
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Clientes não pagos:</span>
+                <span className="font-medium text-destructive">{isPrivacyMode ? '●●' : unpaidClients.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Média por cliente:</span>
+                <span className="font-medium">
+                  {maskData(`R$ ${activeClients.length > 0 ? (totalRevenue / activeClients.length).toFixed(2) : '0.00'}`, 'money')}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Servidores ativos:</span>
+                <span className="font-medium">{serversData.length}</span>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Urgent Clients List - Sorted by days remaining */}
           {urgentClients.length > 0 && (

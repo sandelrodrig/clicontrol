@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -61,6 +61,8 @@ interface Client {
   paid_apps_duration: string | null;
   paid_apps_expiration: string | null;
   telegram: string | null;
+  is_archived: boolean | null;
+  archived_at: string | null;
 }
 
 interface ClientCategory {
@@ -89,7 +91,7 @@ interface ServerData {
   panel_url: string | null;
 }
 
-type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid';
+type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid' | 'archived';
 type CategoryFilterType = 'all' | 'IPTV' | 'P2P' | 'Contas Premium' | 'SSH' | 'custom';
 
 const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH'] as const;
@@ -330,6 +332,42 @@ export default function Clients() {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       toast.success('Todos os clientes foram excluídos!');
       setShowDeleteAllConfirm(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('clients')
+        .update({ is_archived: true, archived_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['archived-clients-count'] });
+      toast.success('Cliente movido para lixeira!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('clients')
+        .update({ is_archived: false, archived_at: null })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['archived-clients-count'] });
+      toast.success('Cliente restaurado!');
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -590,7 +628,11 @@ export default function Clients() {
     return 'active';
   };
 
-  const filteredClients = clients.filter((client) => {
+  // Separate archived and active clients
+  const activeClients = clients.filter(c => !c.is_archived);
+  const archivedClients = clients.filter(c => c.is_archived);
+
+  const filteredClients = (filter === 'archived' ? archivedClients : activeClients).filter((client) => {
     const matchesSearch =
       client.name.toLowerCase().includes(search.toLowerCase()) ||
       client.phone?.includes(search) ||
@@ -602,6 +644,9 @@ export default function Clients() {
     if (categoryFilter !== 'all' && client.category !== categoryFilter) {
       return false;
     }
+
+    // For archived filter, just return all archived clients that match search/category
+    if (filter === 'archived') return true;
 
     const status = getClientStatus(client);
     switch (filter) {
@@ -1194,11 +1239,15 @@ export default function Clients() {
         {/* Status Filter Tabs */}
         <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterType)} className="w-full">
           <TabsList className="flex-wrap h-auto gap-1">
-            <TabsTrigger value="all">Todos</TabsTrigger>
+            <TabsTrigger value="all">Todos ({activeClients.length})</TabsTrigger>
             <TabsTrigger value="active">Ativos</TabsTrigger>
             <TabsTrigger value="expiring">Vencendo</TabsTrigger>
             <TabsTrigger value="expired">Vencidos</TabsTrigger>
             <TabsTrigger value="unpaid">Não Pagos</TabsTrigger>
+            <TabsTrigger value="archived" className="gap-1">
+              <Archive className="h-3 w-3" />
+              Lixeira ({archivedClients.length})
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -1368,26 +1417,54 @@ export default function Clients() {
                         Mensagem
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => handleEdit(client)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive"
-                      onClick={() => {
-                        if (confirm('Tem certeza que deseja excluir este cliente?')) {
-                          deleteMutation.mutate(client.id);
-                        }
-                      }}
-                    >
-                      Apagar
-                    </Button>
+                    {/* Show different buttons based on archived status */}
+                    {client.is_archived ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1 text-success hover:text-success"
+                          onClick={() => restoreMutation.mutate(client.id)}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Restaurar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs text-destructive hover:text-destructive"
+                          onClick={() => {
+                            if (confirm('Tem certeza que deseja EXCLUIR PERMANENTEMENTE este cliente?')) {
+                              deleteMutation.mutate(client.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Excluir
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => handleEdit(client)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1 text-muted-foreground hover:text-warning"
+                          onClick={() => archiveMutation.mutate(client.id)}
+                          title="Mover para lixeira"
+                        >
+                          <Archive className="h-3 w-3" />
+                          Arquivar
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
