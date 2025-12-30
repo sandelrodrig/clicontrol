@@ -59,8 +59,6 @@ interface ParsedClient {
   error?: string;
 }
 
-const VALID_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH'];
-
 // Map common category variations to standard categories
 const CATEGORY_MAPPINGS: Record<string, string> = {
   'iptv': 'IPTV',
@@ -94,21 +92,25 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
   const [parsedClients, setParsedClients] = useState<ParsedClient[]>([]);
   const [step, setStep] = useState<'input' | 'preview'>('input');
 
+  // Normalize category - accepts any category, but maps known variations
   const normalizeCategory = (cat: string): string => {
-    const normalized = (cat || '').trim().toLowerCase();
+    const trimmed = (cat || '').trim();
+    if (!trimmed) return '';
+    
+    const normalized = trimmed.toLowerCase();
 
-    const directMatch = VALID_CATEGORIES.find(c => c.toLowerCase() === normalized);
-    if (directMatch) return directMatch;
-
+    // Check for mapped variations
     const mapped = CATEGORY_MAPPINGS[normalized];
     if (mapped) return mapped;
 
+    // Check for partial matches
     if (normalized.includes('iptv')) return 'IPTV';
     if (normalized.includes('p2p')) return 'P2P';
     if (normalized.includes('premium')) return 'Contas Premium';
     if (normalized.includes('ssh')) return 'SSH';
 
-    return '';
+    // Return original category in uppercase for consistency
+    return trimmed.toUpperCase();
   };
 
   // Find the best matching plan based on days until expiration and category
@@ -259,27 +261,11 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
         };
       }
 
+      // Use category from input or default - accepts any category
       let category = defaultCategory;
       if (categoryInput) {
         const normalized = normalizeCategory(categoryInput);
-        if (normalized) category = normalized;
-        else {
-          return {
-            name,
-            phone,
-            login,
-            password,
-            category: categoryInput,
-            server: '',
-            price: null,
-            expiration_date: null,
-            detected_plan_id: null, 
-            detected_plan_name: null, 
-            detected_duration_days: null,
-            valid: false,
-            error: `Linha ${index + (hasHeader ? 2 : 1)}: Categoria "${categoryInput}" inválida. Use: IPTV, P2P, Contas Premium ou SSH`
-          };
-        }
+        category = normalized || categoryInput.toUpperCase();
       }
 
       const phoneDigits = digitsOnly(phone);
@@ -508,12 +494,13 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                 {TEMPLATE}
               </pre>
               <div className="flex flex-wrap gap-1">
-                <span className="text-xs text-muted-foreground">Categorias válidas:</span>
-                {VALID_CATEGORIES.map(cat => (
+                <span className="text-xs text-muted-foreground">Exemplos de categorias:</span>
+                {['IPTV', 'P2P', 'Contas Premium', 'SSH'].map(cat => (
                   <Badge key={cat} variant="outline" className="text-xs py-0">
                     {cat}
                   </Badge>
                 ))}
+                <span className="text-xs text-muted-foreground ml-1">(aceita qualquer categoria)</span>
               </div>
             </div>
 
@@ -539,13 +526,13 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {VALID_CATEGORIES.map(cat => (
+                    {['IPTV', 'P2P', 'Contas Premium', 'SSH'].map(cat => (
                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Usada quando a categoria não for informada na linha
+                  Usada apenas quando a categoria não for informada
                 </p>
               </div>
             </div>
