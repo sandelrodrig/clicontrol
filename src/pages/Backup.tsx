@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Database, Download, Upload, AlertTriangle, CheckCircle } from 'lucide-react';
+import { ImportClientsFromProject } from '@/components/ImportClientsFromProject';
 
 interface BackupData {
   version: string;
@@ -208,6 +209,9 @@ export default function Backup() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Import Clients from Project - Admin only */}
+      <ImportClientsFromProject />
 
       <Card>
         <CardHeader>
