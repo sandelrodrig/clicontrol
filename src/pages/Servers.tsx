@@ -177,13 +177,13 @@ export default function Servers() {
     setEditingServer(server);
     setFormData({
       name: server.name,
-      monthly_cost: server.monthly_cost.toString(),
+      monthly_cost: server.monthly_cost > 0 ? server.monthly_cost.toString() : '',
       is_active: server.is_active,
       notes: server.notes || '',
       is_credit_based: server.is_credit_based || false,
-      credit_value: server.credit_value?.toString() || '',
-      total_credits: server.total_credits?.toString() || '',
-      used_credits: server.used_credits?.toString() || '',
+      credit_value: server.credit_value && server.credit_value > 0 ? server.credit_value.toString() : '',
+      total_credits: server.total_credits && server.total_credits > 0 ? server.total_credits.toString() : '',
+      used_credits: server.used_credits && server.used_credits > 0 ? server.used_credits.toString() : '',
       panel_url: server.panel_url || '',
     });
     setIsDialogOpen(true);
@@ -249,7 +249,7 @@ export default function Servers() {
                   min="0"
                   value={formData.monthly_cost}
                   onChange={(e) => setFormData({ ...formData, monthly_cost: e.target.value })}
-                  placeholder="0.00"
+                  placeholder="Ex: 100.00"
                 />
               </div>
               

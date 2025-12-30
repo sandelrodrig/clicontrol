@@ -166,9 +166,9 @@ export default function Coupons() {
       code: coupon.code,
       name: coupon.name,
       discount_type: coupon.discount_type,
-      discount_value: coupon.discount_value.toString(),
+      discount_value: coupon.discount_value > 0 ? coupon.discount_value.toString() : '',
       max_uses: coupon.max_uses?.toString() || '',
-      min_plan_value: coupon.min_plan_value?.toString() || '',
+      min_plan_value: coupon.min_plan_value && coupon.min_plan_value > 0 ? coupon.min_plan_value.toString() : '',
       expires_at: coupon.expires_at ? format(new Date(coupon.expires_at), 'yyyy-MM-dd') : '',
       is_active: coupon.is_active,
     });

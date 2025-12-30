@@ -281,16 +281,16 @@ export default function SharedPanels() {
     setFormData({
       name: panel.name,
       panel_type: panel.panel_type,
-      total_slots: panel.total_slots.toString(),
-      monthly_cost: panel.monthly_cost.toString(),
+      total_slots: panel.total_slots > 0 ? panel.total_slots.toString() : '',
+      monthly_cost: panel.monthly_cost > 0 ? panel.monthly_cost.toString() : '',
       login: panel.login || '',
       password: panel.password || '',
       url: panel.url || '',
       notes: panel.notes || '',
       is_active: panel.is_active,
       expires_at: panel.expires_at || '',
-      iptv_per_credit: (panel.iptv_per_credit || 1).toString(),
-      p2p_per_credit: (panel.p2p_per_credit || 0).toString(),
+      iptv_per_credit: panel.iptv_per_credit > 0 ? panel.iptv_per_credit.toString() : '',
+      p2p_per_credit: panel.p2p_per_credit > 0 ? panel.p2p_per_credit.toString() : '',
     });
     setIsDialogOpen(true);
   };
@@ -473,7 +473,7 @@ export default function SharedPanels() {
                     min="0"
                     value={formData.monthly_cost}
                     onChange={(e) => setFormData({ ...formData, monthly_cost: e.target.value })}
-                    placeholder="0.00"
+                    placeholder="Ex: 100.00"
                   />
                 </div>
                 <div className="space-y-2">
