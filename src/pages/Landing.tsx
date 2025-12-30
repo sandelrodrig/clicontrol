@@ -90,7 +90,7 @@ export default function Landing() {
 
             {/* Main Title */}
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight animate-fade-in">
-              <span className="text-foreground">Organize sua revenda.</span>
+              <span className="text-foreground">Organize suas vendas.</span>
               <br />
               <span className="text-primary">Nunca mais perca uma renovação.</span>
             </h1>
