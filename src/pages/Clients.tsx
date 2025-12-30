@@ -1276,58 +1276,55 @@ export default function Clients() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1 mt-4 pt-3 border-t border-border">
+                  <div className="flex flex-wrap items-center gap-1 mt-4 pt-3 border-t border-border">
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
                       onClick={() => handleRenew(client)}
-                      title="Renovar"
                     >
-                      <RefreshCw className="h-4 w-4 text-success" />
+                      Renovar
                     </Button>
                     {/* Open Panel Button */}
                     {client.server_id && getClientServer(client)?.panel_url && (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
                         onClick={() => handleOpenPanel(client)}
-                        title="Abrir Painel"
                       >
-                        <ExternalLink className="h-4 w-4 text-primary" />
+                        Painel
                       </Button>
                     )}
                     {client.phone && (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
                         onClick={() => setMessageClient(client)}
-                        title="Enviar mensagem"
                       >
-                        <MessageCircle className="h-4 w-4" />
+                        Mensagem
                       </Button>
                     )}
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
                       onClick={() => handleEdit(client)}
                     >
-                      <Edit className="h-4 w-4" />
+                      Editar
                     </Button>
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
                       onClick={() => {
                         if (confirm('Tem certeza que deseja excluir este cliente?')) {
                           deleteMutation.mutate(client.id);
                         }
                       }}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      Apagar
                     </Button>
                   </div>
                 </CardContent>
