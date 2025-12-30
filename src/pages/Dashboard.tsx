@@ -3,7 +3,7 @@ import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp, Bell, MessageCircle, Send } from 'lucide-react';
+import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp, Bell, MessageCircle, Send, Copy, ExternalLink, Timer } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,12 @@ import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { SendMessageDialog } from '@/components/SendMessageDialog';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
+
+// Admin contact info for renewals
+const ADMIN_WHATSAPP = '5531998518865';
+const ADMIN_PIX = 'sandelrodrig@gmail.com';
+const ADMIN_NAME = 'Sandel';
 
 interface Client {
   id: string;
@@ -125,8 +131,106 @@ export default function Dashboard() {
     return !isNaN(date.getTime()) && isBefore(date, today);
   });
 
+  // Subscription days remaining for seller
+  const subscriptionDaysRemaining = profile?.subscription_expires_at 
+    ? differenceInDays(new Date(profile.subscription_expires_at), today)
+    : null;
+  
+  const isOnTrial = subscriptionDaysRemaining !== null && subscriptionDaysRemaining <= 5 && subscriptionDaysRemaining >= 0;
+  const needsRenewalWarning = subscriptionDaysRemaining !== null && subscriptionDaysRemaining <= 3 && !profile?.is_permanent;
+
+  const copyPixKey = () => {
+    navigator.clipboard.writeText(ADMIN_PIX);
+    toast.success('Chave PIX copiada!');
+  };
+
+  const openWhatsAppAdmin = () => {
+    const message = encodeURIComponent(`Olá ${ADMIN_NAME}! Gostaria de renovar minha assinatura do PSControl. Meu email: ${profile?.email}`);
+    window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${message}`, '_blank');
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Subscription Counter Banner */}
+      {isSeller && !profile?.is_permanent && subscriptionDaysRemaining !== null && (
+        <Card className={cn(
+          "border-2 overflow-hidden",
+          subscriptionDaysRemaining <= 0 ? "border-destructive bg-destructive/10" :
+          subscriptionDaysRemaining <= 3 ? "border-warning bg-gradient-to-r from-warning/20 to-destructive/20" :
+          subscriptionDaysRemaining <= 5 ? "border-warning/50 bg-warning/10" :
+          "border-primary/30 bg-primary/5"
+        )}>
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              {/* Counter */}
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "flex flex-col items-center justify-center w-20 h-20 rounded-2xl",
+                  subscriptionDaysRemaining <= 0 ? "bg-destructive text-destructive-foreground" :
+                  subscriptionDaysRemaining <= 3 ? "bg-warning text-warning-foreground" :
+                  "bg-primary text-primary-foreground"
+                )}>
+                  <Timer className="h-5 w-5 mb-1" />
+                  <span className="text-3xl font-bold">{Math.max(0, subscriptionDaysRemaining)}</span>
+                  <span className="text-[10px] uppercase">dias</span>
+                </div>
+                <div>
+                  <h3 className={cn(
+                    "font-bold text-lg",
+                    subscriptionDaysRemaining <= 0 ? "text-destructive" :
+                    subscriptionDaysRemaining <= 3 ? "text-warning" : "text-foreground"
+                  )}>
+                    {subscriptionDaysRemaining <= 0 ? 'Assinatura Expirada!' :
+                     subscriptionDaysRemaining <= 3 ? 'Renove sua Assinatura!' :
+                     isOnTrial ? 'Período de Teste' : 'Sua Assinatura'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {subscriptionDaysRemaining <= 0 
+                      ? 'Seu acesso foi suspenso. Renove para continuar usando.'
+                      : subscriptionDaysRemaining <= 3
+                        ? `Faltam apenas ${subscriptionDaysRemaining} dia${subscriptionDaysRemaining > 1 ? 's' : ''} para expirar!`
+                        : `Expira em ${format(new Date(profile.subscription_expires_at!), "dd 'de' MMMM", { locale: ptBR })}`
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* Renewal Info - Show when 3 days or less */}
+              {needsRenewalWarning && (
+                <div className="flex flex-col gap-2 p-3 rounded-xl bg-card/80 border border-border">
+                  <p className="text-xs font-medium text-muted-foreground">Para renovar, envie o comprovante para:</p>
+                  
+                  {/* PIX Key */}
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 bg-muted rounded-lg text-sm font-mono truncate">
+                      {ADMIN_PIX}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copyPixKey}
+                      className="gap-1 shrink-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copiar PIX
+                    </Button>
+                  </div>
+
+                  {/* WhatsApp Button */}
+                  <Button
+                    onClick={openWhatsAppAdmin}
+                    className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Enviar Comprovante no WhatsApp
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
