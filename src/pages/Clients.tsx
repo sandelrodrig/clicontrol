@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -90,6 +90,7 @@ interface ServerData {
   id: string;
   name: string;
   is_active: boolean;
+  is_credit_based: boolean;
   panel_url: string | null;
   iptv_per_credit: number;
   p2p_per_credit: number;
@@ -197,7 +198,7 @@ export default function Clients() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('servers')
-        .select('id, name, is_active, panel_url, iptv_per_credit, p2p_per_credit, total_screens_per_credit')
+        .select('id, name, is_active, is_credit_based, panel_url, iptv_per_credit, p2p_per_credit, total_screens_per_credit')
         .eq('seller_id', user!.id)
         .order('name');
       if (error) throw error;
@@ -283,7 +284,7 @@ export default function Clients() {
   }, [decrypt, decryptedCredentials]);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null }) => {
+    mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null; screens?: string }) => {
       // Encrypt login and password before saving
       const encrypted = await encryptCredentials(data.login || null, data.password || null);
       
@@ -295,7 +296,7 @@ export default function Clients() {
       }]).select('id').single();
       if (error) throw error;
       
-      // If a shared credit is selected, link the client to the panel
+      // If a shared credit is selected (using existing slot), link the client
       if (selectedSharedCredit && insertedData?.id) {
         const { error: panelError } = await supabase.from('panel_clients').insert([{
           panel_id: selectedSharedCredit.serverId,
@@ -305,7 +306,58 @@ export default function Clients() {
         }]);
         if (panelError) {
           console.error('Error linking to shared credit:', panelError);
-          // Don't throw - client was created successfully
+        }
+      } 
+      // If it's a credit-based server and NOT using shared credit, register the screens used
+      else if (data.server_id && insertedData?.id) {
+        const server = servers.find(s => s.id === data.server_id);
+        if (server?.is_credit_based) {
+          const screensUsed = parseInt(data.screens || '1');
+          const category = formData.category;
+          
+          // Determine slot types based on category and screens
+          const panelEntries: { panel_id: string; client_id: string; seller_id: string; slot_type: string }[] = [];
+          
+          if (category === 'P2P') {
+            // P2P client - all screens are P2P
+            for (let i = 0; i < screensUsed; i++) {
+              panelEntries.push({
+                panel_id: data.server_id,
+                client_id: insertedData.id,
+                seller_id: user!.id,
+                slot_type: 'p2p',
+              });
+            }
+          } else {
+            // IPTV or mixed - handle WPLAY special case
+            const isWplay = server.name?.toUpperCase() === 'WPLAY';
+            
+            if (isWplay && screensUsed === 3) {
+              // WPLAY 3 screens = 2 IPTV + 1 P2P
+              panelEntries.push(
+                { panel_id: data.server_id, client_id: insertedData.id, seller_id: user!.id, slot_type: 'iptv' },
+                { panel_id: data.server_id, client_id: insertedData.id, seller_id: user!.id, slot_type: 'iptv' },
+                { panel_id: data.server_id, client_id: insertedData.id, seller_id: user!.id, slot_type: 'p2p' }
+              );
+            } else {
+              // All IPTV
+              for (let i = 0; i < screensUsed; i++) {
+                panelEntries.push({
+                  panel_id: data.server_id,
+                  client_id: insertedData.id,
+                  seller_id: user!.id,
+                  slot_type: 'iptv',
+                });
+              }
+            }
+          }
+          
+          if (panelEntries.length > 0) {
+            const { error: panelError } = await supabase.from('panel_clients').insert(panelEntries);
+            if (panelError) {
+              console.error('Error registering credit slots:', panelError);
+            }
+          }
         }
       }
       
@@ -551,6 +603,7 @@ export default function Clients() {
       has_paid_apps: formData.has_paid_apps || false,
       paid_apps_duration: formData.paid_apps_duration || null,
       paid_apps_expiration: formData.paid_apps_expiration || null,
+      screens: formData.screens || '1',
     };
 
     if (editingClient) {
@@ -1034,40 +1087,64 @@ export default function Clients() {
                   </div>
                 )}
 
-                {/* Screen Selection - Only show when server has multiple screen options */}
-                {formData.category !== 'Contas Premium' && formData.server_id && hasMultipleScreenOptions && (
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <Monitor className="h-4 w-4" />
-                      Telas
-                    </Label>
-                    <Select
-                      value={formData.screens}
-                      onValueChange={(value) => setFormData({ ...formData, screens: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione as telas" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isWplayServer ? (
-                          <>
-                            <SelectItem value="1">1 Tela</SelectItem>
-                            <SelectItem value="2">2 Telas</SelectItem>
-                            <SelectItem value="3">3 Telas (2 IPTV + 1 P2P)</SelectItem>
-                          </>
-                        ) : (
-                          Array.from({ length: maxScreens }, (_, i) => i + 1).map((num) => (
-                            <SelectItem key={num} value={num.toString()}>
-                              {num} {num === 1 ? 'Tela' : 'Telas'}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {isWplayServer && formData.screens === '3' && (
-                      <p className="text-xs text-muted-foreground">
-                        WPLAY: 2 telas IPTV + 1 tela P2P no mesmo crédito
-                      </p>
+                {/* Screen Selection for Credit-Based Servers */}
+                {formData.category !== 'Contas Premium' && formData.server_id && selectedServer?.is_credit_based && (
+                  <div className="space-y-3 p-4 rounded-lg bg-gradient-to-br from-blue-500/5 to-blue-500/10 border border-blue-500/30">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-5 w-5 text-blue-500" />
+                      <h4 className="font-semibold text-blue-600 dark:text-blue-400">Gestão de Telas do Crédito</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">
+                          Telas por crédito no servidor
+                        </Label>
+                        <div className="p-2 rounded-md bg-muted text-center font-bold">
+                          {selectedServer?.total_screens_per_credit || 1}
+                          <span className="text-xs font-normal text-muted-foreground ml-1">
+                            ({selectedServer?.iptv_per_credit || 0} IPTV + {selectedServer?.p2p_per_credit || 0} P2P)
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs">
+                          Telas que o cliente comprou
+                        </Label>
+                        <Select
+                          value={formData.screens}
+                          onValueChange={(value) => setFormData({ ...formData, screens: value })}
+                        >
+                          <SelectTrigger className="bg-background">
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {isWplayServer ? (
+                              <>
+                                <SelectItem value="1">1 Tela (IPTV)</SelectItem>
+                                <SelectItem value="2">2 Telas (IPTV)</SelectItem>
+                                <SelectItem value="3">3 Telas (2 IPTV + 1 P2P)</SelectItem>
+                              </>
+                            ) : (
+                              Array.from({ length: maxScreens }, (_, i) => i + 1).map((num) => (
+                                <SelectItem key={num} value={num.toString()}>
+                                  {num} {num === 1 ? 'Tela' : 'Telas'}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    {parseInt(formData.screens) < (selectedServer?.total_screens_per_credit || 1) && (
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                        <Sparkles className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          <strong>{(selectedServer?.total_screens_per_credit || 1) - parseInt(formData.screens)} vaga(s) sobrando!</strong> Após criar este cliente, as vagas restantes ficarão disponíveis para novos clientes.
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
