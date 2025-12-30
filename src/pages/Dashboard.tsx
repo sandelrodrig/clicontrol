@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 const ADMIN_WHATSAPP = '5531998518865';
 const ADMIN_PIX = 'sandelrodrig@gmail.com';
 const ADMIN_NAME = 'Sandel';
+const APP_MONTHLY_PRICE = 25;
 
 interface Client {
   id: string;
@@ -198,6 +199,10 @@ export default function Dashboard() {
               {/* Renewal Info - Show when 3 days or less */}
               {needsRenewalWarning && (
                 <div className="flex flex-col gap-2 p-3 rounded-xl bg-card/80 border border-border">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-medium text-muted-foreground">Valor da renovação:</p>
+                    <p className="text-lg font-bold text-primary">R$ {APP_MONTHLY_PRICE},00/mês</p>
+                  </div>
                   <p className="text-xs font-medium text-muted-foreground">Para renovar, envie o comprovante para:</p>
                   
                   {/* PIX Key */}
