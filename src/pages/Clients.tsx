@@ -64,6 +64,7 @@ interface Client {
   telegram: string | null;
   is_archived: boolean | null;
   archived_at: string | null;
+  created_at: string | null;
 }
 
 interface ClientCategory {
@@ -699,6 +700,28 @@ export default function Clients() {
       default:
         return true;
     }
+  });
+
+  // Sort clients: recently added (last 2 hours) appear at top, then by expiration
+  const sortedClients = [...filteredClients].sort((a, b) => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const aCreatedAt = a.created_at ? new Date(a.created_at) : null;
+    const bCreatedAt = b.created_at ? new Date(b.created_at) : null;
+    
+    const aIsRecent = aCreatedAt && aCreatedAt > twoHoursAgo;
+    const bIsRecent = bCreatedAt && bCreatedAt > twoHoursAgo;
+    
+    // Recent clients first
+    if (aIsRecent && !bIsRecent) return -1;
+    if (!aIsRecent && bIsRecent) return 1;
+    
+    // Among recent clients, newest first
+    if (aIsRecent && bIsRecent) {
+      return bCreatedAt!.getTime() - aCreatedAt!.getTime();
+    }
+    
+    // For older clients, sort by expiration date
+    return new Date(a.expiration_date).getTime() - new Date(b.expiration_date).getTime();
   });
 
   const addCategoryMutation = useMutation({
@@ -1353,7 +1376,7 @@ export default function Clients() {
             </Card>
           ))}
         </div>
-      ) : filteredClients.length === 0 ? (
+      ) : sortedClients.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <User className="h-12 w-12 text-muted-foreground mb-4" />
@@ -1365,12 +1388,14 @@ export default function Clients() {
         </Card>
       ) : (
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredClients.map((client) => {
+          {sortedClients.map((client) => {
             const status = getClientStatus(client);
             const daysLeft = differenceInDays(new Date(client.expiration_date), today);
             const hasCredentials = client.login || client.password;
             const isDecrypted = decryptedCredentials[client.id];
             const isDecrypting = decrypting === client.id;
+            const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+            const isRecentlyAdded = client.created_at && new Date(client.created_at) > twoHoursAgo;
             
             return (
               <Card
@@ -1378,13 +1403,21 @@ export default function Clients() {
                 className={cn(
                   'border-l-4 transition-all duration-200 hover:shadow-lg animate-slide-up',
                   statusColors[status],
-                  !client.is_paid && 'ring-1 ring-destructive/50'
+                  !client.is_paid && 'ring-1 ring-destructive/50',
+                  isRecentlyAdded && 'ring-2 ring-primary/50 bg-primary/5'
                 )}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="space-y-1">
-                      <h3 className="font-semibold text-lg">{maskData(client.name, 'name')}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-lg">{maskData(client.name, 'name')}</h3>
+                        {isRecentlyAdded && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary text-primary-foreground animate-pulse">
+                            NOVO
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-1">
                         <span className={cn('text-xs px-2 py-0.5 rounded-full', statusBadges[status])}>
                           {statusLabels[status]} {daysLeft > 0 && status !== 'expired' && `(${daysLeft}d)`}
