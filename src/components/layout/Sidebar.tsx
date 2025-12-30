@@ -161,31 +161,27 @@ export function Sidebar() {
     setOpen(false);
   }, [location.pathname]);
 
-  // Mobile: Sheet sidebar
+  // Mobile: Sheet sidebar with bottom nav
   if (isMobile) {
     return (
       <>
         {/* Mobile Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-4">
+        <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-center px-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Users className="w-4 h-4 text-primary-foreground" />
             </div>
             <span className="font-semibold text-sidebar-foreground">CliControl</span>
           </div>
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0 bg-sidebar border-sidebar-border">
-              <SidebarContent onNavigate={() => setOpen(false)} />
-            </SheetContent>
-          </Sheet>
         </header>
         {/* Spacer for fixed header */}
         <div className="h-14" />
+        {/* Sheet for full menu */}
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent side="left" className="w-64 p-0 bg-sidebar border-sidebar-border">
+            <SidebarContent onNavigate={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
       </>
     );
   }
@@ -196,4 +192,9 @@ export function Sidebar() {
       <SidebarContent />
     </aside>
   );
+}
+
+export function useSidebarSheet() {
+  const [open, setOpen] = useState(false);
+  return { open, setOpen };
 }
