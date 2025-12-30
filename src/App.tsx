@@ -23,6 +23,7 @@ import Backup from "./pages/Backup";
 import Settings from "./pages/Settings";
 import SharedPanels from "./pages/SharedPanels";
 import MessageHistory from "./pages/MessageHistory";
+import Tutorials from "./pages/Tutorials";
 import ForcePasswordUpdate from "./pages/ForcePasswordUpdate";
 import NotFound from "./pages/NotFound";
 
@@ -74,6 +75,7 @@ const AppRoutes = () => {
           <Route path="/reports" element={<Reports />} />
           <Route path="/backup" element={<Backup />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/tutorials" element={<Tutorials />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
