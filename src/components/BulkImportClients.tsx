@@ -52,6 +52,9 @@ interface ParsedClient {
   server: string;
   price: number | null;
   expiration_date: string | null;
+  detected_plan_id: string | null;
+  detected_plan_name: string | null;
+  detected_duration_days: number | null;
   valid: boolean;
   error?: string;
 }
@@ -91,8 +94,6 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
   const [parsedClients, setParsedClients] = useState<ParsedClient[]>([]);
   const [step, setStep] = useState<'input' | 'preview'>('input');
 
-  const selectedPlan = plans.find(p => p.id === selectedPlanId);
-
   const normalizeCategory = (cat: string): string => {
     const normalized = (cat || '').trim().toLowerCase();
 
@@ -108,6 +109,45 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
     if (normalized.includes('ssh')) return 'SSH';
 
     return '';
+  };
+
+  // Find the best matching plan based on days until expiration and category
+  const findMatchingPlan = (expirationDate: string | null, category: string): { id: string; name: string; duration_days: number; price: number } | null => {
+    if (!expirationDate) return null;
+    
+    const today = new Date();
+    const expDate = new Date(expirationDate);
+    const daysUntilExpiration = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Map days to closest standard duration
+    let targetDuration = 30; // default
+    if (daysUntilExpiration <= 45) targetDuration = 30;
+    else if (daysUntilExpiration <= 120) targetDuration = 90;
+    else if (daysUntilExpiration <= 270) targetDuration = 180;
+    else targetDuration = 365;
+    
+    // Find matching plan by category and duration
+    const matchingPlans = plans.filter(p => 
+      p.category === category && 
+      p.duration_days === targetDuration
+    );
+    
+    if (matchingPlans.length > 0) {
+      // Prefer active plans, then by screens (1 first)
+      const sorted = matchingPlans.sort((a, b) => {
+        return (a.screens || 1) - (b.screens || 1);
+      });
+      const plan = sorted[0];
+      return { id: plan.id, name: plan.name, duration_days: plan.duration_days, price: plan.price };
+    }
+    
+    // Fallback: any plan with that duration
+    const anyDurationMatch = plans.find(p => p.duration_days === targetDuration);
+    if (anyDurationMatch) {
+      return { id: anyDurationMatch.id, name: anyDurationMatch.name, duration_days: anyDurationMatch.duration_days, price: anyDurationMatch.price };
+    }
+    
+    return null;
   };
 
   const parseClients = (text: string): ParsedClient[] => {
@@ -211,7 +251,12 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
       }
 
       if (!name || name.length < 2) {
-        return { name: '', phone: '', login: '', password: '', category: defaultCategory, server: '', price: null, expiration_date: null, valid: false, error: `Linha ${index + (hasHeader ? 2 : 1)}: Nome é obrigatório` };
+        return { 
+          name: '', phone: '', login: '', password: '', category: defaultCategory, 
+          server: '', price: null, expiration_date: null, 
+          detected_plan_id: null, detected_plan_name: null, detected_duration_days: null,
+          valid: false, error: `Linha ${index + (hasHeader ? 2 : 1)}: Nome é obrigatório` 
+        };
       }
 
       let category = defaultCategory;
@@ -228,6 +273,9 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
             server: '',
             price: null,
             expiration_date: null,
+            detected_plan_id: null, 
+            detected_plan_name: null, 
+            detected_duration_days: null,
             valid: false,
             error: `Linha ${index + (hasHeader ? 2 : 1)}: Categoria "${categoryInput}" inválida. Use: IPTV, P2P, Contas Premium ou SSH`
           };
@@ -237,6 +285,9 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
       const phoneDigits = digitsOnly(phone);
       const parsedPrice = parsePrice(priceInput);
       const parsedExpiration = parseDate(expirationInput);
+      
+      // Auto-detect plan based on expiration date and category
+      const detectedPlan = findMatchingPlan(parsedExpiration, category);
 
       return {
         name: name.slice(0, 100),
@@ -247,6 +298,9 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
         server: server.slice(0, 100),
         price: parsedPrice,
         expiration_date: parsedExpiration,
+        detected_plan_id: detectedPlan?.id || null,
+        detected_plan_name: detectedPlan?.name || null,
+        detected_duration_days: detectedPlan?.duration_days || null,
         valid: true
       };
     });
@@ -255,10 +309,6 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
   const handlePreview = () => {
     if (!inputText.trim()) {
       toast.error('Cole os dados dos clientes');
-      return;
-    }
-    if (!selectedPlanId) {
-      toast.error('Selecione um plano');
       return;
     }
 
@@ -274,10 +324,11 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
         throw new Error('Nenhum cliente válido para importar');
       }
 
-      const plan = plans.find(p => p.id === selectedPlanId);
-      if (!plan) throw new Error('Plano não encontrado');
-
-      const defaultExpirationDate = format(addDays(new Date(), plan.duration_days), 'yyyy-MM-dd');
+      // Fallback plan (optional, used when no plan is auto-detected)
+      const fallbackPlan = selectedPlanId ? plans.find(p => p.id === selectedPlanId) : null;
+      const defaultPlan = fallbackPlan || plans[0]; // Use first plan as ultimate fallback
+      
+      if (!defaultPlan) throw new Error('Nenhum plano disponível');
 
       // Get unique server names from import (uppercase, non-empty)
       const uniqueServerNames = [...new Set(
@@ -319,6 +370,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
       }
 
       // Prepare clients with encrypted credentials and server_id
+      // Use auto-detected plan or fallback
       const clientsToInsert = await Promise.all(
         validClients.map(async (client) => {
           const encryptedLogin = client.login ? await encrypt(client.login) : null;
@@ -326,15 +378,20 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
           const serverName = client.server?.trim().toUpperCase() || null;
           const serverId = serverName ? serverMap.get(serverName) || null : null;
 
+          // Use detected plan or fallback
+          const clientPlanId = client.detected_plan_id || defaultPlan.id;
+          const clientPlan = plans.find(p => p.id === clientPlanId) || defaultPlan;
+          const defaultExpirationDate = format(addDays(new Date(), clientPlan.duration_days), 'yyyy-MM-dd');
+
           return {
             seller_id: user!.id,
             name: client.name,
             phone: client.phone || null,
             login: encryptedLogin,
             password: encryptedPassword,
-            plan_id: plan.id,
-            plan_name: plan.name,
-            plan_price: client.price ?? plan.price,
+            plan_id: clientPlan.id,
+            plan_name: clientPlan.name,
+            plan_price: client.price ?? clientPlan.price,
             expiration_date: client.expiration_date || defaultExpirationDate,
             category: client.category,
             server_id: serverId,
@@ -463,14 +520,17 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
             {/* Config section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Plano *</Label>
+                <Label>Plano Padrão (opcional)</Label>
                 <PlanSelector 
                   plans={plans}
                   value={selectedPlanId}
                   onValueChange={setSelectedPlanId}
-                  placeholder="Selecione o plano"
+                  placeholder="Auto-detectar pela validade"
                   showFilters={true}
                 />
+                <p className="text-xs text-muted-foreground">
+                  O plano é detectado automaticamente pela validade. Use apenas como fallback.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Categoria Padrão</Label>
@@ -500,7 +560,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                 className="min-h-[160px] font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Um cliente por linha. Servidor, Valor e Validade são opcionais.
+                Um cliente por linha. O plano é detectado automaticamente pela validade informada.
               </p>
             </div>
 
@@ -509,7 +569,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
               <Button variant="outline" onClick={handleClose}>
                 Cancelar
               </Button>
-              <Button onClick={handlePreview} disabled={!inputText.trim() || !selectedPlanId}>
+              <Button onClick={handlePreview} disabled={!inputText.trim()}>
                 Visualizar
               </Button>
             </div>
@@ -526,11 +586,6 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                 <Badge variant="destructive" className="gap-1">
                   <AlertCircle className="h-3 w-3" />
                   {invalidCount} com erro
-                </Badge>
-              )}
-              {selectedPlan && (
-                <Badge variant="secondary">
-                  {selectedPlan.name} - R$ {selectedPlan.price.toFixed(2)}
                 </Badge>
               )}
             </div>
@@ -565,12 +620,31 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                       <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium truncate">{client.name || '(sem nome)'}</span>
                         {client.valid && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
-                            {client.category}
-                          </Badge>
+                          <>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                              {client.category}
+                            </Badge>
+                            {client.detected_plan_name && (
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-[10px] px-1.5 py-0 shrink-0 ${
+                                  client.detected_duration_days === 30 ? 'bg-blue-500/20 text-blue-500' :
+                                  client.detected_duration_days === 90 ? 'bg-emerald-500/20 text-emerald-500' :
+                                  client.detected_duration_days === 180 ? 'bg-amber-500/20 text-amber-500' :
+                                  client.detected_duration_days === 365 ? 'bg-purple-500/20 text-purple-500' : ''
+                                }`}
+                              >
+                                {client.detected_duration_days === 30 ? 'Mensal' :
+                                 client.detected_duration_days === 90 ? 'Trimestral' :
+                                 client.detected_duration_days === 180 ? 'Semestral' :
+                                 client.detected_duration_days === 365 ? 'Anual' : 
+                                 `${client.detected_duration_days}d`}
+                              </Badge>
+                            )}
+                          </>
                         )}
                       </div>
                       {client.valid ? (
