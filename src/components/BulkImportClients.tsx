@@ -361,8 +361,17 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
         validClients.map(async (client) => {
           const encryptedLogin = client.login ? await encrypt(client.login) : null;
           const encryptedPassword = client.password ? await encrypt(client.password) : null;
-          const serverName = client.server?.trim().toUpperCase() || null;
-          const serverId = serverName ? serverMap.get(serverName) || null : null;
+          
+          // Normalize server name and find server ID
+          const originalServerName = client.server?.trim() || null;
+          const serverNameUpper = originalServerName?.toUpperCase() || null;
+          const serverId = serverNameUpper ? serverMap.get(serverNameUpper) || null : null;
+          
+          // Debug log to verify server mapping
+          if (originalServerName && !serverId) {
+            console.warn(`Server not found for: "${originalServerName}" (uppercase: "${serverNameUpper}")`);
+            console.warn('Available servers:', Array.from(serverMap.entries()));
+          }
 
           // Use detected plan or fallback
           const clientPlanId = client.detected_plan_id || defaultPlan.id;
@@ -381,7 +390,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
             expiration_date: client.expiration_date || defaultExpirationDate,
             category: client.category,
             server_id: serverId,
-            server_name: serverName,
+            server_name: originalServerName ? originalServerName.toUpperCase() : null,
             is_paid: true,
           };
         })
