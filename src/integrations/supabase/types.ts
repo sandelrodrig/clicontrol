@@ -112,6 +112,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          archived_at: string | null
           category: string | null
           created_at: string | null
           device: string | null
@@ -119,6 +120,7 @@ export type Database = {
           expiration_date: string
           has_paid_apps: boolean | null
           id: string
+          is_archived: boolean | null
           is_paid: boolean | null
           login: string | null
           name: string
@@ -139,6 +141,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          archived_at?: string | null
           category?: string | null
           created_at?: string | null
           device?: string | null
@@ -146,6 +149,7 @@ export type Database = {
           expiration_date: string
           has_paid_apps?: boolean | null
           id?: string
+          is_archived?: boolean | null
           is_paid?: boolean | null
           login?: string | null
           name: string
@@ -166,6 +170,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          archived_at?: string | null
           category?: string | null
           created_at?: string | null
           device?: string | null
@@ -173,6 +178,7 @@ export type Database = {
           expiration_date?: string
           has_paid_apps?: boolean | null
           id?: string
+          is_archived?: boolean | null
           is_paid?: boolean | null
           login?: string | null
           name?: string
