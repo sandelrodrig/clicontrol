@@ -1193,11 +1193,12 @@ export default function Clients() {
                 </div>
               </div>
 
-              {/* Shared Credit Picker - Only for IPTV/P2P and new clients */}
-              {!editingClient && (formData.category === 'IPTV' || formData.category === 'P2P') && user && (
+              {/* Shared Credit Picker - Only for IPTV/P2P with selected server and new clients */}
+              {!editingClient && (formData.category === 'IPTV' || formData.category === 'P2P') && formData.server_id && user && (
                 <SharedCreditPicker
                   sellerId={user.id}
                   category={formData.category}
+                  serverId={formData.server_id}
                   selectedCredit={selectedSharedCredit}
                   onSelect={setSelectedSharedCredit}
                 />
