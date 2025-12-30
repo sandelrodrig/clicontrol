@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { Users, Monitor, Wifi, Calendar, Sparkles, Check, X } from 'lucide-react';
+import { Users, Monitor, Wifi, Calendar, Sparkles, Check, X, AlertCircle } from 'lucide-react';
 import { format, differenceInDays, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -115,11 +115,14 @@ export function SharedCreditPicker({
 
   const categorySlotType = getCategorySlotType();
 
-  // Get available slots per server
+  // Get available slots per server with detailed info
   const getServerSlots = (server: ServerWithCredits) => {
     const serverPanelClients = panelClients.filter(pc => pc.panel_id === server.id);
-    const usedIptv = serverPanelClients.filter(pc => pc.slot_type === 'iptv').length;
-    const usedP2p = serverPanelClients.filter(pc => pc.slot_type === 'p2p').length;
+    const iptvClients = serverPanelClients.filter(pc => pc.slot_type === 'iptv');
+    const p2pClients = serverPanelClients.filter(pc => pc.slot_type === 'p2p');
+    
+    const usedIptv = iptvClients.length;
+    const usedP2p = p2pClients.length;
     
     const totalIptv = server.total_credits * server.iptv_per_credit;
     const totalP2p = server.total_credits * server.p2p_per_credit;
@@ -127,7 +130,15 @@ export function SharedCreditPicker({
     const availableIptv = totalIptv - usedIptv;
     const availableP2p = totalP2p - usedP2p;
 
-    // Get existing clients in this server
+    // Get client names by slot type
+    const iptvClientNames = iptvClients
+      .filter(pc => pc.client)
+      .map(pc => pc.client!.name);
+    
+    const p2pClientNames = p2pClients
+      .filter(pc => pc.client)
+      .map(pc => pc.client!.name);
+
     const existingClientNames = serverPanelClients
       .filter(pc => pc.client)
       .map(pc => pc.client!.name);
@@ -139,6 +150,8 @@ export function SharedCreditPicker({
       totalP2p,
       availableIptv,
       availableP2p,
+      iptvClientNames,
+      p2pClientNames,
       existingClientNames,
     };
   };
@@ -175,11 +188,11 @@ export function SharedCreditPicker({
   }
 
   return (
-    <div className="space-y-3 p-4 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20">
+    <div className="space-y-3 p-4 rounded-lg bg-gradient-to-br from-amber-500/5 to-amber-500/10 border border-amber-500/30">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold text-primary">Créditos Compartilhados</h3>
+          <Sparkles className="h-5 w-5 text-amber-500" />
+          <h3 className="font-semibold text-amber-600 dark:text-amber-400">Vagas em Créditos Existentes</h3>
         </div>
         {selectedCredit && (
           <Button
@@ -195,17 +208,21 @@ export function SharedCreditPicker({
         )}
       </div>
       
-      <p className="text-sm text-muted-foreground">
-        Vincule este cliente a um crédito existente e pague apenas os dias restantes do mês!
-      </p>
+      <div className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/10">
+        <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          <strong>Não perca vagas!</strong> Vincule este cliente a um crédito que já tem outro cliente. 
+          Você só cobra os dias restantes do mês (pro-rata).
+        </p>
+      </div>
 
       {selectedCredit ? (
         // Show selected credit
-        <Card className="border-2 border-primary bg-primary/5">
+        <Card className="border-2 border-success bg-success/5">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
+                <div className="p-2 rounded-lg bg-success/10">
                   {selectedCredit.slotType === 'iptv' ? (
                     <Monitor className="h-5 w-5 text-blue-500" />
                   ) : (
@@ -224,7 +241,7 @@ export function SharedCreditPicker({
                   <Check className="h-3 w-3 mr-1" />
                   Selecionado
                 </Badge>
-                <p className="text-lg font-bold text-primary mt-1">
+                <p className="text-lg font-bold text-success mt-1">
                   R$ {selectedCredit.proRataPrice.toFixed(2)}
                 </p>
               </div>
@@ -234,19 +251,14 @@ export function SharedCreditPicker({
               <div className="mt-3 pt-3 border-t border-border">
                 <p className="text-xs text-muted-foreground mb-1">
                   <Users className="h-3 w-3 inline mr-1" />
-                  Clientes no mesmo crédito:
+                  Vai dividir crédito com:
                 </p>
                 <div className="flex flex-wrap gap-1">
-                  {selectedCredit.existingClients.slice(0, 3).map((name, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">
+                  {selectedCredit.existingClients.map((name, i) => (
+                    <Badge key={i} variant="outline" className="text-xs bg-background">
                       {name}
                     </Badge>
                   ))}
-                  {selectedCredit.existingClients.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{selectedCredit.existingClients.length - 3} mais
-                    </Badge>
-                  )}
                 </div>
               </div>
             )}
@@ -254,101 +266,157 @@ export function SharedCreditPicker({
         </Card>
       ) : (
         // Show available servers
-        <div className="space-y-2">
+        <div className="space-y-3">
           {availableServers.map((server) => {
             const slots = getServerSlots(server);
             const proRataCalc = calculateProRataPrice(server.credit_price);
+            const iptvPercentUsed = slots.totalIptv > 0 ? (slots.usedIptv / slots.totalIptv) * 100 : 0;
+            const p2pPercentUsed = slots.totalP2p > 0 ? (slots.usedP2p / slots.totalP2p) * 100 : 0;
             
             return (
               <Card 
                 key={server.id} 
-                className="hover:border-primary/50 transition-colors cursor-pointer"
+                className="border-2 border-dashed border-amber-500/30 hover:border-amber-500/50 transition-colors"
               >
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="font-semibold">{server.name}</p>
-                      {slots.existingClientNames.length > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          <Users className="h-3 w-3 inline mr-1" />
-                          {slots.existingClientNames.length} cliente(s) usando
-                        </p>
-                      )}
+                      <p className="font-bold text-lg">{server.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {server.total_credits} crédito(s) • {server.iptv_per_credit} IPTV + {server.p2p_per_credit} P2P por crédito
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground line-through">
                         R$ {server.credit_price.toFixed(2)}/mês
                       </p>
-                      <p className="text-lg font-bold text-success">
+                      <p className="text-xl font-bold text-success">
                         R$ {proRataCalc.price.toFixed(2)}
                       </p>
-                      <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
+                      <p className="text-xs text-amber-500 flex items-center justify-end gap-1">
                         <Calendar className="h-3 w-3" />
-                        {proRataCalc.remainingDays} dias
+                        só {proRataCalc.remainingDays} dias
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    {/* IPTV Button */}
+                  {/* Slot Status Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                    {/* IPTV Slots */}
                     {server.iptv_per_credit > 0 && (categorySlotType === 'iptv' || categorySlotType === 'both') && (
-                      <Button
-                        type="button"
-                        variant={slots.availableIptv > 0 ? 'default' : 'outline'}
-                        size="sm"
-                        className={cn(
-                          "flex-1",
-                          slots.availableIptv > 0 
-                            ? "bg-blue-500 hover:bg-blue-600" 
-                            : "opacity-50 cursor-not-allowed"
-                        )}
-                        disabled={slots.availableIptv <= 0}
-                        onClick={() => handleSelect(server, 'iptv')}
-                      >
-                        <Monitor className="h-4 w-4 mr-1" />
-                        IPTV ({slots.availableIptv} {slots.availableIptv === 1 ? 'vaga' : 'vagas'})
-                      </Button>
-                    )}
-                    
-                    {/* P2P Button */}
-                    {server.p2p_per_credit > 0 && (categorySlotType === 'p2p' || categorySlotType === 'both') && (
-                      <Button
-                        type="button"
-                        variant={slots.availableP2p > 0 ? 'default' : 'outline'}
-                        size="sm"
-                        className={cn(
-                          "flex-1",
-                          slots.availableP2p > 0 
-                            ? "bg-green-500 hover:bg-green-600" 
-                            : "opacity-50 cursor-not-allowed"
-                        )}
-                        disabled={slots.availableP2p <= 0}
-                        onClick={() => handleSelect(server, 'p2p')}
-                      >
-                        <Wifi className="h-4 w-4 mr-1" />
-                        P2P ({slots.availableP2p} {slots.availableP2p === 1 ? 'vaga' : 'vagas'})
-                      </Button>
-                    )}
-                  </div>
+                      <div className={cn(
+                        "p-3 rounded-lg border-2",
+                        slots.availableIptv > 0 
+                          ? "border-blue-500/50 bg-blue-500/5" 
+                          : "border-muted bg-muted/30 opacity-60"
+                      )}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Monitor className="h-4 w-4 text-blue-500" />
+                            <span className="font-semibold text-blue-600 dark:text-blue-400">IPTV</span>
+                          </div>
+                          <Badge 
+                            variant={slots.availableIptv > 0 ? "default" : "secondary"}
+                            className={slots.availableIptv > 0 ? "bg-blue-500" : ""}
+                          >
+                            {slots.availableIptv} {slots.availableIptv === 1 ? 'vaga' : 'vagas'}
+                          </Badge>
+                        </div>
+                        
+                        <Progress 
+                          value={iptvPercentUsed} 
+                          className="h-2 mb-2 [&>div]:bg-blue-500"
+                        />
+                        
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {slots.usedIptv} de {slots.totalIptv} usado(s)
+                        </p>
 
-                  {/* Show who's using this credit */}
-                  {slots.existingClientNames.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-border/50">
-                      <p className="text-xs text-muted-foreground mb-1">Clientes no crédito:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {slots.existingClientNames.slice(0, 5).map((name, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">
-                            {name}
-                          </Badge>
-                        ))}
-                        {slots.existingClientNames.length > 5 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{slots.existingClientNames.length - 5}
-                          </Badge>
+                        {slots.iptvClientNames.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-xs text-muted-foreground mb-1">Clientes IPTV:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {slots.iptvClientNames.map((name, i) => (
+                                <Badge key={i} variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30">
+                                  {name}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {slots.availableIptv > 0 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="w-full bg-blue-500 hover:bg-blue-600"
+                            onClick={() => handleSelect(server, 'iptv')}
+                          >
+                            <Monitor className="h-4 w-4 mr-1" />
+                            Usar vaga IPTV
+                          </Button>
                         )}
                       </div>
-                    </div>
-                  )}
+                    )}
+                    
+                    {/* P2P Slots */}
+                    {server.p2p_per_credit > 0 && (categorySlotType === 'p2p' || categorySlotType === 'both') && (
+                      <div className={cn(
+                        "p-3 rounded-lg border-2",
+                        slots.availableP2p > 0 
+                          ? "border-green-500/50 bg-green-500/5" 
+                          : "border-muted bg-muted/30 opacity-60"
+                      )}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Wifi className="h-4 w-4 text-green-500" />
+                            <span className="font-semibold text-green-600 dark:text-green-400">P2P</span>
+                          </div>
+                          <Badge 
+                            variant={slots.availableP2p > 0 ? "default" : "secondary"}
+                            className={slots.availableP2p > 0 ? "bg-green-500" : ""}
+                          >
+                            {slots.availableP2p} {slots.availableP2p === 1 ? 'vaga' : 'vagas'}
+                          </Badge>
+                        </div>
+                        
+                        <Progress 
+                          value={p2pPercentUsed} 
+                          className="h-2 mb-2 [&>div]:bg-green-500"
+                        />
+                        
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {slots.usedP2p} de {slots.totalP2p} usado(s)
+                        </p>
+
+                        {slots.p2pClientNames.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-xs text-muted-foreground mb-1">Clientes P2P:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {slots.p2pClientNames.map((name, i) => (
+                                <Badge key={i} variant="outline" className="text-xs bg-green-500/10 border-green-500/30">
+                                  {name}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {slots.availableP2p > 0 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="w-full bg-green-500 hover:bg-green-600"
+                            onClick={() => handleSelect(server, 'p2p')}
+                          >
+                            <Wifi className="h-4 w-4 mr-1" />
+                            Usar vaga P2P
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
