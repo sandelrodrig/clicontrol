@@ -46,6 +46,9 @@ interface ParsedClient {
   login: string;
   password: string;
   category: string;
+  server: string;
+  price: number | null;
+  expiration_date: string | null;
   valid: boolean;
   error?: string;
 }
@@ -66,12 +69,12 @@ const CATEGORY_MAPPINGS: Record<string, string> = {
   'vps': 'SSH',
 };
 
-const TEMPLATE = `João Silva,11999998888,joao123,senha123,IPTV
-Maria Santos,11988887777,maria456,senha456,P2P
-Pedro Souza,11977776666,pedro789,senha789,Contas Premium
-Ana Lima,11966665555,ana321,senha321,SSH`;
+const TEMPLATE = `João Silva,11999998888,joao123,senha123,IPTV,WPLAY,25,31/01/2026
+Maria Santos,11988887777,maria456,senha456,P2P,SERVER2,30,28/02/2026
+Pedro Souza,11977776666,pedro789,senha789,Contas Premium,,40,
+Ana Lima,11966665555,ana321,senha321,SSH,SSH-BR,15,15/03/2026`;
 
-const TEMPLATE_HEADER = "Nome,Telefone,Login,Senha,Categoria";
+const TEMPLATE_HEADER = "Nome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade";
 
 export function BulkImportClients({ plans }: BulkImportClientsProps) {
   const { user } = useAuth();
@@ -123,7 +126,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
     const delimiter = detectDelimiter(lines[0]);
 
     const firstLine = lines[0].toLowerCase();
-    const hasHeader = ['nome', 'name', 'telefone', 'phone', 'login', 'senha', 'password', 'categoria', 'category'].some(k => firstLine.includes(k));
+    const hasHeader = ['nome', 'name', 'telefone', 'phone', 'login', 'usuario', 'usuário', 'senha', 'password', 'categoria', 'category', 'servidor', 'server', 'valor', 'validade'].some(k => firstLine.includes(k));
     const dataLines = hasHeader ? lines.slice(1) : lines;
 
     const isUuid = (value: string) =>
@@ -144,15 +147,49 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
       return '';
     };
 
-    return dataLines.map((line, index) => {
-      const parts = line.split(delimiter).map(p => (p || '').trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+    // Parse date in formats: dd/mm/yyyy, yyyy-mm-dd
+    const parseDate = (dateStr: string): string | null => {
+      if (!dateStr) return null;
+      const trimmed = dateStr.trim();
+      
+      // dd/mm/yyyy format
+      const brMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (brMatch) {
+        const [, day, month, year] = brMatch;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      
+      // yyyy-mm-dd format
+      const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (isoMatch) {
+        return trimmed;
+      }
+      
+      return null;
+    };
 
-      // Standard: Nome,Telefone,Login,Senha,Categoria
+    // Parse price value
+    const parsePrice = (priceStr: string): number | null => {
+      if (!priceStr) return null;
+      const cleaned = priceStr.replace(/[^\d.,]/g, '').replace(',', '.');
+      const value = parseFloat(cleaned);
+      return isNaN(value) ? null : value;
+    };
+
+    return dataLines.map((line, index) => {
+      // Split keeping empty values
+      const rawParts = line.split(delimiter).map(p => (p || '').trim().replace(/^["']|["']$/g, ''));
+      const parts = rawParts;
+
+      // Standard: Nome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade
       let name = parts[0] || '';
       let phone = parts[1] || '';
       let login = parts[2] || '';
       let password = parts[3] || '';
       let categoryInput = parts[4] || '';
+      let server = parts[5] || '';
+      let priceInput = parts[6] || '';
+      let expirationInput = parts[7] || '';
 
       // Exported formats often start with UUID columns, with name/phone later
       if (name && isUuid(name)) {
@@ -165,10 +202,13 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
         login = '';
         password = '';
         categoryInput = categoryCandidate || '';
+        server = '';
+        priceInput = '';
+        expirationInput = '';
       }
 
       if (!name || name.length < 2) {
-        return { name: '', phone: '', login: '', password: '', category: defaultCategory, valid: false, error: `Linha ${index + (hasHeader ? 2 : 1)}: Nome é obrigatório` };
+        return { name: '', phone: '', login: '', password: '', category: defaultCategory, server: '', price: null, expiration_date: null, valid: false, error: `Linha ${index + (hasHeader ? 2 : 1)}: Nome é obrigatório` };
       }
 
       let category = defaultCategory;
@@ -182,6 +222,9 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
             login,
             password,
             category: categoryInput,
+            server: '',
+            price: null,
+            expiration_date: null,
             valid: false,
             error: `Linha ${index + (hasHeader ? 2 : 1)}: Categoria "${categoryInput}" inválida. Use: IPTV, P2P, Contas Premium ou SSH`
           };
@@ -189,6 +232,8 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
       }
 
       const phoneDigits = digitsOnly(phone);
+      const parsedPrice = parsePrice(priceInput);
+      const parsedExpiration = parseDate(expirationInput);
 
       return {
         name: name.slice(0, 100),
@@ -196,6 +241,9 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
         login: login.slice(0, 100),
         password: password.slice(0, 100),
         category,
+        server: server.slice(0, 100),
+        price: parsedPrice,
+        expiration_date: parsedExpiration,
         valid: true
       };
     });
@@ -226,7 +274,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
       const plan = plans.find(p => p.id === selectedPlanId);
       if (!plan) throw new Error('Plano não encontrado');
 
-      const expirationDate = format(addDays(new Date(), plan.duration_days), 'yyyy-MM-dd');
+      const defaultExpirationDate = format(addDays(new Date(), plan.duration_days), 'yyyy-MM-dd');
 
       // Prepare clients with encrypted credentials
       const clientsToInsert = await Promise.all(
@@ -242,9 +290,10 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
             password: encryptedPassword,
             plan_id: plan.id,
             plan_name: plan.name,
-            plan_price: plan.price,
-            expiration_date: expirationDate,
+            plan_price: client.price ?? plan.price,
+            expiration_date: client.expiration_date || defaultExpirationDate,
             category: client.category,
+            server_name: client.server || null,
             is_paid: true,
           };
         })
@@ -316,7 +365,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
           </DialogTitle>
           <DialogDescription>
             {step === 'input' 
-              ? 'Cole os dados: Nome, Telefone, Login, Senha, Categoria' 
+              ? 'Cole os dados: Nome, Telefone, Usuário, Senha, Categoria, Servidor, Valor, Validade' 
               : `Confirme os ${validCount} cliente(s) a serem importados`}
           </DialogDescription>
         </DialogHeader>
@@ -402,14 +451,14 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
             {/* Input area */}
             <div className="space-y-2">
               <Label>Dados dos Clientes *</Label>
-              <Textarea
+                <Textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={`Cole aqui os dados dos clientes...\n\nFormato:\nNome,Telefone,Login,Senha,Categoria\n\nExemplo:\nJoão Silva,11999998888,joao123,senha123,IPTV\nMaria Santos,11988887777,maria456,senha456,P2P`}
+                placeholder={`Cole aqui os dados dos clientes...\n\nFormato:\nNome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade\n\nExemplo:\nLuan,31999999999,212123456,434356567,IPTV,WPLAY,25,31/01/2026`}
                 className="min-h-[160px] font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Um cliente por linha. Categoria é opcional (usa a padrão se não informar).
+                Um cliente por linha. Servidor, Valor e Validade são opcionais.
               </p>
             </div>
 
@@ -487,6 +536,9 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                           {client.phone && `📱 ${client.phone}`}
                           {client.login && ` • 👤 ${client.login}`}
                           {client.password && ` • 🔑 ****`}
+                          {client.server && ` • 🖥️ ${client.server}`}
+                          {client.price && ` • R$ ${client.price.toFixed(2)}`}
+                          {client.expiration_date && ` • 📅 ${client.expiration_date}`}
                         </div>
                       ) : (
                         <div className="text-xs text-destructive">{client.error}</div>
