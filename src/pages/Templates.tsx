@@ -835,57 +835,48 @@ export default function Templates() {
                 📱 WhatsApp
               </p>
               <div className="flex flex-wrap gap-2">
-                {!hasIPTVWhatsApp && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm('Criar 7 templates WhatsApp para IPTV?')) {
-                        createDefaultTemplatesMutation.mutate({ category: 'IPTV', platform: 'whatsapp' });
-                      }
-                    }}
-                    disabled={createDefaultTemplatesMutation.isPending}
-                    className="gap-2"
-                  >
-                    <Tv className="h-4 w-4" />
-                    IPTV
-                  </Button>
-                )}
-                {!hasSSHWhatsApp && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm('Criar 7 templates WhatsApp para SSH?')) {
-                        createDefaultTemplatesMutation.mutate({ category: 'SSH', platform: 'whatsapp' });
-                      }
-                    }}
-                    disabled={createDefaultTemplatesMutation.isPending}
-                    className="gap-2"
-                  >
-                    <Wifi className="h-4 w-4" />
-                    SSH
-                  </Button>
-                )}
-                {!hasPremiumWhatsApp && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm('Criar 7 templates WhatsApp para Contas Premium?')) {
-                        createDefaultTemplatesMutation.mutate({ category: 'Contas Premium', platform: 'whatsapp' });
-                      }
-                    }}
-                    disabled={createDefaultTemplatesMutation.isPending}
-                    className="gap-2"
-                  >
-                    <Crown className="h-4 w-4" />
-                    Premium
-                  </Button>
-                )}
-                {hasIPTVWhatsApp && hasSSHWhatsApp && hasPremiumWhatsApp && (
-                  <span className="text-xs text-muted-foreground">✅ Todos criados</span>
-                )}
+                <Button
+                  variant={hasIPTVWhatsApp ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (confirm(hasIPTVWhatsApp ? 'Já existem templates IPTV. Deseja adicionar novamente?' : 'Criar 7 templates WhatsApp para IPTV?')) {
+                      createDefaultTemplatesMutation.mutate({ category: 'IPTV', platform: 'whatsapp' });
+                    }
+                  }}
+                  disabled={createDefaultTemplatesMutation.isPending}
+                  className="gap-2"
+                >
+                  <Tv className="h-4 w-4" />
+                  IPTV {hasIPTVWhatsApp && '✓'}
+                </Button>
+                <Button
+                  variant={hasSSHWhatsApp ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (confirm(hasSSHWhatsApp ? 'Já existem templates SSH. Deseja adicionar novamente?' : 'Criar 7 templates WhatsApp para SSH?')) {
+                      createDefaultTemplatesMutation.mutate({ category: 'SSH', platform: 'whatsapp' });
+                    }
+                  }}
+                  disabled={createDefaultTemplatesMutation.isPending}
+                  className="gap-2"
+                >
+                  <Wifi className="h-4 w-4" />
+                  SSH {hasSSHWhatsApp && '✓'}
+                </Button>
+                <Button
+                  variant={hasPremiumWhatsApp ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (confirm(hasPremiumWhatsApp ? 'Já existem templates Premium. Deseja adicionar novamente?' : 'Criar 7 templates WhatsApp para Contas Premium?')) {
+                      createDefaultTemplatesMutation.mutate({ category: 'Contas Premium', platform: 'whatsapp' });
+                    }
+                  }}
+                  disabled={createDefaultTemplatesMutation.isPending}
+                  className="gap-2"
+                >
+                  <Crown className="h-4 w-4" />
+                  Premium {hasPremiumWhatsApp && '✓'}
+                </Button>
               </div>
             </div>
             
@@ -896,57 +887,48 @@ export default function Templates() {
                 Telegram
               </p>
               <div className="flex flex-wrap gap-2">
-                {!hasIPTVTelegram && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm('Criar 7 templates Telegram para IPTV?')) {
-                        createDefaultTemplatesMutation.mutate({ category: 'IPTV', platform: 'telegram' });
-                      }
-                    }}
-                    disabled={createDefaultTemplatesMutation.isPending}
-                    className="gap-2"
-                  >
-                    <Tv className="h-4 w-4" />
-                    IPTV
-                  </Button>
-                )}
-                {!hasSSHTelegram && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm('Criar 7 templates Telegram para SSH?')) {
-                        createDefaultTemplatesMutation.mutate({ category: 'SSH', platform: 'telegram' });
-                      }
-                    }}
-                    disabled={createDefaultTemplatesMutation.isPending}
-                    className="gap-2"
-                  >
-                    <Wifi className="h-4 w-4" />
-                    SSH
-                  </Button>
-                )}
-                {!hasPremiumTelegram && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm('Criar 7 templates Telegram para Contas Premium?')) {
-                        createDefaultTemplatesMutation.mutate({ category: 'Contas Premium', platform: 'telegram' });
-                      }
-                    }}
-                    disabled={createDefaultTemplatesMutation.isPending}
-                    className="gap-2"
-                  >
-                    <Crown className="h-4 w-4" />
-                    Premium
-                  </Button>
-                )}
-                {hasIPTVTelegram && hasSSHTelegram && hasPremiumTelegram && (
-                  <span className="text-xs text-muted-foreground">✅ Todos criados</span>
-                )}
+                <Button
+                  variant={hasIPTVTelegram ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (confirm(hasIPTVTelegram ? 'Já existem templates IPTV Telegram. Deseja adicionar novamente?' : 'Criar 7 templates Telegram para IPTV?')) {
+                      createDefaultTemplatesMutation.mutate({ category: 'IPTV', platform: 'telegram' });
+                    }
+                  }}
+                  disabled={createDefaultTemplatesMutation.isPending}
+                  className="gap-2"
+                >
+                  <Tv className="h-4 w-4" />
+                  IPTV {hasIPTVTelegram && '✓'}
+                </Button>
+                <Button
+                  variant={hasSSHTelegram ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (confirm(hasSSHTelegram ? 'Já existem templates SSH Telegram. Deseja adicionar novamente?' : 'Criar 7 templates Telegram para SSH?')) {
+                      createDefaultTemplatesMutation.mutate({ category: 'SSH', platform: 'telegram' });
+                    }
+                  }}
+                  disabled={createDefaultTemplatesMutation.isPending}
+                  className="gap-2"
+                >
+                  <Wifi className="h-4 w-4" />
+                  SSH {hasSSHTelegram && '✓'}
+                </Button>
+                <Button
+                  variant={hasPremiumTelegram ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (confirm(hasPremiumTelegram ? 'Já existem templates Premium Telegram. Deseja adicionar novamente?' : 'Criar 7 templates Telegram para Contas Premium?')) {
+                      createDefaultTemplatesMutation.mutate({ category: 'Contas Premium', platform: 'telegram' });
+                    }
+                  }}
+                  disabled={createDefaultTemplatesMutation.isPending}
+                  className="gap-2"
+                >
+                  <Crown className="h-4 w-4" />
+                  Premium {hasPremiumTelegram && '✓'}
+                </Button>
               </div>
             </div>
           </div>
