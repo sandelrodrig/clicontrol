@@ -1,9 +1,11 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Sidebar } from './Sidebar';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export function AppLayout() {
   const { user, loading } = useAuth();
+  const isMobile = useIsMobile();
 
   if (loading) {
     return (
@@ -23,8 +25,8 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="pl-64 min-h-screen transition-all duration-300">
-        <div className="p-6">
+      <main className={isMobile ? 'min-h-screen' : 'pl-56 min-h-screen'}>
+        <div className={isMobile ? 'p-3' : 'p-6'}>
           <Outlet />
         </div>
       </main>
