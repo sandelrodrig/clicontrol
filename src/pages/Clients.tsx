@@ -1286,6 +1286,14 @@ export default function Clients() {
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs"
+                      onClick={() => renewMutation.mutate({ id: client.id, days: 1 })}
+                    >
+                      +1 dia
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
                       onClick={() => handleRenew(client)}
                     >
                       Renovar

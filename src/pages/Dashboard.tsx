@@ -57,12 +57,18 @@ export default function Dashboard() {
   const totalRevenue = clients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
 
   // Admin stats
-  const activeSellers = sellers.filter(s => 
-    s.is_permanent || (s.subscription_expires_at && isAfter(new Date(s.subscription_expires_at), today))
-  );
-  const expiredSellers = sellers.filter(s => 
-    !s.is_permanent && s.subscription_expires_at && isBefore(new Date(s.subscription_expires_at), today)
-  );
+  const activeSellers = sellers.filter(s => {
+    if (s.is_permanent) return true;
+    if (!s.subscription_expires_at) return false;
+    const date = new Date(s.subscription_expires_at);
+    return !isNaN(date.getTime()) && isAfter(date, today);
+  });
+  const expiredSellers = sellers.filter(s => {
+    if (s.is_permanent) return false;
+    if (!s.subscription_expires_at) return false;
+    const date = new Date(s.subscription_expires_at);
+    return !isNaN(date.getTime()) && isBefore(date, today);
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
