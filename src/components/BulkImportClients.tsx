@@ -45,15 +45,19 @@ interface ParsedClient {
   phone: string;
   login: string;
   password: string;
+  category: string;
   valid: boolean;
   error?: string;
 }
 
-const TEMPLATE = `João Silva,11999998888,joao123,senha123
-Maria Santos,11988887777,maria456,senha456
-Pedro Souza,11977776666,pedro789,senha789`;
+const VALID_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH'];
 
-const TEMPLATE_HEADER = "Nome,Telefone,Login,Senha";
+const TEMPLATE = `João Silva,11999998888,joao123,senha123,IPTV
+Maria Santos,11988887777,maria456,senha456,P2P
+Pedro Souza,11977776666,pedro789,senha789,Contas Premium
+Ana Lima,11966665555,ana321,senha321,SSH`;
+
+const TEMPLATE_HEADER = "Nome,Telefone,Login,Senha,Categoria";
 
 export function BulkImportClients({ plans }: BulkImportClientsProps) {
   const { user } = useAuth();
@@ -62,12 +66,21 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputText, setInputText] = useState('');
   const [selectedPlanId, setSelectedPlanId] = useState('');
-  const [category, setCategory] = useState('IPTV');
+  const [defaultCategory, setDefaultCategory] = useState('IPTV');
   const [copied, setCopied] = useState(false);
   const [parsedClients, setParsedClients] = useState<ParsedClient[]>([]);
   const [step, setStep] = useState<'input' | 'preview'>('input');
 
   const selectedPlan = plans.find(p => p.id === selectedPlanId);
+
+  const normalizeCategory = (cat: string): string => {
+    const normalized = cat.trim();
+    // Case-insensitive matching
+    const found = VALID_CATEGORIES.find(
+      c => c.toLowerCase() === normalized.toLowerCase()
+    );
+    return found || '';
+  };
 
   const parseClients = (text: string): ParsedClient[] => {
     const lines = text.trim().split('\n').filter(line => line.trim());
@@ -78,21 +91,37 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
       const trimmedParts = parts.map(p => p.trim());
       
       if (trimmedParts.length < 1 || !trimmedParts[0]) {
-        return { name: '', phone: '', login: '', password: '', valid: false, error: `Linha ${index + 1}: Nome é obrigatório` };
+        return { name: '', phone: '', login: '', password: '', category: defaultCategory, valid: false, error: `Linha ${index + 1}: Nome é obrigatório` };
       }
 
-      const [name, phone = '', login = '', password = ''] = trimmedParts;
+      const [name, phone = '', login = '', password = '', categoryInput = ''] = trimmedParts;
 
       // Basic validation
       if (name.length < 2) {
-        return { name, phone, login, password, valid: false, error: `Linha ${index + 1}: Nome muito curto` };
+        return { name, phone, login, password, category: defaultCategory, valid: false, error: `Linha ${index + 1}: Nome muito curto` };
+      }
+
+      // Determine category - use provided or default
+      let category = defaultCategory;
+      if (categoryInput) {
+        const normalized = normalizeCategory(categoryInput);
+        if (normalized) {
+          category = normalized;
+        } else {
+          return { 
+            name, phone, login, password, category: categoryInput, 
+            valid: false, 
+            error: `Linha ${index + 1}: Categoria "${categoryInput}" inválida. Use: IPTV, P2P, Contas Premium ou SSH` 
+          };
+        }
       }
 
       return { 
-        name: name.slice(0, 100), // Limit name length
-        phone: phone.replace(/\D/g, '').slice(0, 20), // Clean phone, only digits
+        name: name.slice(0, 100),
+        phone: phone.replace(/\D/g, '').slice(0, 20),
         login: login.slice(0, 100),
         password: password.slice(0, 100),
+        category,
         valid: true 
       };
     });
@@ -141,7 +170,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
             plan_name: plan.name,
             plan_price: plan.price,
             expiration_date: expirationDate,
-            category,
+            category: client.category,
             is_paid: true,
           };
         })
@@ -177,13 +206,21 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
     setIsOpen(false);
     setInputText('');
     setSelectedPlanId('');
-    setCategory('IPTV');
+    setDefaultCategory('IPTV');
     setParsedClients([]);
     setStep('input');
   };
 
   const validCount = parsedClients.filter(c => c.valid).length;
   const invalidCount = parsedClients.filter(c => !c.valid).length;
+
+  // Count by category
+  const categoryStats = parsedClients
+    .filter(c => c.valid)
+    .reduce((acc, c) => {
+      acc[c.category] = (acc[c.category] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -205,7 +242,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
           </DialogTitle>
           <DialogDescription>
             {step === 'input' 
-              ? 'Cole os dados dos clientes no formato: Nome, Telefone, Login, Senha' 
+              ? 'Cole os dados: Nome, Telefone, Login, Senha, Categoria' 
               : `Confirme os ${validCount} cliente(s) a serem importados`}
           </DialogDescription>
         </DialogHeader>
@@ -223,7 +260,7 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                         <HelpCircle className="h-4 w-4 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        <p>Copie o template, edite com seus dados e cole abaixo. Campos: Nome (obrigatório), Telefone, Login, Senha</p>
+                        <p>Copie o template e edite. A categoria é opcional - se não informar, usa a padrão selecionada abaixo.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -243,6 +280,14 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                 {'\n'}
                 {TEMPLATE}
               </pre>
+              <div className="flex flex-wrap gap-1">
+                <span className="text-xs text-muted-foreground">Categorias válidas:</span>
+                {VALID_CATEGORIES.map(cat => (
+                  <Badge key={cat} variant="outline" className="text-xs py-0">
+                    {cat}
+                  </Badge>
+                ))}
+              </div>
             </div>
 
             {/* Config section */}
@@ -263,18 +308,20 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Select value={category} onValueChange={setCategory}>
+                <Label>Categoria Padrão</Label>
+                <Select value={defaultCategory} onValueChange={setDefaultCategory}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="IPTV">IPTV</SelectItem>
-                    <SelectItem value="P2P">P2P</SelectItem>
-                    <SelectItem value="Contas Premium">Contas Premium</SelectItem>
-                    <SelectItem value="SSH">SSH</SelectItem>
+                    {VALID_CATEGORIES.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Usada quando a categoria não for informada na linha
+                </p>
               </div>
             </div>
 
@@ -284,11 +331,11 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
               <Textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={`Cole aqui os dados dos clientes...\n\nFormato:\nNome,Telefone,Login,Senha\n\nExemplo:\nJoão Silva,11999998888,joao123,senha123`}
-                className="min-h-[180px] font-mono text-sm"
+                placeholder={`Cole aqui os dados dos clientes...\n\nFormato:\nNome,Telefone,Login,Senha,Categoria\n\nExemplo:\nJoão Silva,11999998888,joao123,senha123,IPTV\nMaria Santos,11988887777,maria456,senha456,P2P`}
+                className="min-h-[160px] font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                Um cliente por linha. Separe os campos por vírgula ou tab.
+                Um cliente por linha. Categoria é opcional (usa a padrão se não informar).
               </p>
             </div>
 
@@ -321,8 +368,19 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                   {selectedPlan.name} - R$ {selectedPlan.price.toFixed(2)}
                 </Badge>
               )}
-              <Badge variant="outline">{category}</Badge>
             </div>
+
+            {/* Category breakdown */}
+            {Object.keys(categoryStats).length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground">Por categoria:</span>
+                {Object.entries(categoryStats).map(([cat, count]) => (
+                  <Badge key={cat} variant="outline" className="text-xs">
+                    {cat}: {count}
+                  </Badge>
+                ))}
+              </div>
+            )}
 
             {/* Preview list */}
             <ScrollArea className="flex-1 border rounded-lg">
@@ -342,7 +400,14 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                       <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{client.name || '(sem nome)'}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium truncate">{client.name || '(sem nome)'}</span>
+                        {client.valid && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                            {client.category}
+                          </Badge>
+                        )}
+                      </div>
                       {client.valid ? (
                         <div className="text-xs text-muted-foreground truncate">
                           {client.phone && `📱 ${client.phone}`}
