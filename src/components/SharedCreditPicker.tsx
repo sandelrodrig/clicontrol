@@ -13,6 +13,7 @@ import { ptBR } from 'date-fns/locale';
 interface SharedCreditPickerProps {
   sellerId: string;
   category: string;
+  serverId?: string; // Filter by selected server
   onSelect: (selection: SharedCreditSelection | null) => void;
   selectedCredit: SharedCreditSelection | null;
 }
@@ -62,6 +63,7 @@ const calculateProRataPrice = (monthlyPrice: number): { price: number; remaining
 export function SharedCreditPicker({
   sellerId,
   category,
+  serverId,
   onSelect,
   selectedCredit,
 }: SharedCreditPickerProps) {
@@ -156,8 +158,11 @@ export function SharedCreditPicker({
     };
   };
 
-  // Filter servers that have available slots for the category
+  // Filter servers that have available slots for the category AND match selected server
   const availableServers = servers.filter(server => {
+    // If a server is selected, only show that server's slots
+    if (serverId && server.id !== serverId) return false;
+    
     const slots = getServerSlots(server);
     if (categorySlotType === 'iptv') return slots.availableIptv > 0;
     if (categorySlotType === 'p2p') return slots.availableP2p > 0;
