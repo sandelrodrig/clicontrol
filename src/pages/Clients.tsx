@@ -27,6 +27,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send } from 'lucide-react';
+import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -626,12 +627,16 @@ export default function Clients() {
             setPaidAppsExpirationPopoverOpen(false);
           }
         }}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo Cliente
-            </Button>
-          </DialogTrigger>
+          <div className="flex gap-2">
+            <BulkImportClients plans={plans} />
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Novo Cliente</span>
+                <span className="sm:hidden">Novo</span>
+              </Button>
+            </DialogTrigger>
+          </div>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingClient ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
