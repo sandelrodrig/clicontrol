@@ -266,8 +266,10 @@ export default function Bills() {
                     id="amount"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    placeholder="0.00"
                     required
                   />
                 </div>
