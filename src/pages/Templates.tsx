@@ -118,7 +118,7 @@ Estamos enviando os dados para pagamento do seu plano IPTV:
 💵 *Valor:* R$ {valor}
 📆 *Vencimento:* {vencimento}
 
-*Chave PIX:* {pix}
+*Chave PIX:* \`{pix}\`
 
 Após o pagamento, envie o comprovante aqui! ✅
 
@@ -242,7 +242,7 @@ Estamos enviando os dados para pagamento do seu plano SSH:
 💵 *Valor:* R$ {valor}
 📆 *Vencimento:* {vencimento}
 
-*Chave PIX:* {pix}
+*Chave PIX:* \`{pix}\`
 
 Após o pagamento, envie o comprovante aqui! ✅
 
@@ -367,7 +367,7 @@ Estamos enviando os dados para pagamento da sua conta Premium:
 💵 *Valor:* R$ {valor}
 📆 *Vencimento:* {vencimento}
 
-*Chave PIX:* {pix}
+*Chave PIX:* \`{pix}\`
 
 Após o pagamento, envie o comprovante aqui! ✅
 
