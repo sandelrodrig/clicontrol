@@ -41,22 +41,46 @@ interface NavItem {
   sellerOnly?: boolean;
 }
 
-const navItems: NavItem[] = [
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { title: 'Clientes', href: '/clients', icon: Users, sellerOnly: true },
-  { title: 'Servidores', href: '/servers', icon: Server, sellerOnly: true },
-  { title: 'Planos', href: '/plans', icon: Package, sellerOnly: true },
-  { title: 'Contas a Pagar', href: '/bills', icon: CreditCard, sellerOnly: true },
-  { title: 'Cupons', href: '/coupons', icon: Tag, sellerOnly: true },
-  { title: 'Indicações', href: '/referrals', icon: UserPlus, sellerOnly: true },
-  
-  { title: 'Templates', href: '/templates', icon: MessageSquare },
-  { title: 'Histórico', href: '/message-history', icon: History, sellerOnly: true },
-  { title: 'Tutoriais', href: '/tutorials', icon: PlayCircle },
-  { title: 'Vendedores', href: '/sellers', icon: UserCog, adminOnly: true },
-  { title: 'Relatórios', href: '/reports', icon: BarChart3, adminOnly: true },
-  { title: 'Backup', href: '/backup', icon: Database, adminOnly: true },
-  { title: 'Configurações', href: '/settings', icon: Settings },
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    title: 'Principal',
+    items: [
+      { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { title: 'Clientes', href: '/clients', icon: Users, sellerOnly: true },
+      { title: 'Servidores', href: '/servers', icon: Server, sellerOnly: true },
+      { title: 'Planos', href: '/plans', icon: Package, sellerOnly: true },
+    ],
+  },
+  {
+    title: 'Financeiro',
+    items: [
+      { title: 'Contas a Pagar', href: '/bills', icon: CreditCard, sellerOnly: true },
+      { title: 'Cupons', href: '/coupons', icon: Tag, sellerOnly: true },
+      { title: 'Indicações', href: '/referrals', icon: UserPlus, sellerOnly: true },
+    ],
+  },
+  {
+    title: 'Mensagens',
+    items: [
+      { title: 'Templates', href: '/templates', icon: MessageSquare },
+      { title: 'Histórico', href: '/message-history', icon: History, sellerOnly: true },
+    ],
+  },
+  {
+    title: 'Sistema',
+    items: [
+      { title: 'Tutoriais', href: '/tutorials', icon: PlayCircle },
+      { title: 'Vendedores', href: '/sellers', icon: UserCog, adminOnly: true },
+      { title: 'Relatórios', href: '/reports', icon: BarChart3, adminOnly: true },
+      { title: 'Backup', href: '/backup', icon: Database, adminOnly: true },
+      { title: 'Configurações', href: '/settings', icon: Settings },
+    ],
+  },
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -64,11 +88,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { isPrivacyMode, togglePrivacyMode } = usePrivacyMode();
   const location = useLocation();
 
-  const filteredNavItems = navItems.filter((item) => {
-    if (item.adminOnly && !isAdmin) return false;
-    if (item.sellerOnly && !isSeller) return false;
-    return true;
-  });
+  const filteredGroups = navGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => {
+      if (item.adminOnly && !isAdmin) return false;
+      if (item.sellerOnly && !isSeller) return false;
+      return true;
+    }),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div className="flex flex-col h-full">
@@ -82,27 +109,36 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      {/* Nav Items */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-        {filteredNavItems.map((item) => {
-          const isActive = location.pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              onClick={onNavigate}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200',
-                isActive
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-              )}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm font-medium">{item.title}</span>
-            </Link>
-          );
-        })}
+      {/* Nav Groups */}
+      <nav className="flex-1 py-2 px-2 overflow-y-auto">
+        {filteredGroups.map((group, groupIndex) => (
+          <div key={group.title} className={cn(groupIndex > 0 && 'mt-4')}>
+            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+              {group.title}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    onClick={onNavigate}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200',
+                      isActive
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                    )}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{item.title}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}
