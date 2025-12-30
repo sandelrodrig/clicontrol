@@ -26,6 +26,9 @@ export interface SharedCreditSelection {
   fullPrice: number;
   remainingDays: number;
   existingClients: string[];
+  // Shared credentials from existing client
+  sharedLogin?: string;
+  sharedPassword?: string;
 }
 
 interface ServerWithCredits {
@@ -46,6 +49,8 @@ interface PanelClientWithClient {
   client?: {
     name: string;
     expiration_date: string;
+    login: string | null;
+    password: string | null;
   };
 }
 
@@ -95,14 +100,14 @@ export function SharedCreditPicker({
           client_id,
           slot_type,
           assigned_at,
-          clients:client_id (name, expiration_date)
+          clients:client_id (name, expiration_date, login, password)
         `)
         .eq('seller_id', sellerId);
       if (error) throw error;
       // Transform the data to match our interface
       return (data || []).map((pc: Record<string, unknown>) => ({
         ...pc,
-        client: pc.clients as { name: string; expiration_date: string } | undefined,
+        client: pc.clients as { name: string; expiration_date: string; login: string | null; password: string | null } | undefined,
       })) as PanelClientWithClient[];
     },
     enabled: !!sellerId,
@@ -132,18 +137,33 @@ export function SharedCreditPicker({
     const availableIptv = totalIptv - usedIptv;
     const availableP2p = totalP2p - usedP2p;
 
-    // Get client names by slot type
-    const iptvClientNames = iptvClients
+    // Get client names and credentials by slot type
+    const iptvClientData = iptvClients
       .filter(pc => pc.client)
-      .map(pc => pc.client!.name);
+      .map(pc => ({ 
+        name: pc.client!.name, 
+        login: pc.client!.login, 
+        password: pc.client!.password 
+      }));
     
-    const p2pClientNames = p2pClients
+    const p2pClientData = p2pClients
       .filter(pc => pc.client)
-      .map(pc => pc.client!.name);
+      .map(pc => ({ 
+        name: pc.client!.name, 
+        login: pc.client!.login, 
+        password: pc.client!.password 
+      }));
+
+    const iptvClientNames = iptvClientData.map(c => c.name);
+    const p2pClientNames = p2pClientData.map(c => c.name);
 
     const existingClientNames = serverPanelClients
       .filter(pc => pc.client)
       .map(pc => pc.client!.name);
+
+    // Get first client's credentials for sharing
+    const firstIptvClient = iptvClientData[0];
+    const firstP2pClient = p2pClientData[0];
 
     return {
       usedIptv,
@@ -155,6 +175,11 @@ export function SharedCreditPicker({
       iptvClientNames,
       p2pClientNames,
       existingClientNames,
+      // Credentials to share
+      iptvLogin: firstIptvClient?.login || null,
+      iptvPassword: firstIptvClient?.password || null,
+      p2pLogin: firstP2pClient?.login || null,
+      p2pPassword: firstP2pClient?.password || null,
     };
   };
 
@@ -173,6 +198,10 @@ export function SharedCreditPicker({
     const slots = getServerSlots(server);
     const proRataCalc = calculateProRataPrice(server.credit_price);
     
+    // Get shared credentials based on slot type
+    const sharedLogin = slotType === 'iptv' ? slots.iptvLogin : slots.p2pLogin;
+    const sharedPassword = slotType === 'iptv' ? slots.iptvPassword : slots.p2pPassword;
+    
     onSelect({
       serverId: server.id,
       serverName: server.name,
@@ -181,6 +210,8 @@ export function SharedCreditPicker({
       fullPrice: server.credit_price,
       remainingDays: proRataCalc.remainingDays,
       existingClients: slots.existingClientNames,
+      sharedLogin: sharedLogin || undefined,
+      sharedPassword: sharedPassword || undefined,
     });
   };
 
