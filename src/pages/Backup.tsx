@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Database, Download, Upload, AlertTriangle, CheckCircle, Rocket, Copy } from 'lucide-react';
+import { Database, Download, Upload, AlertTriangle, CheckCircle, Rocket, Settings2 } from 'lucide-react';
 import { ImportClientsFromProject } from '@/components/ImportClientsFromProject';
 
 interface BackupData {
@@ -50,6 +50,8 @@ export default function Backup() {
   const [restoreMode, setRestoreMode] = useState<'append' | 'replace'>('append');
   const [backupFile, setBackupFile] = useState<BackupData | null>(null);
   const [restoreResult, setRestoreResult] = useState<{ restored: Record<string, number>; errors: string[] } | null>(null);
+  const [deployEnabled, setDeployEnabled] = useState(false);
+  const [isLoadingDeployStatus, setIsLoadingDeployStatus] = useState(true);
   const [deployOptions, setDeployOptions] = useState({
     includeProfiles: true,
     includeClients: true,
@@ -61,9 +63,60 @@ export default function Backup() {
     includeReferrals: true,
     includePanels: true,
     includeCategories: true,
-    includeMessageHistory: false, // Off by default - can be large
+    includeMessageHistory: false,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load deploy enabled status
+  useEffect(() => {
+    const loadDeployStatus = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'deploy_enabled')
+          .maybeSingle();
+        
+        setDeployEnabled(data?.value === 'true');
+      } catch (error) {
+        console.error('Error loading deploy status:', error);
+      } finally {
+        setIsLoadingDeployStatus(false);
+      }
+    };
+    loadDeployStatus();
+  }, []);
+
+  const toggleDeployEnabled = async (enabled: boolean) => {
+    try {
+      const { data: existing } = await supabase
+        .from('app_settings')
+        .select('id')
+        .eq('key', 'deploy_enabled')
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('app_settings')
+          .update({ value: enabled ? 'true' : 'false' })
+          .eq('key', 'deploy_enabled');
+      } else {
+        await supabase
+          .from('app_settings')
+          .insert({ 
+            key: 'deploy_enabled', 
+            value: enabled ? 'true' : 'false',
+            description: 'Habilita a opção de deploy para outro projeto'
+          });
+      }
+      
+      setDeployEnabled(enabled);
+      toast.success(enabled ? 'Deploy ativado!' : 'Deploy desativado!');
+    } catch (error) {
+      console.error('Error toggling deploy:', error);
+      toast.error('Erro ao alterar configuração');
+    }
+  };
 
   if (!isAdmin) {
     return <Navigate to="/dashboard" replace />;
@@ -279,26 +332,43 @@ export default function Backup() {
         <p className="text-muted-foreground">Exporte e importe dados do sistema</p>
       </div>
 
-      {/* Deploy Card - Highlight */}
-      <Card className="border-primary/50 bg-primary/5">
+      {/* Deploy Settings Card */}
+      <Card className={deployEnabled ? "border-primary/50 bg-primary/5" : "border-muted"}>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-primary">
-            <Rocket className="h-5 w-5" />
-            Deploy para Outro Projeto
-          </CardTitle>
-          <CardDescription>
-            Exporte todos os dados para migrar para outro projeto
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className={`flex items-center gap-2 ${deployEnabled ? 'text-primary' : ''}`}>
+                <Rocket className="h-5 w-5" />
+                Deploy para Outro Projeto
+              </CardTitle>
+              <CardDescription>
+                Exporte todos os dados para migrar para outro projeto
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="deploy-toggle" className="text-sm text-muted-foreground">
+                {deployEnabled ? 'Ativo' : 'Desativado'}
+              </Label>
+              <Switch
+                id="deploy-toggle"
+                checked={deployEnabled}
+                onCheckedChange={toggleDeployEnabled}
+                disabled={isLoadingDeployStatus}
+              />
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Gera um backup completo com todos os dados de todos os vendedores, pronto para importar em outro projeto via GitHub/Lovable.
-          </p>
-          <Button onClick={() => setDeployDialogOpen(true)} className="w-full">
-            <Rocket className="h-4 w-4 mr-2" />
-            Configurar Deploy
-          </Button>
-        </CardContent>
+        {deployEnabled && (
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Gera um backup completo com todos os dados de todos os vendedores, pronto para importar em outro projeto via GitHub/Lovable.
+            </p>
+            <Button onClick={() => setDeployDialogOpen(true)} className="w-full">
+              <Rocket className="h-4 w-4 mr-2" />
+              Configurar Deploy
+            </Button>
+          </CardContent>
+        )}
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
