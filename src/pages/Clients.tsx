@@ -113,6 +113,8 @@ export default function Clients() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [showPassword, setShowPassword] = useState<string | null>(null);
   const [messageClient, setMessageClient] = useState<Client | null>(null);
+  const [renewClient, setRenewClient] = useState<Client | null>(null);
+  const [renewPlanId, setRenewPlanId] = useState<string>('');
   const [decryptedCredentials, setDecryptedCredentials] = useState<DecryptedCredentials>({});
   const [decrypting, setDecrypting] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -495,11 +497,40 @@ export default function Clients() {
   };
 
   const handleRenew = (client: Client) => {
-    const plan = plans.find(p => p.id === client.plan_id);
-    const days = plan?.duration_days || 30;
-    if (confirm(`Renovar ${client.name} por ${days} dias?`)) {
-      renewMutation.mutate({ id: client.id, days });
+    setRenewClient(client);
+    setRenewPlanId(client.plan_id || '');
+  };
+
+  const confirmRenew = () => {
+    if (!renewClient) return;
+    
+    const selectedPlan = plans.find(p => p.id === renewPlanId);
+    const days = selectedPlan?.duration_days || 30;
+    
+    // Update client with new plan info if changed
+    const updateData: Record<string, unknown> = {};
+    if (renewPlanId && renewPlanId !== renewClient.plan_id) {
+      updateData.plan_id = selectedPlan?.id || null;
+      updateData.plan_name = selectedPlan?.name || null;
+      updateData.plan_price = selectedPlan?.price || null;
     }
+    
+    // Calculate new expiration date
+    const baseDate = new Date(renewClient.expiration_date);
+    const newDate = isAfter(baseDate, new Date()) 
+      ? addDays(baseDate, days) 
+      : addDays(new Date(), days);
+    
+    updateData.expiration_date = format(newDate, 'yyyy-MM-dd');
+    updateData.is_paid = true;
+    
+    updateMutation.mutate({ 
+      id: renewClient.id, 
+      data: updateData as Partial<Client>
+    });
+    
+    setRenewClient(null);
+    setRenewPlanId('');
   };
 
   const handleOpenPanel = (client: Client) => {
@@ -1357,6 +1388,71 @@ export default function Clients() {
           onOpenChange={(open) => !open && setMessageClient(null)}
         />
       )}
+
+      {/* Renew Dialog */}
+      <Dialog open={!!renewClient} onOpenChange={(open) => !open && setRenewClient(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renovar Cliente</DialogTitle>
+            <DialogDescription>
+              Renovar {renewClient?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Plano</Label>
+              <Select
+                value={renewPlanId}
+                onValueChange={setRenewPlanId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o plano" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name} - R$ {plan.price.toFixed(2)} ({plan.duration_days} dias)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {renewPlanId ? 
+                  `Será adicionado ${plans.find(p => p.id === renewPlanId)?.duration_days || 30} dias ao vencimento` :
+                  'Selecione um plano para renovar'
+                }
+              </p>
+            </div>
+            <div className="p-3 bg-muted rounded-lg text-sm">
+              <p><strong>Vencimento atual:</strong> {renewClient?.expiration_date ? format(new Date(renewClient.expiration_date), "dd/MM/yyyy", { locale: ptBR }) : '-'}</p>
+              {renewPlanId && renewClient && (
+                <p className="text-success mt-1">
+                  <strong>Novo vencimento:</strong> {
+                    format(
+                      addDays(
+                        isAfter(new Date(renewClient.expiration_date), new Date()) 
+                          ? new Date(renewClient.expiration_date) 
+                          : new Date(), 
+                        plans.find(p => p.id === renewPlanId)?.duration_days || 30
+                      ), 
+                      "dd/MM/yyyy", 
+                      { locale: ptBR }
+                    )
+                  }
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenewClient(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmRenew} disabled={!renewPlanId || updateMutation.isPending}>
+              Renovar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
