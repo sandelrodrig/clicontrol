@@ -337,3 +337,16 @@
     box-shadow: 0 0 40px hsl(var(--primary) / 0.4);
   }
 }
+
+/* Hide Lovable edit button/badge */
+[class*="lovable-edit"],
+[data-lovable-edit],
+.lovable-edit-button,
+[class*="gpt-engineer"],
+[data-gpt-engineer],
+.gpt-engineer-badge {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
