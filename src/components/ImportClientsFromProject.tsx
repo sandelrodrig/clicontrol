@@ -292,10 +292,26 @@ export function ImportClientsFromProject() {
         }];
       }
 
+      // Detect delimiter from first data line
+      const detectDelimiter = (line: string): string => {
+        const semicolonCount = (line.match(/;/g) || []).length;
+        const commaCount = (line.match(/,/g) || []).length;
+        const tabCount = (line.match(/\t/g) || []).length;
+        
+        if (semicolonCount > commaCount && semicolonCount > tabCount) return ';';
+        if (tabCount > commaCount) return '\t';
+        return ',';
+      };
+      
+      const delimiter = detectDelimiter(dataLines[0]);
+      console.log('CSV Delimiter detected:', delimiter);
+
       return dataLines.map((line, index) => {
         try {
-          const parts = line.includes('\t') ? line.split('\t') : line.split(',');
+          const parts = line.split(delimiter);
           const trimmedParts = parts.map(p => (p || '').trim().replace(/^["']|["']$/g, ''));
+
+          console.log(`Line ${index + 1} parts:`, trimmedParts);
 
           const [
             name = '',
