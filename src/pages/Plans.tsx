@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Package, DollarSign, Clock, Edit, Trash2, Wand2, Monitor } from 'lucide-react';
+import { Plus, Package, DollarSign, Clock, Edit, Trash2, Monitor } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Plan {
@@ -41,49 +41,6 @@ interface Plan {
 
 type CategoryFilter = 'all' | 'IPTV' | 'SSH' | 'P2P';
 type DurationFilter = 'all' | 30 | 90 | 180 | 365;
-
-const DEFAULT_PLANS_TEMPLATE = [
-  // IPTV Plans
-  { name: 'IPTV Mensal 1 Tela', duration_days: 30, category: 'IPTV', screens: 1 },
-  { name: 'IPTV Mensal 2 Telas', duration_days: 30, category: 'IPTV', screens: 2 },
-  { name: 'IPTV Mensal 3 Telas', duration_days: 30, category: 'IPTV', screens: 3 },
-  { name: 'IPTV Trimestral 1 Tela', duration_days: 90, category: 'IPTV', screens: 1 },
-  { name: 'IPTV Trimestral 2 Telas', duration_days: 90, category: 'IPTV', screens: 2 },
-  { name: 'IPTV Trimestral 3 Telas', duration_days: 90, category: 'IPTV', screens: 3 },
-  { name: 'IPTV Semestral 1 Tela', duration_days: 180, category: 'IPTV', screens: 1 },
-  { name: 'IPTV Semestral 2 Telas', duration_days: 180, category: 'IPTV', screens: 2 },
-  { name: 'IPTV Semestral 3 Telas', duration_days: 180, category: 'IPTV', screens: 3 },
-  { name: 'IPTV Anual 1 Tela', duration_days: 365, category: 'IPTV', screens: 1 },
-  { name: 'IPTV Anual 2 Telas', duration_days: 365, category: 'IPTV', screens: 2 },
-  { name: 'IPTV Anual 3 Telas', duration_days: 365, category: 'IPTV', screens: 3 },
-  // P2P Plans
-  { name: 'P2P Mensal 1 Tela', duration_days: 30, category: 'P2P', screens: 1 },
-  { name: 'P2P Mensal 2 Telas', duration_days: 30, category: 'P2P', screens: 2 },
-  { name: 'P2P Mensal 3 Telas', duration_days: 30, category: 'P2P', screens: 3 },
-  { name: 'P2P Trimestral 1 Tela', duration_days: 90, category: 'P2P', screens: 1 },
-  { name: 'P2P Trimestral 2 Telas', duration_days: 90, category: 'P2P', screens: 2 },
-  { name: 'P2P Trimestral 3 Telas', duration_days: 90, category: 'P2P', screens: 3 },
-  { name: 'P2P Semestral 1 Tela', duration_days: 180, category: 'P2P', screens: 1 },
-  { name: 'P2P Semestral 2 Telas', duration_days: 180, category: 'P2P', screens: 2 },
-  { name: 'P2P Semestral 3 Telas', duration_days: 180, category: 'P2P', screens: 3 },
-  { name: 'P2P Anual 1 Tela', duration_days: 365, category: 'P2P', screens: 1 },
-  { name: 'P2P Anual 2 Telas', duration_days: 365, category: 'P2P', screens: 2 },
-  { name: 'P2P Anual 3 Telas', duration_days: 365, category: 'P2P', screens: 3 },
-  // SSH Plans
-  { name: 'SSH Mensal 1 Conexão', duration_days: 30, category: 'SSH', screens: 1 },
-  { name: 'SSH Mensal 2 Conexões', duration_days: 30, category: 'SSH', screens: 2 },
-  { name: 'SSH Mensal 3 Conexões', duration_days: 30, category: 'SSH', screens: 3 },
-  { name: 'SSH Trimestral 1 Conexão', duration_days: 90, category: 'SSH', screens: 1 },
-  { name: 'SSH Trimestral 2 Conexões', duration_days: 90, category: 'SSH', screens: 2 },
-  { name: 'SSH Trimestral 3 Conexões', duration_days: 90, category: 'SSH', screens: 3 },
-  { name: 'SSH Semestral 1 Conexão', duration_days: 180, category: 'SSH', screens: 1 },
-  { name: 'SSH Semestral 2 Conexões', duration_days: 180, category: 'SSH', screens: 2 },
-  { name: 'SSH Semestral 3 Conexões', duration_days: 180, category: 'SSH', screens: 3 },
-  { name: 'SSH Anual 1 Conexão', duration_days: 365, category: 'SSH', screens: 1 },
-  { name: 'SSH Anual 2 Conexões', duration_days: 365, category: 'SSH', screens: 2 },
-  { name: 'SSH Anual 3 Conexões', duration_days: 365, category: 'SSH', screens: 3 },
-];
-
 export default function Plans() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -136,33 +93,6 @@ export default function Plans() {
     },
   });
 
-  const createDefaultPlansMutation = useMutation({
-    mutationFn: async () => {
-      const plansToCreate = DEFAULT_PLANS_TEMPLATE.map(plan => {
-        const isSSH = plan.category === 'SSH';
-        const unitLabel = isSSH 
-          ? (plan.screens === 1 ? 'conexão' : 'conexões')
-          : (plan.screens === 1 ? 'tela' : 'telas');
-        return {
-          ...plan,
-          price: 0, // Seller will set prices
-          is_active: true,
-          description: `${plan.screens} ${unitLabel} - ${plan.duration_days} dias`,
-          seller_id: user!.id,
-        };
-      });
-      
-      const { error } = await supabase.from('plans').insert(plansToCreate);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['plans'] });
-      toast.success('Planos padrão criados! Defina os preços para cada plano.');
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, syncPrice }: { id: string; data: Partial<Plan>; syncPrice?: { category: string; duration_days: number; screens: number; price: number } }) => {
@@ -301,19 +231,6 @@ export default function Plans() {
         </div>
 
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            className="gap-2"
-            onClick={() => {
-              if (confirm('Isso criará 24 planos padrão (IPTV e SSH) com preço R$ 0,00. Você poderá definir os preços depois. Continuar?')) {
-                createDefaultPlansMutation.mutate();
-              }
-            }}
-            disabled={createDefaultPlansMutation.isPending}
-          >
-            <Wand2 className="h-4 w-4" />
-            Gerar Planos Padrão
-          </Button>
 
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             // Prevent closing while mutation is pending
@@ -525,21 +442,8 @@ export default function Plans() {
             <Package className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhum plano cadastrado</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Crie planos manualmente ou gere os planos padrão
+              Crie seu primeiro plano de assinatura
             </p>
-            <Button 
-              variant="outline" 
-              className="gap-2"
-              onClick={() => {
-                if (confirm('Isso criará 24 planos padrão (IPTV e SSH). Você poderá definir os preços depois. Continuar?')) {
-                  createDefaultPlansMutation.mutate();
-                }
-              }}
-              disabled={createDefaultPlansMutation.isPending}
-            >
-              <Wand2 className="h-4 w-4" />
-              Gerar Planos Padrão
-            </Button>
           </CardContent>
         </Card>
       ) : (
