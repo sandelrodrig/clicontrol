@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { BottomNavigation } from './BottomNavigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
+import { FloatingNotifications } from '@/components/FloatingNotifications';
 import { useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -230,6 +231,7 @@ export function AppLayout() {
           </Sheet>
         </>
       )}
+      <FloatingNotifications />
     </div>
   );
 }
