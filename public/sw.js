@@ -32,9 +32,24 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   
+  const url = new URL(event.request.url);
+  
+  // Handle navigation requests - always serve index.html for SPA routing
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+  
   event.respondWith(
     fetch(event.request)
       .then((response) => {
+        // Don't cache non-successful responses
+        if (!response || response.status !== 200) {
+          return response;
+        }
         const responseClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseClone);
