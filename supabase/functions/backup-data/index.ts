@@ -64,11 +64,21 @@ serve(async (req) => {
       supabase.from('message_history').select('*').eq('seller_id', user.id)
     ]);
 
+    const nowIso = new Date().toISOString();
+
     const backup = {
       version: '1.0',
-      created_at: new Date().toISOString(),
+      timestamp: nowIso,
+      // Backward compatibility
+      created_at: nowIso,
       user_id: user.id,
       user_email: user.email,
+
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+
       data: {
         clients: clientsResult.data || [],
         plans: plansResult.data || [],
