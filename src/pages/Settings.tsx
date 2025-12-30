@@ -5,19 +5,99 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { User, Phone, Mail, Save, Shield, Palette, Smartphone, Building2, CreditCard, Copy, RefreshCw, Share2 } from 'lucide-react';
+import { 
+  User, 
+  Phone, 
+  Mail, 
+  Save, 
+  Shield, 
+  Palette, 
+  Building2, 
+  CreditCard, 
+  Copy, 
+  RefreshCw, 
+  Share2,
+  Bell,
+  Info,
+  Calendar,
+  MessageCircle,
+  ChevronRight,
+  Download,
+  HelpCircle
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { InstallPWA } from '@/components/InstallPWA';
 import { usePWA } from '@/hooks/usePWA';
+import { cn } from '@/lib/utils';
+
+// Setting item component for mobile-like appearance
+function SettingItem({ 
+  icon: Icon, 
+  title, 
+  description, 
+  onClick, 
+  rightElement,
+  variant = 'default'
+}: { 
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description?: string;
+  onClick?: () => void;
+  rightElement?: React.ReactNode;
+  variant?: 'default' | 'success' | 'warning' | 'destructive';
+}) {
+  const variantClasses = {
+    default: 'text-muted-foreground',
+    success: 'text-success',
+    warning: 'text-warning',
+    destructive: 'text-destructive'
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors text-left",
+        !onClick && "cursor-default"
+      )}
+    >
+      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+        <Icon className="h-5 w-5 text-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-foreground">{title}</p>
+        {description && (
+          <p className={cn("text-sm truncate", variantClasses[variant])}>{description}</p>
+        )}
+      </div>
+      {rightElement || (onClick && <ChevronRight className="h-5 w-5 text-muted-foreground" />)}
+    </button>
+  );
+}
+
+// Section component
+function SettingSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-6">
+      <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 mb-2">
+        {title}
+      </h2>
+      <div className="bg-card rounded-xl border border-border divide-y divide-border overflow-hidden">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function Settings() {
   const { user, profile, isAdmin, isSeller } = useAuth();
-  const { updateAvailable, checkForUpdates, applyUpdate } = usePWA();
+  const { updateAvailable, checkForUpdates, applyUpdate, canInstall, isInstalled } = usePWA();
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState({
@@ -49,6 +129,7 @@ export default function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       toast.success('Perfil atualizado com sucesso!');
+      setShowProfile(false);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -68,282 +149,276 @@ export default function Settings() {
   };
 
   const subscriptionStatus = () => {
-    if (profile?.is_permanent) return { text: 'Permanente', color: 'text-success' };
-    if (!profile?.subscription_expires_at) return { text: 'Não definido', color: 'text-muted-foreground' };
+    if (profile?.is_permanent) return { text: 'Permanente', color: 'success' as const };
+    if (!profile?.subscription_expires_at) return { text: 'Não definido', color: 'default' as const };
     
     const expiresAt = new Date(profile.subscription_expires_at);
     const now = new Date();
     
     if (expiresAt < now) {
-      return { text: 'Expirado', color: 'text-destructive' };
+      return { text: 'Expirado', color: 'destructive' as const };
+    }
+    
+    const daysLeft = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysLeft <= 7) {
+      return { 
+        text: `Expira em ${daysLeft} dia${daysLeft > 1 ? 's' : ''}`, 
+        color: 'warning' as const 
+      };
     }
     
     return {
-      text: `Expira em ${format(expiresAt, "dd 'de' MMMM, yyyy", { locale: ptBR })}`,
-      color: 'text-foreground'
+      text: format(expiresAt, "dd/MM/yyyy", { locale: ptBR }),
+      color: 'success' as const
     };
   };
 
   const status = subscriptionStatus();
 
-  return (
-    <div className="space-y-6 animate-fade-in max-w-2xl">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-        <p className="text-muted-foreground">Gerencie suas preferências e informações</p>
-      </div>
+  const handleShare = async () => {
+    const url = window.location.origin;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'CliControl - SANPLAY',
+          text: 'Confira este aplicativo de gerenciamento de clientes!',
+          url: url,
+        });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          navigator.clipboard.writeText(url);
+          toast.success('Link copiado!');
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success('Link copiado!');
+    }
+  };
 
-      {/* Theme Selector Card - Only for Admin */}
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5" />
-              Tema do Sistema
-            </CardTitle>
-            <CardDescription>Personalize a aparência do aplicativo</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ThemeSelector />
-          </CardContent>
-        </Card>
-      )}
+  const handleCheckUpdates = async () => {
+    setIsCheckingUpdates(true);
+    await checkForUpdates();
+    setIsCheckingUpdates(false);
+    if (!updateAvailable) {
+      toast.success('Você está usando a versão mais recente!');
+    }
+  };
 
-      {/* App Update Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5" />
-            Atualização do App
-          </CardTitle>
-          <CardDescription>Verifique se há atualizações disponíveis</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {updateAvailable ? (
-            <div className="space-y-3">
-              <p className="text-sm text-success">Nova versão disponível!</p>
-              <Button onClick={applyUpdate} className="w-full">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Atualizar Agora
-              </Button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={async () => {
-                  setIsCheckingUpdates(true);
-                  await checkForUpdates();
-                  setIsCheckingUpdates(false);
-                  toast.success('Você está usando a versão mais recente!');
-                }}
-                disabled={isCheckingUpdates}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
-                {isCheckingUpdates ? 'Verificando...' : 'Verificar Atualizações'}
-              </Button>
-              <Button 
-                variant="secondary"
-                onClick={() => window.location.reload()}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Recarregar
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+  const openAdminWhatsApp = () => {
+    const phone = '5531998518865';
+    const message = 'Olá! Preciso de ajuda com o CliControl.';
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
 
-      {/* Share App Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Share2 className="h-5 w-5" />
-            Compartilhar App
-          </CardTitle>
-          <CardDescription>Compartilhe o link do aplicativo</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              className="flex-1"
-              onClick={() => {
-                const url = window.location.origin;
-                navigator.clipboard.writeText(url);
-                toast.success('Link copiado!');
-              }}
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Copiar Link
-            </Button>
-            <Button 
-              onClick={async () => {
-                const url = window.location.origin;
-                if (navigator.share) {
-                  try {
-                    await navigator.share({
-                      title: 'Sistema de Controle de Clientes',
-                      text: 'Confira este aplicativo de gerenciamento de clientes!',
-                      url: url,
-                    });
-                  } catch (err) {
-                    // User cancelled or share failed
-                    if ((err as Error).name !== 'AbortError') {
-                      navigator.clipboard.writeText(url);
-                      toast.success('Link copiado!');
-                    }
-                  }
-                } else {
-                  navigator.clipboard.writeText(url);
-                  toast.success('Link copiado!');
-                }
-              }}
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              Compartilhar
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            {window.location.origin}
-          </p>
-        </CardContent>
-      </Card>
+  // Profile edit view
+  if (showProfile) {
+    return (
+      <div className="space-y-6 animate-fade-in max-w-lg mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => setShowProfile(false)}>
+            ← Voltar
+          </Button>
+          <h1 className="text-xl font-bold">Editar Perfil</h1>
+        </div>
 
-      {/* PWA Install Card */}
-      <InstallPWA />
-
-      {/* Profile Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Perfil
-          </CardTitle>
-          <CardDescription>Atualize suas informações pessoais</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  value={profile?.email || ''}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">O email não pode ser alterado</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="full_name">Nome Completo</Label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" />
               <Input
-                id="full_name"
-                value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                id="email"
+                value={profile?.email || ''}
+                disabled
+                className="bg-muted"
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp</Label>
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="whatsapp"
-                  value={formData.whatsapp}
-                  onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                  placeholder="+55 11 99999-9999"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="company_name">Nome da Empresa</Label>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="company_name"
-                  value={formData.company_name}
-                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                  placeholder="Minha Revenda IPTV"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">Usado como {'{empresa}'} nos templates</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="pix_key">Chave PIX</Label>
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="pix_key"
-                  value={formData.pix_key}
-                  onChange={(e) => setFormData({ ...formData, pix_key: e.target.value })}
-                  placeholder="email@exemplo.com, CPF, CNPJ ou chave aleatória"
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={copyPixKey}
-                  disabled={!formData.pix_key}
-                  title="Copiar chave PIX"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">Usado como {'{pix}'} nas mensagens de cobrança</p>
-            </div>
-
-            <Button type="submit" disabled={updateProfileMutation.isPending}>
-              <Save className="h-4 w-4 mr-2" />
-              Salvar Alterações
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Account Status Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Status da Conta
-          </CardTitle>
-          <CardDescription>Informações sobre sua assinatura</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between py-3 border-b border-border">
-            <span className="text-muted-foreground">Tipo de Conta</span>
-            <span className="font-medium text-primary">
-              {isAdmin ? 'Administrador' : 'Vendedor'}
-            </span>
+            <p className="text-xs text-muted-foreground">O email não pode ser alterado</p>
           </div>
 
-          {isSeller && (
-            <div className="flex items-center justify-between py-3 border-b border-border">
-              <span className="text-muted-foreground">Assinatura</span>
-              <span className={`font-medium ${status.color}`}>
-                {status.text}
-              </span>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between py-3">
-            <span className="text-muted-foreground">Membro desde</span>
-            <span className="font-medium">
-              {profile?.created_at
-                ? format(new Date(profile.created_at), "dd 'de' MMMM, yyyy", { locale: ptBR })
-                : 'Não disponível'}
-            </span>
+          <div className="space-y-2">
+            <Label htmlFor="full_name">Nome Completo</Label>
+            <Input
+              id="full_name"
+              value={formData.full_name}
+              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+            />
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="space-y-2">
+            <Label htmlFor="whatsapp">WhatsApp</Label>
+            <div className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              <Input
+                id="whatsapp"
+                value={formData.whatsapp}
+                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                placeholder="+55 11 99999-9999"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="company_name">Nome da Empresa</Label>
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <Input
+                id="company_name"
+                value={formData.company_name}
+                onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                placeholder="Minha Revenda IPTV"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Usado como {'{empresa}'} nos templates</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pix_key">Chave PIX</Label>
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
+              <Input
+                id="pix_key"
+                value={formData.pix_key}
+                onChange={(e) => setFormData({ ...formData, pix_key: e.target.value })}
+                placeholder="email@exemplo.com, CPF, CNPJ ou chave aleatória"
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={copyPixKey}
+                disabled={!formData.pix_key}
+                title="Copiar chave PIX"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Usado como {'{pix}'} nas mensagens de cobrança</p>
+          </div>
+
+          <Button type="submit" className="w-full" disabled={updateProfileMutation.isPending}>
+            <Save className="h-4 w-4 mr-2" />
+            Salvar Alterações
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 animate-fade-in max-w-lg mx-auto pb-6">
+      {/* Header */}
+      <div className="text-center py-6">
+        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+          <User className="h-10 w-10 text-primary" />
+        </div>
+        <h1 className="text-xl font-bold">{profile?.full_name || 'Usuário'}</h1>
+        <p className="text-sm text-muted-foreground">{profile?.email}</p>
+        <span className="inline-block mt-2 px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+          {isAdmin ? 'Administrador' : 'Vendedor'}
+        </span>
+      </div>
+
+      {/* Account Section */}
+      <SettingSection title="Conta">
+        <SettingItem
+          icon={User}
+          title="Meu Perfil"
+          description="Editar informações pessoais"
+          onClick={() => setShowProfile(true)}
+        />
+        {isSeller && (
+          <SettingItem
+            icon={Calendar}
+            title="Vencimento"
+            description={status.text}
+            variant={status.color}
+          />
+        )}
+        <SettingItem
+          icon={Shield}
+          title="Membro desde"
+          description={profile?.created_at
+            ? format(new Date(profile.created_at), "dd/MM/yyyy", { locale: ptBR })
+            : 'Não disponível'}
+        />
+      </SettingSection>
+
+      {/* App Section */}
+      <SettingSection title="Aplicativo">
+        <SettingItem
+          icon={RefreshCw}
+          title="Atualizações"
+          description={updateAvailable ? 'Nova versão disponível!' : 'Verificar atualizações'}
+          variant={updateAvailable ? 'success' : 'default'}
+          onClick={updateAvailable ? applyUpdate : handleCheckUpdates}
+          rightElement={
+            isCheckingUpdates ? (
+              <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : undefined
+          }
+        />
+        <SettingItem
+          icon={RefreshCw}
+          title="Recarregar App"
+          description="Atualizar dados e interface"
+          onClick={() => window.location.reload()}
+        />
+        {(canInstall || !isInstalled) && (
+          <SettingItem
+            icon={Download}
+            title="Instalar App"
+            description={isInstalled ? 'Já instalado' : 'Adicionar à tela inicial'}
+            variant={isInstalled ? 'success' : 'default'}
+          />
+        )}
+        <SettingItem
+          icon={Share2}
+          title="Compartilhar"
+          description="Enviar link do aplicativo"
+          onClick={handleShare}
+        />
+      </SettingSection>
+
+      {/* Appearance Section - Admin Only */}
+      {isAdmin && (
+        <SettingSection title="Aparência">
+          <div className="p-4">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                <Palette className="h-5 w-5 text-foreground" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Tema do Sistema</p>
+                <p className="text-sm text-muted-foreground">Personalize as cores</p>
+              </div>
+            </div>
+            <ThemeSelector />
+          </div>
+        </SettingSection>
+      )}
+
+      {/* Support Section */}
+      <SettingSection title="Suporte">
+        <SettingItem
+          icon={MessageCircle}
+          title="Dúvidas? Chame o ADM"
+          description="WhatsApp: (31) 99851-8865"
+          onClick={openAdminWhatsApp}
+        />
+        <SettingItem
+          icon={Info}
+          title="Sobre"
+          description="CliControl by SANPLAY • v1.0.0"
+        />
+      </SettingSection>
+
+      {/* PWA Install - Show if applicable */}
+      <div className="px-4">
+        <InstallPWA />
+      </div>
     </div>
   );
 }
