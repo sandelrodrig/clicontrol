@@ -169,7 +169,7 @@ export function Sidebar() {
   // Mobile: Sheet sidebar with bottom nav
   if (isMobile) {
   const handleShare = async () => {
-    const url = window.location.origin;
+    const url = `${window.location.origin}/auth`;
     if (navigator.share) {
       try {
         await navigator.share({

@@ -222,7 +222,7 @@ export default function Settings() {
   const status = subscriptionStatus();
 
   const handleShare = async () => {
-    const url = window.location.origin;
+    const url = `${window.location.origin}/auth`;
     if (navigator.share) {
       try {
         await navigator.share({
