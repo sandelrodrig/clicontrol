@@ -339,14 +339,27 @@
 }
 
 /* Hide Lovable edit button/badge */
-[class*="lovable-edit"],
-[data-lovable-edit],
-.lovable-edit-button,
+[class*="lovable"],
+[data-lovable],
 [class*="gpt-engineer"],
 [data-gpt-engineer],
-.gpt-engineer-badge {
+a[href*="lovable.dev"],
+a[href*="lovable.app"],
+div[style*="z-index: 2147483647"],
+iframe[src*="lovable"],
+button[aria-label*="Lovable"],
+button[aria-label*="Edit"],
+#lovable-badge,
+.lovable-badge,
+[id*="lovable"],
+[class*="edit-badge"],
+[class*="editBadge"] {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
 }
