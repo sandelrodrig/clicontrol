@@ -117,8 +117,10 @@ export default function Clients() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  // State for add category popover
+  // State for popovers inside the dialog
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
+  const [expirationPopoverOpen, setExpirationPopoverOpen] = useState(false);
+  const [paidAppsExpirationPopoverOpen, setPaidAppsExpirationPopoverOpen] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -619,6 +621,9 @@ export default function Clients() {
           if (!open) {
             setEditingClient(null);
             resetForm();
+            setAddCategoryOpen(false);
+            setExpirationPopoverOpen(false);
+            setPaidAppsExpirationPopoverOpen(false);
           }
         }}>
           <DialogTrigger asChild>
@@ -863,7 +868,11 @@ export default function Clients() {
                 <div className="space-y-2">
                   <Label>Data de Vencimento</Label>
                   <div className="flex items-center gap-2">
-                    <Popover modal={false}>
+                    <Popover
+                      open={expirationPopoverOpen}
+                      onOpenChange={setExpirationPopoverOpen}
+                      modal={false}
+                    >
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
@@ -882,7 +891,8 @@ export default function Clients() {
                           selected={formData.expiration_date ? new Date(formData.expiration_date) : undefined}
                           onSelect={(date) => {
                             if (date) {
-                              setFormData({ ...formData, expiration_date: format(date, 'yyyy-MM-dd') });
+                              setFormData({ ...formData, expiration_date: format(date, "yyyy-MM-dd") });
+                              setExpirationPopoverOpen(false);
                             }
                           }}
                           initialFocus
@@ -1021,7 +1031,11 @@ export default function Clients() {
                     </div>
                     <div className="space-y-2">
                       <Label>Vencimento do App</Label>
-                      <Popover>
+                      <Popover
+                        open={paidAppsExpirationPopoverOpen}
+                        onOpenChange={setPaidAppsExpirationPopoverOpen}
+                        modal={false}
+                      >
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
@@ -1037,18 +1051,19 @@ export default function Clients() {
                               : "Selecione a data"}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={5}>
                           <Calendar
                             mode="single"
                             selected={formData.paid_apps_expiration ? new Date(formData.paid_apps_expiration) : undefined}
                             onSelect={(date) => {
                               if (date) {
-                                setFormData({ ...formData, paid_apps_expiration: format(date, 'yyyy-MM-dd') });
+                                setFormData({ ...formData, paid_apps_expiration: format(date, "yyyy-MM-dd") });
+                                setPaidAppsExpirationPopoverOpen(false);
                               }
                             }}
                             initialFocus
                             locale={ptBR}
-                            className={cn("p-3 pointer-events-auto")}
+                            className="p-3 pointer-events-auto"
                           />
                         </PopoverContent>
                       </Popover>
