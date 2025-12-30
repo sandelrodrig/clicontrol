@@ -3,14 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Play, Trash2, Edit, GripVertical, Youtube } from 'lucide-react';
+import { Plus, Play, Trash2, Edit, Youtube, ExternalLink, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Tutorial {
   id: string;
@@ -40,9 +41,14 @@ function getYouTubeThumbnail(videoId: string): string {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
+function getYouTubeWatchUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
 export default function Tutorials() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTutorial, setEditingTutorial] = useState<Tutorial | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<Tutorial | null>(null);
@@ -177,17 +183,24 @@ export default function Tutorials() {
     setSelectedVideo(tutorial);
   };
 
+  const handleOpenYouTube = (tutorial: Tutorial) => {
+    const videoId = extractYouTubeId(tutorial.youtube_url);
+    if (videoId) {
+      window.open(getYouTubeWatchUrl(videoId), '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-            <Youtube className="h-7 w-7 text-red-500" />
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2">
+            <Youtube className="h-6 w-6 sm:h-7 sm:w-7 text-red-500" />
             Tutoriais
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Aprenda a usar todas as funcionalidades do sistema
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Aprenda a usar todas as funcionalidades
           </p>
         </div>
         
@@ -197,12 +210,12 @@ export default function Tutorials() {
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
-              <Button className="gap-2">
+              <Button size={isMobile ? "sm" : "default"} className="gap-2">
                 <Plus className="h-4 w-4" />
-                Adicionar Tutorial
+                {isMobile ? 'Adicionar' : 'Adicionar Tutorial'}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="w-[95vw] max-w-md mx-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingTutorial ? 'Editar Tutorial' : 'Novo Tutorial'}
@@ -251,41 +264,63 @@ export default function Tutorials() {
         )}
       </div>
 
-      {/* Video Player Modal */}
-      <Dialog open={!!selectedVideo} onOpenChange={(open) => !open && setSelectedVideo(null)}>
-        <DialogContent className="sm:max-w-5xl p-0 overflow-hidden bg-black/95 border-none">
-          {selectedVideo && (
-            <div className="flex flex-col">
-              <div className="aspect-video w-full bg-black">
+      {/* Video Player Modal - Full screen on mobile */}
+      {selectedVideo && (
+        <div className="fixed inset-0 z-50 bg-black">
+          {/* Close button */}
+          <button
+            onClick={() => setSelectedVideo(null)}
+            className="absolute top-2 right-2 sm:top-4 sm:right-4 z-50 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+          >
+            <X className="h-5 w-5 sm:h-6 sm:w-6" />
+          </button>
+
+          {/* Open in YouTube button */}
+          <button
+            onClick={() => handleOpenYouTube(selectedVideo)}
+            className="absolute top-2 left-2 sm:top-4 sm:left-4 z-50 p-2 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center gap-1.5"
+          >
+            <Youtube className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="text-xs sm:text-sm font-medium pr-1">Abrir no YouTube</span>
+          </button>
+
+          {/* Video container */}
+          <div className="flex flex-col h-full">
+            <div className="flex-1 flex items-center justify-center bg-black">
+              <div className="w-full h-full max-h-[70vh] sm:max-h-[80vh]">
                 <iframe
-                  src={`https://www.youtube.com/embed/${extractYouTubeId(selectedVideo.youtube_url)}?autoplay=1&rel=0&modestbranding=1`}
+                  src={`https://www.youtube.com/embed/${extractYouTubeId(selectedVideo.youtube_url)}?autoplay=1&rel=0&modestbranding=1&playsinline=1`}
                   title={selectedVideo.title}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   allowFullScreen
                   className="w-full h-full border-0"
                 />
               </div>
-              <div className="p-4 bg-background">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Play className="h-5 w-5 text-red-500" />
-                  {selectedVideo.title}
-                </h3>
-                {selectedVideo.description && (
-                  <p className="text-sm text-muted-foreground mt-2">{selectedVideo.description}</p>
-                )}
-              </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            
+            {/* Video info */}
+            <div className="p-3 sm:p-4 bg-background border-t shrink-0">
+              <h3 className="font-semibold text-base sm:text-lg flex items-center gap-2">
+                <Play className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 shrink-0" />
+                <span className="line-clamp-1">{selectedVideo.title}</span>
+              </h3>
+              {selectedVideo.description && (
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
+                  {selectedVideo.description}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tutorials Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="animate-pulse">
               <div className="aspect-video bg-muted" />
-              <CardContent className="p-4">
+              <CardContent className="p-3 sm:p-4">
                 <div className="h-5 bg-muted rounded w-3/4 mb-2" />
                 <div className="h-4 bg-muted rounded w-full" />
               </CardContent>
@@ -293,23 +328,23 @@ export default function Tutorials() {
           ))}
         </div>
       ) : tutorials.length === 0 ? (
-        <Card className="p-8 text-center">
-          <Youtube className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Nenhum tutorial disponível</h3>
-          <p className="text-sm text-muted-foreground">
+        <Card className="p-6 sm:p-8 text-center">
+          <Youtube className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-base sm:text-lg font-semibold mb-2">Nenhum tutorial disponível</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             {isAdmin 
-              ? 'Adicione vídeos tutoriais para ajudar os vendedores a usar o sistema.'
+              ? 'Adicione vídeos tutoriais para ajudar os vendedores.'
               : 'Em breve teremos tutoriais disponíveis para você.'}
           </p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {tutorials.map((tutorial) => {
             const videoId = extractYouTubeId(tutorial.youtube_url);
             return (
               <Card 
                 key={tutorial.id} 
-                className="overflow-hidden group cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                className="overflow-hidden group cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all active:scale-[0.98]"
                 onClick={() => handleOpenVideo(tutorial)}
               >
                 <div className="relative aspect-video bg-muted">
@@ -318,22 +353,27 @@ export default function Tutorials() {
                       src={tutorial.thumbnail_url}
                       alt={tutorial.title}
                       className="w-full h-full object-cover"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Youtube className="h-12 w-12 text-muted-foreground" />
+                      <Youtube className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground" />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center">
-                      <Play className="h-8 w-8 text-white fill-white ml-1" />
+                  {/* Play overlay - always visible on mobile */}
+                  <div className={cn(
+                    "absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity",
+                    isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  )}>
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+                      <Play className="h-6 w-6 sm:h-8 sm:w-8 text-white fill-white ml-0.5 sm:ml-1" />
                     </div>
                   </div>
                 </div>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold line-clamp-2">{tutorial.title}</h3>
+                <CardContent className="p-3 sm:p-4">
+                  <h3 className="font-semibold text-sm sm:text-base line-clamp-2">{tutorial.title}</h3>
                   {tutorial.description && (
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">
                       {tutorial.description}
                     </p>
                   )}
@@ -342,19 +382,20 @@ export default function Tutorials() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1"
+                        className="flex-1 h-8 text-xs"
                         onClick={() => handleEdit(tutorial)}
                       >
-                        <Edit className="h-4 w-4 mr-1" />
+                        <Edit className="h-3.5 w-3.5 mr-1" />
                         Editar
                       </Button>
                       <Button
                         variant="destructive"
                         size="sm"
+                        className="h-8"
                         onClick={() => deleteMutation.mutate(tutorial.id)}
                         disabled={deleteMutation.isPending}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   )}
