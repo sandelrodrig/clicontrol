@@ -52,6 +52,20 @@ interface ParsedClient {
 
 const VALID_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH'];
 
+// Map common category variations to standard categories
+const CATEGORY_MAPPINGS: Record<string, string> = {
+  'iptv': 'IPTV',
+  'ip tv': 'IPTV',
+  'ip-tv': 'IPTV',
+  'p2p': 'P2P',
+  'peer to peer': 'P2P',
+  'premium': 'Contas Premium',
+  'contas premium': 'Contas Premium',
+  'conta premium': 'Contas Premium',
+  'ssh': 'SSH',
+  'vps': 'SSH',
+};
+
 const TEMPLATE = `João Silva,11999998888,joao123,senha123,IPTV
 Maria Santos,11988887777,maria456,senha456,P2P
 Pedro Souza,11977776666,pedro789,senha789,Contas Premium
@@ -74,55 +88,115 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
   const selectedPlan = plans.find(p => p.id === selectedPlanId);
 
   const normalizeCategory = (cat: string): string => {
-    const normalized = cat.trim();
-    // Case-insensitive matching
-    const found = VALID_CATEGORIES.find(
-      c => c.toLowerCase() === normalized.toLowerCase()
-    );
-    return found || '';
+    const normalized = (cat || '').trim().toLowerCase();
+
+    const directMatch = VALID_CATEGORIES.find(c => c.toLowerCase() === normalized);
+    if (directMatch) return directMatch;
+
+    const mapped = CATEGORY_MAPPINGS[normalized];
+    if (mapped) return mapped;
+
+    if (normalized.includes('iptv')) return 'IPTV';
+    if (normalized.includes('p2p')) return 'P2P';
+    if (normalized.includes('premium')) return 'Contas Premium';
+    if (normalized.includes('ssh')) return 'SSH';
+
+    return '';
   };
 
   const parseClients = (text: string): ParsedClient[] => {
-    const lines = text.trim().split('\n').filter(line => line.trim());
-    
-    return lines.map((line, index) => {
-      // Support both comma and tab separated values
-      const parts = line.includes('\t') ? line.split('\t') : line.split(',');
-      const trimmedParts = parts.map(p => p.trim());
-      
-      if (trimmedParts.length < 1 || !trimmedParts[0]) {
-        return { name: '', phone: '', login: '', password: '', category: defaultCategory, valid: false, error: `Linha ${index + 1}: Nome é obrigatório` };
+    const normalizedText = text.replace(/\r\n?/g, '\n').trim();
+    const lines = normalizedText.split('\n').filter(line => line.trim());
+
+    if (lines.length === 0) return [];
+
+    const detectDelimiter = (line: string): string => {
+      const semicolonCount = (line.match(/;/g) || []).length;
+      const commaCount = (line.match(/,/g) || []).length;
+      const tabCount = (line.match(/\t/g) || []).length;
+
+      if (semicolonCount > commaCount && semicolonCount > tabCount) return ';';
+      if (tabCount > commaCount) return '\t';
+      return ',';
+    };
+
+    const delimiter = detectDelimiter(lines[0]);
+
+    const firstLine = lines[0].toLowerCase();
+    const hasHeader = ['nome', 'name', 'telefone', 'phone', 'login', 'senha', 'password', 'categoria', 'category'].some(k => firstLine.includes(k));
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    const isUuid = (value: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test((value || '').trim());
+
+    const hasLetters = (value: string) => /[A-Za-zÀ-ÿ]/.test(value || '');
+    const digitsOnly = (value: string) => (value || '').replace(/\D/g, '');
+
+    const pickPhone = (parts: string[]) => {
+      const candidate = parts.map(digitsOnly).find(d => d.length >= 8 && d.length <= 15);
+      return candidate || '';
+    };
+
+    const pickCategoryRaw = (parts: string[]) => {
+      for (const p of parts) {
+        if (normalizeCategory(p)) return p;
+      }
+      return '';
+    };
+
+    return dataLines.map((line, index) => {
+      const parts = line.split(delimiter).map(p => (p || '').trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+
+      // Standard: Nome,Telefone,Login,Senha,Categoria
+      let name = parts[0] || '';
+      let phone = parts[1] || '';
+      let login = parts[2] || '';
+      let password = parts[3] || '';
+      let categoryInput = parts[4] || '';
+
+      // Exported formats often start with UUID columns, with name/phone later
+      if (name && isUuid(name)) {
+        const nameCandidate = parts.find(p => hasLetters(p) && p.length >= 2) || '';
+        const phoneCandidate = pickPhone(parts);
+        const categoryCandidate = pickCategoryRaw(parts);
+
+        name = nameCandidate || name;
+        phone = phoneCandidate || '';
+        login = '';
+        password = '';
+        categoryInput = categoryCandidate || '';
       }
 
-      const [name, phone = '', login = '', password = '', categoryInput = ''] = trimmedParts;
-
-      // Basic validation
-      if (name.length < 2) {
-        return { name, phone, login, password, category: defaultCategory, valid: false, error: `Linha ${index + 1}: Nome muito curto` };
+      if (!name || name.length < 2) {
+        return { name: '', phone: '', login: '', password: '', category: defaultCategory, valid: false, error: `Linha ${index + (hasHeader ? 2 : 1)}: Nome é obrigatório` };
       }
 
-      // Determine category - use provided or default
       let category = defaultCategory;
       if (categoryInput) {
         const normalized = normalizeCategory(categoryInput);
-        if (normalized) {
-          category = normalized;
-        } else {
-          return { 
-            name, phone, login, password, category: categoryInput, 
-            valid: false, 
-            error: `Linha ${index + 1}: Categoria "${categoryInput}" inválida. Use: IPTV, P2P, Contas Premium ou SSH` 
+        if (normalized) category = normalized;
+        else {
+          return {
+            name,
+            phone,
+            login,
+            password,
+            category: categoryInput,
+            valid: false,
+            error: `Linha ${index + (hasHeader ? 2 : 1)}: Categoria "${categoryInput}" inválida. Use: IPTV, P2P, Contas Premium ou SSH`
           };
         }
       }
 
-      return { 
+      const phoneDigits = digitsOnly(phone);
+
+      return {
         name: name.slice(0, 100),
-        phone: phone.replace(/\D/g, '').slice(0, 20),
+        phone: phoneDigits.slice(0, 20),
         login: login.slice(0, 100),
         password: password.slice(0, 100),
         category,
-        valid: true 
+        valid: true
       };
     });
   };
