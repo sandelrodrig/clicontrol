@@ -4,8 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   Users,
-  Package,
-  Settings,
+  Server,
   Menu,
 } from 'lucide-react';
 
@@ -16,10 +15,9 @@ interface NavItem {
 }
 
 const bottomNavItems: NavItem[] = [
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { title: 'Início', href: '/dashboard', icon: LayoutDashboard },
   { title: 'Clientes', href: '/clients', icon: Users },
-  { title: 'Planos', href: '/plans', icon: Package },
-  { title: 'Config', href: '/settings', icon: Settings },
+  { title: 'Servidores', href: '/servers', icon: Server },
 ];
 
 interface BottomNavigationProps {
@@ -30,13 +28,8 @@ export function BottomNavigation({ onMenuClick }: BottomNavigationProps) {
   const { isSeller } = useAuth();
   const location = useLocation();
 
-  // Filter items based on role
-  const filteredItems = bottomNavItems.filter((item) => {
-    if (item.href === '/clients' || item.href === '/plans') {
-      return isSeller;
-    }
-    return true;
-  });
+  // Filter items based on role - only show to sellers
+  const filteredItems = isSeller ? bottomNavItems : [bottomNavItems[0]];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-sidebar border-t border-sidebar-border safe-area-pb">
