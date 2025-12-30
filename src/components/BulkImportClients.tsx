@@ -28,12 +28,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PlanSelector } from '@/components/PlanSelector';
 
 interface Plan {
   id: string;
   name: string;
   price: number;
   duration_days: number;
+  category?: string | null;
+  screens?: number | null;
 }
 
 interface BulkImportClientsProps {
@@ -461,18 +464,13 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Plano *</Label>
-                <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o plano" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {plans.map((plan) => (
-                      <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name} - R$ {plan.price.toFixed(2)} ({plan.duration_days} dias)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <PlanSelector 
+                  plans={plans}
+                  value={selectedPlanId}
+                  onValueChange={setSelectedPlanId}
+                  placeholder="Selecione o plano"
+                  showFilters={true}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Categoria Padrão</Label>
