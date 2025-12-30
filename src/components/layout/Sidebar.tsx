@@ -23,12 +23,15 @@ import {
   Menu,
   X,
   PlayCircle,
+  RefreshCw,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from 'sonner';
 
 interface NavItem {
   title: string;
@@ -165,15 +168,60 @@ export function Sidebar() {
 
   // Mobile: Sheet sidebar with bottom nav
   if (isMobile) {
+  const handleShare = async () => {
+    const url = window.location.origin;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'PSControl',
+          text: 'Confira este aplicativo de gerenciamento de clientes!',
+          url: url,
+        });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          navigator.clipboard.writeText(url);
+          toast.success('Link copiado!');
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success('Link copiado!');
+    }
+  };
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
     return (
       <>
         {/* Mobile Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-center px-4">
+        <header className="fixed top-0 left-0 right-0 z-50 h-14 bg-sidebar border-b border-sidebar-border flex items-center justify-between px-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Users className="w-4 h-4 text-primary-foreground" />
             </div>
             <span className="font-semibold text-sidebar-foreground">PSControl</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRefresh}
+              className="h-9 w-9 text-sidebar-foreground"
+              title="Atualizar"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleShare}
+              className="h-9 w-9 text-sidebar-foreground"
+              title="Compartilhar"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
           </div>
         </header>
         {/* Spacer for fixed header */}
