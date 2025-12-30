@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Database, Download, Upload, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Database, Download, Upload, AlertTriangle, CheckCircle, Rocket, Copy } from 'lucide-react';
 import { ImportClientsFromProject } from '@/components/ImportClientsFromProject';
 
 interface BackupData {
@@ -34,6 +35,8 @@ interface BackupData {
     shared_panels?: unknown[];
     panel_clients?: unknown[];
     message_history?: unknown[];
+    profiles?: unknown[];
+    client_categories?: unknown[];
   };
 }
 
@@ -41,10 +44,25 @@ export default function Backup() {
   const { user, isAdmin } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isDeployExporting, setIsDeployExporting] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [deployDialogOpen, setDeployDialogOpen] = useState(false);
   const [restoreMode, setRestoreMode] = useState<'append' | 'replace'>('append');
   const [backupFile, setBackupFile] = useState<BackupData | null>(null);
   const [restoreResult, setRestoreResult] = useState<{ restored: Record<string, number>; errors: string[] } | null>(null);
+  const [deployOptions, setDeployOptions] = useState({
+    includeProfiles: true,
+    includeClients: true,
+    includePlans: true,
+    includeServers: true,
+    includeTemplates: true,
+    includeCoupons: true,
+    includeBills: true,
+    includeReferrals: true,
+    includePanels: true,
+    includeCategories: true,
+    includeMessageHistory: false, // Off by default - can be large
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isAdmin) {
@@ -155,12 +173,133 @@ export default function Backup() {
     setRestoreResult(null);
   };
 
+  const handleDeployExport = async () => {
+    setIsDeployExporting(true);
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('Sessão inválida. Faça login novamente.');
+
+      // Fetch all data based on options - for ALL users (admin export)
+      const fetchPromises = [];
+      const dataKeys: string[] = [];
+
+      if (deployOptions.includeProfiles) {
+        fetchPromises.push(supabase.from('profiles').select('*'));
+        dataKeys.push('profiles');
+      }
+      if (deployOptions.includeClients) {
+        fetchPromises.push(supabase.from('clients').select('*'));
+        dataKeys.push('clients');
+      }
+      if (deployOptions.includePlans) {
+        fetchPromises.push(supabase.from('plans').select('*'));
+        dataKeys.push('plans');
+      }
+      if (deployOptions.includeServers) {
+        fetchPromises.push(supabase.from('servers').select('*'));
+        dataKeys.push('servers');
+      }
+      if (deployOptions.includeTemplates) {
+        fetchPromises.push(supabase.from('whatsapp_templates').select('*'));
+        dataKeys.push('whatsapp_templates');
+      }
+      if (deployOptions.includeCoupons) {
+        fetchPromises.push(supabase.from('coupons').select('*'));
+        dataKeys.push('coupons');
+      }
+      if (deployOptions.includeBills) {
+        fetchPromises.push(supabase.from('bills_to_pay').select('*'));
+        dataKeys.push('bills_to_pay');
+      }
+      if (deployOptions.includeReferrals) {
+        fetchPromises.push(supabase.from('referrals').select('*'));
+        dataKeys.push('referrals');
+      }
+      if (deployOptions.includePanels) {
+        fetchPromises.push(supabase.from('shared_panels').select('*'));
+        fetchPromises.push(supabase.from('panel_clients').select('*'));
+        dataKeys.push('shared_panels');
+        dataKeys.push('panel_clients');
+      }
+      if (deployOptions.includeCategories) {
+        fetchPromises.push(supabase.from('client_categories').select('*'));
+        dataKeys.push('client_categories');
+      }
+      if (deployOptions.includeMessageHistory) {
+        fetchPromises.push(supabase.from('message_history').select('*'));
+        dataKeys.push('message_history');
+      }
+
+      const results = await Promise.all(fetchPromises);
+
+      const exportData: Record<string, unknown[]> = {};
+      const stats: Record<string, number> = {};
+
+      results.forEach((result, index) => {
+        const key = dataKeys[index];
+        exportData[key] = result.data || [];
+        stats[key] = (result.data || []).length;
+      });
+
+      const deployBackup = {
+        version: '2.0-deploy',
+        timestamp: new Date().toISOString(),
+        exportType: 'full-deploy',
+        description: 'Backup completo para deploy em outro projeto',
+        stats,
+        data: exportData,
+      };
+
+      const blob = new Blob([JSON.stringify(deployBackup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `deploy-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setDeployDialogOpen(false);
+      toast.success('Backup para deploy exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao exportar para deploy:', error);
+      toast.error((error as { message?: string })?.message || 'Erro ao exportar backup');
+    } finally {
+      setIsDeployExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Backup e Restauração</h1>
         <p className="text-muted-foreground">Exporte e importe dados do sistema</p>
       </div>
+
+      {/* Deploy Card - Highlight */}
+      <Card className="border-primary/50 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-primary">
+            <Rocket className="h-5 w-5" />
+            Deploy para Outro Projeto
+          </CardTitle>
+          <CardDescription>
+            Exporte todos os dados para migrar para outro projeto
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Gera um backup completo com todos os dados de todos os vendedores, pronto para importar em outro projeto via GitHub/Lovable.
+          </p>
+          <Button onClick={() => setDeployDialogOpen(true)} className="w-full">
+            <Rocket className="h-4 w-4 mr-2" />
+            Configurar Deploy
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
@@ -337,6 +476,114 @@ export default function Backup() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Deploy Dialog */}
+      <Dialog open={deployDialogOpen} onOpenChange={setDeployDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Rocket className="h-5 w-5 text-primary" />
+              Deploy para Outro Projeto
+            </DialogTitle>
+            <DialogDescription>
+              Selecione quais dados exportar para migrar para outro projeto
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-primary/10 rounded-lg text-sm">
+              <p className="text-muted-foreground">
+                Este backup inclui dados de <strong>todos os vendedores</strong> e pode ser importado em outro projeto usando a função "Restaurar Backup".
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Dados a exportar:</Label>
+              
+              <div className="space-y-2">
+                {[
+                  { key: 'includeProfiles', label: 'Perfis de Vendedores', desc: 'Dados dos vendedores cadastrados' },
+                  { key: 'includeClients', label: 'Clientes', desc: 'Todos os clientes de todos os vendedores' },
+                  { key: 'includePlans', label: 'Planos', desc: 'Planos de assinatura configurados' },
+                  { key: 'includeServers', label: 'Servidores', desc: 'Servidores e configurações de crédito' },
+                  { key: 'includeTemplates', label: 'Templates WhatsApp', desc: 'Modelos de mensagens' },
+                  { key: 'includeCoupons', label: 'Cupons', desc: 'Cupons de desconto' },
+                  { key: 'includeBills', label: 'Contas a Pagar', desc: 'Registro de contas' },
+                  { key: 'includeReferrals', label: 'Indicações', desc: 'Sistema de indicações' },
+                  { key: 'includePanels', label: 'Painéis Compartilhados', desc: 'Painéis e clientes vinculados' },
+                  { key: 'includeCategories', label: 'Categorias', desc: 'Categorias de clientes' },
+                  { key: 'includeMessageHistory', label: 'Histórico de Mensagens', desc: 'Pode ser muito grande!' },
+                ].map(({ key, label, desc }) => (
+                  <div key={key} className="flex items-center justify-between p-2 border rounded-lg">
+                    <div>
+                      <Label htmlFor={key} className="font-medium cursor-pointer">{label}</Label>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    </div>
+                    <Switch
+                      id={key}
+                      checked={deployOptions[key as keyof typeof deployOptions]}
+                      onCheckedChange={(checked) => 
+                        setDeployOptions(prev => ({ ...prev, [key]: checked }))
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeployOptions({
+                  includeProfiles: true,
+                  includeClients: true,
+                  includePlans: true,
+                  includeServers: true,
+                  includeTemplates: true,
+                  includeCoupons: true,
+                  includeBills: true,
+                  includeReferrals: true,
+                  includePanels: true,
+                  includeCategories: true,
+                  includeMessageHistory: true,
+                })}
+              >
+                Selecionar Todos
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeployOptions({
+                  includeProfiles: false,
+                  includeClients: false,
+                  includePlans: false,
+                  includeServers: false,
+                  includeTemplates: false,
+                  includeCoupons: false,
+                  includeBills: false,
+                  includeReferrals: false,
+                  includePanels: false,
+                  includeCategories: false,
+                  includeMessageHistory: false,
+                })}
+              >
+                Desmarcar Todos
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeployDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleDeployExport} disabled={isDeployExporting}>
+              <Rocket className="h-4 w-4 mr-2" />
+              {isDeployExporting ? 'Exportando...' : 'Exportar para Deploy'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
