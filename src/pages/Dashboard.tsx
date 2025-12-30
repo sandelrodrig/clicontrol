@@ -3,14 +3,38 @@ import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp } from 'lucide-react';
+import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp, Bell, MessageCircle, Send } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { format, addDays, isBefore, isAfter, startOfToday } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { SendMessageDialog } from '@/components/SendMessageDialog';
+import { Link } from 'react-router-dom';
+
+interface Client {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  expiration_date: string;
+  plan_name: string | null;
+  plan_price: number | null;
+  is_paid: boolean | null;
+  category: string | null;
+  login: string | null;
+  password: string | null;
+  premium_password: string | null;
+  server_name: string | null;
+  telegram: string | null;
+}
 
 export default function Dashboard() {
   const { user, profile, isAdmin, isSeller } = useAuth();
   const { isPrivacyMode, maskData } = usePrivacyMode();
+  const [messageClient, setMessageClient] = useState<Client | null>(null);
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients', user?.id],
@@ -21,7 +45,7 @@ export default function Dashboard() {
         .select('*')
         .eq('seller_id', user.id);
       if (error) throw error;
-      return data || [];
+      return data as Client[] || [];
     },
     enabled: !!user?.id && isSeller,
   });
@@ -56,6 +80,37 @@ export default function Dashboard() {
 
   const totalRevenue = clients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
 
+  // Clients expiring in specific days (1, 2, 3, 4, 5 days)
+  const getClientsExpiringInDays = (days: number) => {
+    return clients.filter(c => {
+      const expDate = new Date(c.expiration_date);
+      const diff = differenceInDays(expDate, today);
+      return diff === days;
+    });
+  };
+
+  // Clients expiring from 1 to 5 days, sorted by days remaining
+  const urgentClients = clients
+    .map(c => ({
+      ...c,
+      daysRemaining: differenceInDays(new Date(c.expiration_date), today)
+    }))
+    .filter(c => c.daysRemaining >= 0 && c.daysRemaining <= 5)
+    .sort((a, b) => a.daysRemaining - b.daysRemaining);
+
+  const expiringToday = getClientsExpiringInDays(0);
+  const expiring1Day = getClientsExpiringInDays(1);
+  const expiring2Days = getClientsExpiringInDays(2);
+  const expiring3Days = getClientsExpiringInDays(3);
+
+  const getDaysBadgeColor = (days: number) => {
+    if (days === 0) return 'bg-destructive text-destructive-foreground';
+    if (days === 1) return 'bg-destructive/80 text-destructive-foreground';
+    if (days === 2) return 'bg-warning text-warning-foreground';
+    if (days === 3) return 'bg-warning/70 text-warning-foreground';
+    return 'bg-muted text-muted-foreground';
+  };
+
   // Admin stats
   const activeSellers = sellers.filter(s => {
     if (s.is_permanent) return true;
@@ -84,6 +139,64 @@ export default function Dashboard() {
       {/* Seller Dashboard */}
       {isSeller && (
         <>
+          {/* Urgent Notifications */}
+          {(expiringToday.length > 0 || expiring1Day.length > 0 || expiring2Days.length > 0 || expiring3Days.length > 0) && (
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+              {expiringToday.length > 0 && (
+                <Card className="border-destructive bg-destructive/10">
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-destructive/20">
+                      <Bell className="h-4 w-4 text-destructive animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-destructive font-medium">Vence HOJE</p>
+                      <p className="text-xl font-bold text-destructive">{expiringToday.length}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {expiring1Day.length > 0 && (
+                <Card className="border-destructive/70 bg-destructive/5">
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-destructive/10">
+                      <Clock className="h-4 w-4 text-destructive/80" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-destructive/80 font-medium">Vence em 1 dia</p>
+                      <p className="text-xl font-bold text-destructive/80">{expiring1Day.length}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {expiring2Days.length > 0 && (
+                <Card className="border-warning bg-warning/10">
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-warning/20">
+                      <Clock className="h-4 w-4 text-warning" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-warning font-medium">Vence em 2 dias</p>
+                      <p className="text-xl font-bold text-warning">{expiring2Days.length}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {expiring3Days.length > 0 && (
+                <Card className="border-warning/60 bg-warning/5">
+                  <CardContent className="p-3 flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-warning/10">
+                      <Clock className="h-4 w-4 text-warning/70" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-warning/70 font-medium">Vence em 3 dias</p>
+                      <p className="text-xl font-bold text-warning/70">{expiring3Days.length}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
               title="Total de Clientes"
@@ -150,30 +263,54 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Expiring Clients Alert */}
-          {expiringClients.length > 0 && (
-            <Card className="border-warning/50 bg-warning/5">
+          {/* Urgent Clients List - Sorted by days remaining */}
+          {urgentClients.length > 0 && (
+            <Card className="border-warning/50 bg-gradient-to-br from-warning/5 to-transparent">
               <CardHeader>
-                <CardTitle className="text-warning flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Clientes Vencendo em Breve
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-warning flex items-center gap-2">
+                    <Bell className="h-5 w-5" />
+                    Clientes Vencendo (0-5 dias)
+                  </CardTitle>
+                  <Link to="/clients">
+                    <Button variant="outline" size="sm">Ver todos</Button>
+                  </Link>
+                </div>
+                <CardDescription>Ordenados por urgência - clique para enviar mensagem</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {expiringClients.slice(0, 5).map((client) => (
-                    <div key={client.id} className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
-                      <span className="font-medium">{maskData(client.name, 'name')}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {format(new Date(client.expiration_date), "dd 'de' MMM", { locale: ptBR })}
-                      </span>
+                  {urgentClients.map((client) => (
+                    <div 
+                      key={client.id} 
+                      className="flex justify-between items-center py-3 px-3 rounded-lg bg-card/50 border border-border/50 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Badge className={cn("text-xs font-bold min-w-[70px] justify-center", getDaysBadgeColor(client.daysRemaining))}>
+                          {client.daysRemaining === 0 ? 'HOJE' : `${client.daysRemaining} dia${client.daysRemaining > 1 ? 's' : ''}`}
+                        </Badge>
+                        <div>
+                          <p className="font-medium">{maskData(client.name, 'name')}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {client.plan_name} • {format(new Date(client.expiration_date), "dd/MM/yyyy")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {client.phone && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setMessageClient(client)}
+                            className="gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          >
+                            <Send className="h-4 w-4" />
+                            <span className="hidden sm:inline">Mensagem</span>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
-                  {expiringClients.length > 5 && (
-                    <p className="text-sm text-muted-foreground text-center pt-2">
-                      +{expiringClients.length - 5} outros clientes
-                    </p>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -225,6 +362,15 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* Message Dialog */}
+      {messageClient && (
+        <SendMessageDialog
+          client={messageClient}
+          open={!!messageClient}
+          onOpenChange={(open) => !open && setMessageClient(null)}
+        />
       )}
     </div>
   );
