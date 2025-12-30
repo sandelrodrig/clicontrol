@@ -36,6 +36,7 @@ interface ServerData {
   iptv_per_credit: number;
   p2p_per_credit: number;
   credit_price: number;
+  total_screens_per_credit: number;
 }
 
 // Helper function to calculate pro-rata price
@@ -65,6 +66,7 @@ export default function Servers() {
     iptv_per_credit: '',
     p2p_per_credit: '',
     credit_price: '',
+    total_screens_per_credit: '',
   });
 
   const { data: servers = [], isLoading } = useQuery({
@@ -168,6 +170,7 @@ export default function Servers() {
       iptv_per_credit: '',
       p2p_per_credit: '',
       credit_price: '',
+      total_screens_per_credit: '',
     });
   };
 
@@ -186,6 +189,7 @@ export default function Servers() {
       iptv_per_credit: parseInt(formData.iptv_per_credit) || 0,
       p2p_per_credit: parseInt(formData.p2p_per_credit) || 0,
       credit_price: parseFloat(formData.credit_price) || 0,
+      total_screens_per_credit: parseInt(formData.total_screens_per_credit) || 0,
     };
 
     if (editingServer) {
@@ -210,6 +214,7 @@ export default function Servers() {
       iptv_per_credit: server.iptv_per_credit && server.iptv_per_credit > 0 ? server.iptv_per_credit.toString() : '',
       p2p_per_credit: server.p2p_per_credit && server.p2p_per_credit > 0 ? server.p2p_per_credit.toString() : '',
       credit_price: server.credit_price && server.credit_price > 0 ? server.credit_price.toString() : '',
+      total_screens_per_credit: server.total_screens_per_credit && server.total_screens_per_credit > 0 ? server.total_screens_per_credit.toString() : '',
     });
     setIsDialogOpen(true);
   };
@@ -385,6 +390,25 @@ export default function Servers() {
                         />
                       </div>
                     </div>
+                    
+                    {/* Total screens per credit */}
+                    <div className="space-y-2 mt-3">
+                      <Label htmlFor="total_screens_per_credit">Total de Telas por Crédito</Label>
+                      <Input
+                        id="total_screens_per_credit"
+                        type="number"
+                        step="1"
+                        min="1"
+                        max="10"
+                        value={formData.total_screens_per_credit}
+                        onChange={(e) => setFormData({ ...formData, total_screens_per_credit: e.target.value })}
+                        placeholder="Ex: 3"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Quantas telas o cliente pode ter com 1 crédito (máx para seleção no cadastro)
+                      </p>
+                    </div>
+                    
                     {(parseInt(formData.iptv_per_credit) > 0 || parseInt(formData.p2p_per_credit) > 0) && (
                       <div className="mt-3 p-2 rounded bg-primary/10 text-sm">
                         <span className="font-medium">1 crédito = </span>
@@ -394,6 +418,9 @@ export default function Servers() {
                         {parseInt(formData.iptv_per_credit) > 0 && parseInt(formData.p2p_per_credit) > 0 && ' + '}
                         {parseInt(formData.p2p_per_credit) > 0 && (
                           <span className="text-green-500">{formData.p2p_per_credit} P2P</span>
+                        )}
+                        {parseInt(formData.total_screens_per_credit) > 0 && (
+                          <span className="text-amber-500 ml-2">({formData.total_screens_per_credit} telas máx)</span>
                         )}
                       </div>
                     )}
