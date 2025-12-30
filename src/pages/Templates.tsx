@@ -109,7 +109,8 @@ Qualquer dúvida estamos à disposição! 🙏`
       {
         name: `${platformPrefix}IPTV - Cobrança`,
         type: 'billing',
-        message: `💰 Olá {nome}!
+        message: platform === 'telegram' 
+          ? `💰 Olá {nome}!
 
 Estamos enviando os dados para pagamento do seu plano IPTV:
 
@@ -118,6 +119,17 @@ Estamos enviando os dados para pagamento do seu plano IPTV:
 📆 *Vencimento:* {vencimento}
 
 *Chave PIX:* {pix}
+
+Após o pagamento, envie o comprovante aqui! ✅
+
+*{empresa}*`
+          : `💰 Olá {nome}!
+
+Estamos enviando os dados para pagamento do seu plano IPTV:
+
+📺 *Plano:* {plano}
+💵 *Valor:* R$ {valor}
+📆 *Vencimento:* {vencimento}
 
 Após o pagamento, envie o comprovante aqui! ✅
 
@@ -221,7 +233,8 @@ Qualquer dúvida estamos à disposição! 🙏`
       {
         name: `${platformPrefix}SSH - Cobrança`,
         type: 'billing',
-        message: `💰 Olá {nome}!
+        message: platform === 'telegram' 
+          ? `💰 Olá {nome}!
 
 Estamos enviando os dados para pagamento do seu plano SSH:
 
@@ -230,6 +243,17 @@ Estamos enviando os dados para pagamento do seu plano SSH:
 📆 *Vencimento:* {vencimento}
 
 *Chave PIX:* {pix}
+
+Após o pagamento, envie o comprovante aqui! ✅
+
+*{empresa}*`
+          : `💰 Olá {nome}!
+
+Estamos enviando os dados para pagamento do seu plano SSH:
+
+🌐 *Plano:* {plano}
+💵 *Valor:* R$ {valor}
+📆 *Vencimento:* {vencimento}
 
 Após o pagamento, envie o comprovante aqui! ✅
 
@@ -334,7 +358,8 @@ Qualquer dúvida estamos à disposição! 🙏`
       {
         name: `${platformPrefix}Premium - Cobrança`,
         type: 'billing',
-        message: `💰 Olá {nome}!
+        message: platform === 'telegram' 
+          ? `💰 Olá {nome}!
 
 Estamos enviando os dados para pagamento da sua conta Premium:
 
@@ -343,6 +368,17 @@ Estamos enviando os dados para pagamento da sua conta Premium:
 📆 *Vencimento:* {vencimento}
 
 *Chave PIX:* {pix}
+
+Após o pagamento, envie o comprovante aqui! ✅
+
+*{empresa}*`
+          : `💰 Olá {nome}!
+
+Estamos enviando os dados para pagamento da sua conta Premium:
+
+👑 *Plano:* {plano}
+💵 *Valor:* R$ {valor}
+📆 *Vencimento:* {vencimento}
 
 Após o pagamento, envie o comprovante aqui! ✅
 
