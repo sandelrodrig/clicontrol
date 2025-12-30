@@ -174,6 +174,27 @@ export default function Dashboard() {
     };
   }).sort((a, b) => b.profit - a.profit);
 
+  // Get all unique categories from clients
+  const allCategories = [...new Set(clients.map(c => c.category || 'Sem categoria'))];
+
+  // Calculate revenue per category
+  const categoryProfits = allCategories.map(category => {
+    const categoryClients = clients.filter(c => 
+      (c.category || 'Sem categoria') === category && 
+      !isBefore(new Date(c.expiration_date), today) &&
+      c.is_paid
+    );
+    const categoryRevenue = categoryClients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
+    const totalCategoryClients = clients.filter(c => (c.category || 'Sem categoria') === category).length;
+    
+    return {
+      category,
+      clientCount: categoryClients.length,
+      totalClients: totalCategoryClients,
+      revenue: categoryRevenue,
+    };
+  }).sort((a, b) => b.revenue - a.revenue);
+
   // Clients expiring in specific days (1, 2, 3, 4, 5 days)
   const getClientsExpiringInDays = (days: number) => {
     return clients.filter(c => {
@@ -518,7 +539,63 @@ export default function Dashboard() {
             </Card>
           )}
 
-          {/* Archived Clients Card */}
+          {/* Category Revenue Section */}
+          {categoryProfits.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Receita por Categoria
+                </CardTitle>
+                <CardDescription>Receita dos clientes ativos e pagos por categoria</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {categoryProfits.map(cat => {
+                    const getCategoryColor = (category: string) => {
+                      switch (category) {
+                        case 'IPTV': return 'bg-blue-500/10 border-blue-500/30 text-blue-600';
+                        case 'P2P': return 'bg-purple-500/10 border-purple-500/30 text-purple-600';
+                        case 'SSH': return 'bg-orange-500/10 border-orange-500/30 text-orange-600';
+                        case 'Contas Premium': return 'bg-amber-500/10 border-amber-500/30 text-amber-600';
+                        default: return 'bg-primary/10 border-primary/30 text-primary';
+                      }
+                    };
+                    const getCategoryIcon = (category: string) => {
+                      switch (category) {
+                        case 'IPTV': return '📺';
+                        case 'P2P': return '🌐';
+                        case 'SSH': return '🔒';
+                        case 'Contas Premium': return '⭐';
+                        default: return '📁';
+                      }
+                    };
+                    
+                    return (
+                      <div 
+                        key={cat.category}
+                        className={cn(
+                          "flex flex-col p-4 rounded-lg border",
+                          getCategoryColor(cat.category)
+                        )}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xl">{getCategoryIcon(cat.category)}</span>
+                          <span className="font-semibold">{cat.category}</span>
+                        </div>
+                        <p className="text-2xl font-bold">
+                          {maskData(`R$ ${cat.revenue.toFixed(2)}`, 'money')}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {cat.clientCount} ativo{cat.clientCount !== 1 ? 's' : ''} de {cat.totalClients} total
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {archivedCount > 0 && (
             <Card className="border-muted bg-muted/20">
               <CardContent className="py-4">
