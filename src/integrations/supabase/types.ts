@@ -710,6 +710,10 @@ export type Database = {
     }
     Functions: {
       cleanup_old_login_attempts: { Args: never; Returns: undefined }
+      create_admin_templates: {
+        Args: { admin_uuid: string }
+        Returns: undefined
+      }
       create_default_plans_for_seller: {
         Args: { seller_uuid: string }
         Returns: undefined
