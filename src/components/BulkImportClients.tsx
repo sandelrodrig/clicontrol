@@ -276,11 +276,52 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
 
       const defaultExpirationDate = format(addDays(new Date(), plan.duration_days), 'yyyy-MM-dd');
 
-      // Prepare clients with encrypted credentials
+      // Get unique server names from import (uppercase, non-empty)
+      const uniqueServerNames = [...new Set(
+        validClients
+          .map(c => c.server?.trim().toUpperCase())
+          .filter(Boolean)
+      )] as string[];
+
+      // Fetch existing servers for this seller
+      const { data: existingServers } = await supabase
+        .from('servers')
+        .select('id, name')
+        .eq('seller_id', user!.id);
+
+      const serverMap = new Map<string, string>();
+      (existingServers || []).forEach(s => {
+        serverMap.set(s.name.toUpperCase(), s.id);
+      });
+
+      // Create servers that don't exist
+      const serversToCreate = uniqueServerNames.filter(name => !serverMap.has(name));
+      
+      if (serversToCreate.length > 0) {
+        const { data: newServers, error: serverError } = await supabase
+          .from('servers')
+          .insert(serversToCreate.map(name => ({
+            seller_id: user!.id,
+            name: name,
+            is_active: true,
+          })))
+          .select('id, name');
+
+        if (serverError) throw serverError;
+
+        // Add new servers to map
+        (newServers || []).forEach(s => {
+          serverMap.set(s.name.toUpperCase(), s.id);
+        });
+      }
+
+      // Prepare clients with encrypted credentials and server_id
       const clientsToInsert = await Promise.all(
         validClients.map(async (client) => {
           const encryptedLogin = client.login ? await encrypt(client.login) : null;
           const encryptedPassword = client.password ? await encrypt(client.password) : null;
+          const serverName = client.server?.trim().toUpperCase() || null;
+          const serverId = serverName ? serverMap.get(serverName) || null : null;
 
           return {
             seller_id: user!.id,
@@ -293,7 +334,8 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
             plan_price: client.price ?? plan.price,
             expiration_date: client.expiration_date || defaultExpirationDate,
             category: client.category,
-            server_name: client.server || null,
+            server_id: serverId,
+            server_name: serverName,
             is_paid: true,
           };
         })
@@ -302,11 +344,13 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
       const { error } = await supabase.from('clients').insert(clientsToInsert);
       if (error) throw error;
 
-      return validClients.length;
+      return { clientCount: validClients.length, serverCount: serversToCreate.length };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ clientCount, serverCount }) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      toast.success(`${count} cliente(s) importado(s) com sucesso!`);
+      queryClient.invalidateQueries({ queryKey: ['servers'] });
+      const serverMsg = serverCount > 0 ? ` e ${serverCount} servidor(es) criado(s)` : '';
+      toast.success(`${clientCount} cliente(s) importado(s)${serverMsg}!`);
       handleClose();
     },
     onError: (error: Error) => {
