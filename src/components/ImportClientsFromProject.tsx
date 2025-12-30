@@ -248,7 +248,7 @@ export function ImportClientsFromProject() {
   const parseCSV = (text: string): ParsedClient[] => {
     try {
       const normalizedText = text.replace(/\r\n?/g, '\n').trim();
-      const lines = normalizedText.split('\n').filter(line => line.trim());
+      const lines = normalizedText.split('\n').filter((line) => line.trim());
 
       if (lines.length === 0) {
         return [{
@@ -265,11 +265,10 @@ export function ImportClientsFromProject() {
           device: null,
           is_paid: true,
           valid: false,
-          error: 'Arquivo CSV vazio'
+          error: 'Arquivo CSV vazio',
         }];
       }
 
-      // Detect delimiter from the first non-empty line
       const detectDelimiter = (line: string): string => {
         const semicolonCount = (line.match(/;/g) || []).length;
         const commaCount = (line.match(/,/g) || []).length;
@@ -282,26 +281,60 @@ export function ImportClientsFromProject() {
 
       const delimiter = detectDelimiter(lines[0]);
 
-      // Header detection (supports exports that start with id/seller_id etc.)
-      const firstLine = lines[0].toLowerCase();
+      const splitRow = (row: string) =>
+        row
+          .split(delimiter)
+          .map((p) => (p || '').trim().replace(/^["']|["']$/g, ''));
+
+      const normalizeHeader = (h: string) =>
+        (h || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '_')
+          .replace(/-+/g, '_');
+
+      const headerLower = lines[0].toLowerCase();
       const hasHeader = [
         'nome',
         'name',
         'telefone',
         'phone',
+        'login',
+        'senha',
+        'password',
         'categoria',
         'category',
         'venc',
         'expir',
-        'plan',
-        'plano',
-        'valor',
-        'price',
-        'email',
-        'seller',
         'seller_id',
-        'id'
-      ].some(k => firstLine.includes(k));
+        'id',
+      ].some((k) => headerLower.includes(k));
+
+      const headers = hasHeader ? splitRow(lines[0]).map(normalizeHeader) : null;
+
+      const findHeaderIndex = (aliases: string[]) => {
+        if (!headers) return null;
+        const aliasSet = new Set(aliases);
+        const idx = headers.findIndex((h) => aliasSet.has(h));
+        return idx >= 0 ? idx : null;
+      };
+
+      const headerIdx = hasHeader
+        ? {
+            name: findHeaderIndex(['name', 'nome']),
+            phone: findHeaderIndex(['phone', 'telefone', 'whatsapp', 'celular']),
+            login: findHeaderIndex(['login', 'usuario', 'user', 'username']),
+            password: findHeaderIndex(['password', 'senha', 'pass']),
+            email: findHeaderIndex(['email', 'premium_email']),
+            category: findHeaderIndex(['category', 'categoria']),
+            expiration: findHeaderIndex(['expiration_date', 'expiration', 'vencimento', 'expiracao', 'expires_at']),
+            plan_name: findHeaderIndex(['plan_name', 'plano']),
+            plan_price: findHeaderIndex(['plan_price', 'valor', 'price']),
+            notes: findHeaderIndex(['notes', 'observacoes', 'obs']),
+            device: findHeaderIndex(['device', 'dispositivo']),
+            is_paid: findHeaderIndex(['is_paid', 'pago', 'paid']),
+          }
+        : null;
 
       const dataLines = hasHeader ? lines.slice(1) : lines;
 
@@ -320,80 +353,161 @@ export function ImportClientsFromProject() {
           device: null,
           is_paid: true,
           valid: false,
-          error: 'Nenhum dado encontrado após o cabeçalho'
+          error: 'Nenhum dado encontrado após o cabeçalho',
         }];
       }
 
       const isUuid = (value: string) =>
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test((value || '').trim());
 
-      const hasLetters = (value: string) => /[A-Za-zÀ-ÿ]/.test(value);
+      const hasLetters = (value: string) => /[A-Za-zÀ-ÿ]/.test(value || '');
 
       const digitsOnly = (value: string) => (value || '').replace(/\D/g, '');
+
+      const parseBool = (value: string) => {
+        const v = (value || '').trim().toLowerCase();
+        return ['1', 'true', 'sim', 'yes', 'y'].includes(v);
+      };
+
+      const numericFromString = (value: string) => {
+        if (!value) return null;
+        const cleaned = String(value).replace(/[^0-9.,-]/g, '').replace(',', '.');
+        const n = Number(cleaned);
+        return Number.isFinite(n) ? n : null;
+      };
 
       const pickPhone = (parts: string[]) => {
         const candidate = parts
           .map(digitsOnly)
-          .find(d => d.length >= 8 && d.length <= 15);
+          .find((d) => d.length >= 8 && d.length <= 15);
         return candidate || '';
       };
 
-      const pickEmail = (parts: string[]) => parts.find(p => p.includes('@')) || '';
+      const pickEmail = (parts: string[]) => parts.find((p) => (p || '').includes('@')) || '';
 
-      const pickExpiration = (parts: string[]) => {
+      const pickExpirationRaw = (parts: string[]) => {
         for (const p of parts) {
-          const parsed = parseDate(p);
-          if (parsed) return p;
+          if (parseDate(p)) return p;
         }
         return '';
       };
 
       const pickCategoryRaw = (parts: string[]) => {
         for (const p of parts) {
-          const normalized = normalizeCategory(p);
-          if (normalized) return p;
+          if (normalizeCategory(p)) return p;
+        }
+        return '';
+      };
+
+      const pickNameCandidate = (parts: string[]) => {
+        // Prefer the LAST texty value (exports usually put name later)
+        for (let i = parts.length - 1; i >= 0; i--) {
+          const p = (parts[i] || '').trim();
+          if (p.length >= 2 && hasLetters(p) && !isUuid(p)) return p;
         }
         return '';
       };
 
       return dataLines.map((line, index) => {
         try {
-          const parts = line.split(delimiter);
-          const trimmedParts = parts.map(p => (p || '').trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+          const cols = splitRow(line);
 
-          // Default mapping (our "standard" import format)
-          let name = trimmedParts[0] || '';
-          let phone = trimmedParts[1] || '';
-          let login = trimmedParts[2] || '';
-          let password = trimmedParts[3] || '';
-          let categoryInput = trimmedParts[4] || '';
-          let expirationStr = trimmedParts[5] || '';
-          let plan_name = trimmedParts[6] || '';
-          let plan_price = trimmedParts[7] || '';
-          let email = trimmedParts[8] || '';
-          let notes = trimmedParts[9] || '';
+          const rowNumber = index + (hasHeader ? 2 : 1);
 
-          // Heuristic mapping for "exported" CSVs (often start with UUID columns)
+          // Header-based mapping (reliable for exports)
+          if (hasHeader && headerIdx) {
+            const get = (idx: number | null) => (idx === null ? '' : (cols[idx] ?? ''));
+
+            const name = get(headerIdx.name);
+            if (!name || isUuid(name)) {
+              return {
+                name: name || '(sem nome)',
+                phone: null,
+                login: null,
+                password: null,
+                email: null,
+                category: defaultCategory,
+                expiration_date: null,
+                plan_name: null,
+                plan_price: null,
+                notes: null,
+                device: null,
+                is_paid: true,
+                valid: false,
+                error: `Linha ${rowNumber}: Não encontrei a coluna "nome" corretamente (seu CSV parece exportado).`,
+              };
+            }
+
+            const phoneRaw = get(headerIdx.phone);
+            const loginRaw = get(headerIdx.login);
+            const passwordRaw = get(headerIdx.password);
+            const emailRaw = get(headerIdx.email);
+            const categoryRaw = get(headerIdx.category);
+            const expirationRaw = get(headerIdx.expiration);
+            const planNameRaw = get(headerIdx.plan_name);
+            const planPriceRaw = get(headerIdx.plan_price);
+            const notesRaw = get(headerIdx.notes);
+            const deviceRaw = get(headerIdx.device);
+            const isPaidRaw = get(headerIdx.is_paid);
+
+            const parsedCategory = normalizeCategory(categoryRaw);
+            const category = parsedCategory || defaultCategory;
+
+            const parsedExpiration = useOriginalExpiration ? parseDate(expirationRaw) : null;
+            const expiration_date = parsedExpiration || format(addDays(new Date(), defaultDurationDays), 'yyyy-MM-dd');
+
+            const is_paid = markAllAsPaid ? true : (headerIdx.is_paid !== null ? parseBool(isPaidRaw) : true);
+
+            return {
+              name: name.slice(0, 100),
+              phone: digitsOnly(phoneRaw) ? digitsOnly(phoneRaw).slice(0, 20) : null,
+              login: loginRaw ? loginRaw.slice(0, 100) : null,
+              password: passwordRaw ? passwordRaw.slice(0, 100) : null,
+              email: emailRaw ? emailRaw.slice(0, 255) : null,
+              category,
+              expiration_date,
+              plan_name: planNameRaw ? planNameRaw.slice(0, 100) : null,
+              plan_price: numericFromString(planPriceRaw),
+              notes: notesRaw ? notesRaw.slice(0, 500) : null,
+              device: deviceRaw ? deviceRaw.slice(0, 100) : null,
+              is_paid,
+              valid: true,
+            };
+          }
+
+          // Fallback mapping (template-style)
+          let name = (cols[0] || '').trim();
+          let phone = (cols[1] || '').trim();
+          let login = (cols[2] || '').trim();
+          let password = (cols[3] || '').trim();
+          let categoryInput = (cols[4] || '').trim();
+          let expirationStr = (cols[5] || '').trim();
+          let plan_name = (cols[6] || '').trim();
+          let plan_price = (cols[7] || '').trim();
+          let email = (cols[8] || '').trim();
+          let notes = (cols[9] || '').trim();
+
+          // Heuristic for exported CSV without header (often starts with UUID columns)
           if (name && isUuid(name)) {
-            const nameCandidate = trimmedParts.find(p => hasLetters(p) && p.length >= 2) || '';
-            const phoneCandidate = pickPhone(trimmedParts);
-            const emailCandidate = pickEmail(trimmedParts);
-            const expirationCandidate = pickExpiration(trimmedParts);
-            const categoryCandidate = pickCategoryRaw(trimmedParts);
+            const nameCandidate = pickNameCandidate(cols);
+            const phoneCandidate = pickPhone(cols);
+            const emailCandidate = pickEmail(cols);
+            const expirationCandidate = pickExpirationRaw(cols);
+            const categoryCandidate = pickCategoryRaw(cols);
 
-            name = nameCandidate || name;
+            name = nameCandidate || '';
             phone = phoneCandidate || '';
+            email = emailCandidate || '';
+            expirationStr = expirationCandidate || '';
+            categoryInput = categoryCandidate || '';
             login = '';
             password = '';
-            categoryInput = categoryCandidate || '';
-            expirationStr = expirationCandidate || '';
             plan_name = '';
             plan_price = '';
-            email = emailCandidate || '';
             notes = '';
           }
 
-          if (!name || name.length < 2) {
+          if (!name || name.length < 2 || isUuid(name)) {
             return {
               name: name || '(sem nome)',
               phone: null,
@@ -408,7 +522,7 @@ export function ImportClientsFromProject() {
               device: null,
               is_paid: true,
               valid: false,
-              error: `Linha ${index + (hasHeader ? 2 : 1)}: Nome inválido`
+              error: `Linha ${rowNumber}: Nome inválido (seu CSV pode ser exportado; prefira o CSV com cabeçalho).`,
             };
           }
 
@@ -416,17 +530,9 @@ export function ImportClientsFromProject() {
           const category = parsedCategory || defaultCategory;
 
           const parsedExpiration = useOriginalExpiration ? parseDate(expirationStr) : null;
-          const expiration_date =
-            parsedExpiration || format(addDays(new Date(), defaultDurationDays), 'yyyy-MM-dd');
+          const expiration_date = parsedExpiration || format(addDays(new Date(), defaultDurationDays), 'yyyy-MM-dd');
 
           const phoneDigits = digitsOnly(phone);
-
-          const numericPrice = (() => {
-            if (!plan_price) return null;
-            const cleaned = String(plan_price).replace(/[^0-9.,-]/g, '').replace(',', '.');
-            const n = Number(cleaned);
-            return Number.isFinite(n) ? n : null;
-          })();
 
           return {
             name: name.slice(0, 100),
@@ -437,13 +543,14 @@ export function ImportClientsFromProject() {
             category,
             expiration_date,
             plan_name: plan_name ? plan_name.slice(0, 100) : null,
-            plan_price: numericPrice,
+            plan_price: numericFromString(plan_price),
             notes: notes ? notes.slice(0, 500) : null,
             device: null,
             is_paid: markAllAsPaid,
-            valid: true
+            valid: true,
           };
         } catch {
+          const rowNumber = index + (hasHeader ? 2 : 1);
           return {
             name: '(erro)',
             phone: null,
@@ -458,7 +565,7 @@ export function ImportClientsFromProject() {
             device: null,
             is_paid: true,
             valid: false,
-            error: `Linha ${index + (hasHeader ? 2 : 1)}: Erro ao processar`
+            error: `Linha ${rowNumber}: Erro ao processar`,
           };
         }
       });
@@ -477,7 +584,7 @@ export function ImportClientsFromProject() {
         device: null,
         is_paid: true,
         valid: false,
-        error: `Erro ao processar CSV: ${(error as Error).message}`
+        error: `Erro ao processar CSV: ${(error as Error).message}`,
       }];
     }
   };
@@ -542,11 +649,19 @@ export function ImportClientsFromProject() {
         throw new Error('Nenhum cliente válido para importar');
       }
 
+      const looksLikeCiphertext = (value: string) =>
+        /^[A-Za-z0-9+/=]+$/.test(value) && value.length >= 32;
+
       // Prepare clients with encrypted credentials
       const clientsToInsert = await Promise.all(
         validClients.map(async (client) => {
-          const encryptedLogin = client.login ? await encrypt(client.login) : null;
-          const encryptedPassword = client.password ? await encrypt(client.password) : null;
+          // If it's already ciphertext (exported from this same system), do NOT encrypt again.
+          const encryptedLogin = client.login
+            ? (looksLikeCiphertext(client.login) ? client.login : await encrypt(client.login))
+            : null;
+          const encryptedPassword = client.password
+            ? (looksLikeCiphertext(client.password) ? client.password : await encrypt(client.password))
+            : null;
 
           return {
             seller_id: selectedSellerId,
