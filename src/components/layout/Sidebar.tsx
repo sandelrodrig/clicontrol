@@ -49,7 +49,7 @@ const navItems: NavItem[] = [
   { title: 'Contas a Pagar', href: '/bills', icon: CreditCard, sellerOnly: true },
   { title: 'Cupons', href: '/coupons', icon: Tag, sellerOnly: true },
   { title: 'Indicações', href: '/referrals', icon: UserPlus, sellerOnly: true },
-  { title: 'Painéis', href: '/shared-panels', icon: Tv, sellerOnly: true },
+  
   { title: 'Templates', href: '/templates', icon: MessageSquare },
   { title: 'Histórico', href: '/message-history', icon: History, sellerOnly: true },
   { title: 'Tutoriais', href: '/tutorials', icon: PlayCircle },

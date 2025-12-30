@@ -18,8 +18,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Server, DollarSign, Edit, Trash2, Coins, ExternalLink, Monitor, Wifi, Calendar } from 'lucide-react';
+import { Plus, Server, DollarSign, Edit, Trash2, Coins, ExternalLink, Monitor, Wifi, Calendar, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ServerCreditClients } from '@/components/ServerCreditClients';
 
 interface ServerData {
   id: string;
@@ -50,6 +51,7 @@ export default function Servers() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<ServerData | null>(null);
+  const [creditClientsServer, setCreditClientsServer] = useState<ServerData | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     monthly_cost: '',
@@ -618,6 +620,17 @@ export default function Servers() {
                     <p className="text-sm text-muted-foreground mb-4">{server.notes}</p>
                   )}
                   <div className="flex items-center gap-2 pt-3 border-t border-border">
+                    {((server.iptv_per_credit || 0) > 0 || (server.p2p_per_credit || 0) > 0) && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => setCreditClientsServer(server)}
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        Clientes
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(server)}>
                       <Edit className="h-4 w-4 mr-1" />
                       Editar
@@ -640,6 +653,21 @@ export default function Servers() {
             );
           })}
         </div>
+      )}
+
+      {/* Credit Clients Dialog */}
+      {creditClientsServer && user && (
+        <ServerCreditClients
+          serverId={creditClientsServer.id}
+          serverName={creditClientsServer.name}
+          sellerId={user.id}
+          iptvPerCredit={creditClientsServer.iptv_per_credit || 0}
+          p2pPerCredit={creditClientsServer.p2p_per_credit || 0}
+          totalCredits={creditClientsServer.total_credits || 0}
+          creditPrice={creditClientsServer.credit_price || 0}
+          isOpen={!!creditClientsServer}
+          onClose={() => setCreditClientsServer(null)}
+        />
       )}
     </div>
   );

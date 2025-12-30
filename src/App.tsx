@@ -21,7 +21,7 @@ import Sellers from "./pages/Sellers";
 import Reports from "./pages/Reports";
 import Backup from "./pages/Backup";
 import Settings from "./pages/Settings";
-import SharedPanels from "./pages/SharedPanels";
+
 import MessageHistory from "./pages/MessageHistory";
 import Tutorials from "./pages/Tutorials";
 import ForcePasswordUpdate from "./pages/ForcePasswordUpdate";
@@ -69,7 +69,7 @@ const AppRoutes = () => {
           <Route path="/coupons" element={<Coupons />} />
           <Route path="/referrals" element={<Referrals />} />
           <Route path="/templates" element={<Templates />} />
-          <Route path="/shared-panels" element={<SharedPanels />} />
+          
           <Route path="/message-history" element={<MessageHistory />} />
           <Route path="/sellers" element={<Sellers />} />
           <Route path="/reports" element={<Reports />} />
