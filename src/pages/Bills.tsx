@@ -220,6 +220,9 @@ export default function Bills() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          if (!open && (createMutation.isPending || updateMutation.isPending)) {
+            return;
+          }
           setIsDialogOpen(open);
           if (!open) {
             setEditingBill(null);

@@ -211,6 +211,9 @@ export default function Servers() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          if (!open && (createMutation.isPending || updateMutation.isPending)) {
+            return;
+          }
           setIsDialogOpen(open);
           if (!open) {
             setEditingServer(null);
@@ -223,7 +226,18 @@ export default function Servers() {
               Novo Servidor
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent
+            onPointerDownOutside={(e) => {
+              if (createMutation.isPending || updateMutation.isPending) {
+                e.preventDefault();
+              }
+            }}
+            onEscapeKeyDown={(e) => {
+              if (createMutation.isPending || updateMutation.isPending) {
+                e.preventDefault();
+              }
+            }}
+          >
             <DialogHeader>
               <DialogTitle>{editingServer ? 'Editar Servidor' : 'Novo Servidor'}</DialogTitle>
               <DialogDescription>

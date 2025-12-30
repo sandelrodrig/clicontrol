@@ -360,6 +360,9 @@ export default function SharedPanels() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          if (!open && (createMutation.isPending || updateMutation.isPending)) {
+            return;
+          }
           setIsDialogOpen(open);
           if (!open) {
             setEditingPanel(null);
@@ -372,7 +375,19 @@ export default function SharedPanels() {
               Novo Painel
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent 
+            className="max-w-lg"
+            onPointerDownOutside={(e) => {
+              if (createMutation.isPending || updateMutation.isPending) {
+                e.preventDefault();
+              }
+            }}
+            onEscapeKeyDown={(e) => {
+              if (createMutation.isPending || updateMutation.isPending) {
+                e.preventDefault();
+              }
+            }}
+          >
             <DialogHeader>
               <DialogTitle>{editingPanel ? 'Editar Painel' : 'Novo Painel'}</DialogTitle>
               <DialogDescription>
