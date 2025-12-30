@@ -247,8 +247,9 @@ export function ImportClientsFromProject() {
 
   const parseCSV = (text: string): ParsedClient[] => {
     try {
-      const lines = text.trim().split('\n').filter(line => line.trim());
-      
+      const normalizedText = text.replace(/\r\n?/g, '\n').trim();
+      const lines = normalizedText.split('\n').filter(line => line.trim());
+
       if (lines.length === 0) {
         return [{
           name: '',
@@ -268,9 +269,40 @@ export function ImportClientsFromProject() {
         }];
       }
 
-      // Check if first line is a header
+      // Detect delimiter from the first non-empty line
+      const detectDelimiter = (line: string): string => {
+        const semicolonCount = (line.match(/;/g) || []).length;
+        const commaCount = (line.match(/,/g) || []).length;
+        const tabCount = (line.match(/\t/g) || []).length;
+
+        if (semicolonCount > commaCount && semicolonCount > tabCount) return ';';
+        if (tabCount > commaCount) return '\t';
+        return ',';
+      };
+
+      const delimiter = detectDelimiter(lines[0]);
+
+      // Header detection (supports exports that start with id/seller_id etc.)
       const firstLine = lines[0].toLowerCase();
-      const hasHeader = firstLine.includes('nome') || firstLine.includes('name') || firstLine.includes('client');
+      const hasHeader = [
+        'nome',
+        'name',
+        'telefone',
+        'phone',
+        'categoria',
+        'category',
+        'venc',
+        'expir',
+        'plan',
+        'plano',
+        'valor',
+        'price',
+        'email',
+        'seller',
+        'seller_id',
+        'id'
+      ].some(k => firstLine.includes(k));
+
       const dataLines = hasHeader ? lines.slice(1) : lines;
 
       if (dataLines.length === 0) {
@@ -292,39 +324,74 @@ export function ImportClientsFromProject() {
         }];
       }
 
-      // Detect delimiter from first data line
-      const detectDelimiter = (line: string): string => {
-        const semicolonCount = (line.match(/;/g) || []).length;
-        const commaCount = (line.match(/,/g) || []).length;
-        const tabCount = (line.match(/\t/g) || []).length;
-        
-        if (semicolonCount > commaCount && semicolonCount > tabCount) return ';';
-        if (tabCount > commaCount) return '\t';
-        return ',';
+      const isUuid = (value: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+
+      const hasLetters = (value: string) => /[A-Za-zÀ-ÿ]/.test(value);
+
+      const digitsOnly = (value: string) => (value || '').replace(/\D/g, '');
+
+      const pickPhone = (parts: string[]) => {
+        const candidate = parts
+          .map(digitsOnly)
+          .find(d => d.length >= 8 && d.length <= 15);
+        return candidate || '';
       };
-      
-      const delimiter = detectDelimiter(dataLines[0]);
-      console.log('CSV Delimiter detected:', delimiter);
+
+      const pickEmail = (parts: string[]) => parts.find(p => p.includes('@')) || '';
+
+      const pickExpiration = (parts: string[]) => {
+        for (const p of parts) {
+          const parsed = parseDate(p);
+          if (parsed) return p;
+        }
+        return '';
+      };
+
+      const pickCategoryRaw = (parts: string[]) => {
+        for (const p of parts) {
+          const normalized = normalizeCategory(p);
+          if (normalized) return p;
+        }
+        return '';
+      };
 
       return dataLines.map((line, index) => {
         try {
           const parts = line.split(delimiter);
-          const trimmedParts = parts.map(p => (p || '').trim().replace(/^["']|["']$/g, ''));
+          const trimmedParts = parts.map(p => (p || '').trim().replace(/^["']|["']$/g, '')).filter(Boolean);
 
-          console.log(`Line ${index + 1} parts:`, trimmedParts);
+          // Default mapping (our "standard" import format)
+          let name = trimmedParts[0] || '';
+          let phone = trimmedParts[1] || '';
+          let login = trimmedParts[2] || '';
+          let password = trimmedParts[3] || '';
+          let categoryInput = trimmedParts[4] || '';
+          let expirationStr = trimmedParts[5] || '';
+          let plan_name = trimmedParts[6] || '';
+          let plan_price = trimmedParts[7] || '';
+          let email = trimmedParts[8] || '';
+          let notes = trimmedParts[9] || '';
 
-          const [
-            name = '',
-            phone = '',
-            login = '',
-            password = '',
-            categoryInput = '',
-            expirationStr = '',
-            plan_name = '',
-            plan_price = '',
-            email = '',
-            notes = ''
-          ] = trimmedParts;
+          // Heuristic mapping for "exported" CSVs (often start with UUID columns)
+          if (name && isUuid(name)) {
+            const nameCandidate = trimmedParts.find(p => hasLetters(p) && p.length >= 2) || '';
+            const phoneCandidate = pickPhone(trimmedParts);
+            const emailCandidate = pickEmail(trimmedParts);
+            const expirationCandidate = pickExpiration(trimmedParts);
+            const categoryCandidate = pickCategoryRaw(trimmedParts);
+
+            name = nameCandidate || name;
+            phone = phoneCandidate || '';
+            login = '';
+            password = '';
+            categoryInput = categoryCandidate || '';
+            expirationStr = expirationCandidate || '';
+            plan_name = '';
+            plan_price = '';
+            email = emailCandidate || '';
+            notes = '';
+          }
 
           if (!name || name.length < 2) {
             return {
@@ -345,30 +412,38 @@ export function ImportClientsFromProject() {
             };
           }
 
-          // Use original category or fall back to default
           const parsedCategory = normalizeCategory(categoryInput);
           const category = parsedCategory || defaultCategory;
-          
-          // Use original expiration or calculate new one
+
           const parsedExpiration = useOriginalExpiration ? parseDate(expirationStr) : null;
-          const expiration_date = parsedExpiration || format(addDays(new Date(), defaultDurationDays), 'yyyy-MM-dd');
+          const expiration_date =
+            parsedExpiration || format(addDays(new Date(), defaultDurationDays), 'yyyy-MM-dd');
+
+          const phoneDigits = digitsOnly(phone);
+
+          const numericPrice = (() => {
+            if (!plan_price) return null;
+            const cleaned = String(plan_price).replace(/[^0-9.,-]/g, '').replace(',', '.');
+            const n = Number(cleaned);
+            return Number.isFinite(n) ? n : null;
+          })();
 
           return {
             name: name.slice(0, 100),
-            phone: (phone || '').replace(/\D/g, '').slice(0, 20) || null,
-            login: (login || '').slice(0, 100) || null,
-            password: (password || '').slice(0, 100) || null,
-            email: (email || '').slice(0, 255) || null,
+            phone: phoneDigits ? phoneDigits.slice(0, 20) : null,
+            login: login ? login.slice(0, 100) : null,
+            password: password ? password.slice(0, 100) : null,
+            email: email ? email.slice(0, 255) : null,
             category,
             expiration_date,
-            plan_name: (plan_name || '').slice(0, 100) || null,
-            plan_price: plan_price ? Number(plan_price) : null,
-            notes: (notes || '').slice(0, 500) || null,
+            plan_name: plan_name ? plan_name.slice(0, 100) : null,
+            plan_price: numericPrice,
+            notes: notes ? notes.slice(0, 500) : null,
             device: null,
             is_paid: markAllAsPaid,
             valid: true
           };
-        } catch (lineError) {
+        } catch {
           return {
             name: '(erro)',
             phone: null,
@@ -595,7 +670,7 @@ export function ImportClientsFromProject() {
                     <SelectContent>
                       {sellers.map((seller) => (
                         <SelectItem key={seller.id} value={seller.id}>
-                          {seller.full_name || seller.email}
+                          {(seller.full_name || 'Sem nome')} ({seller.email})
                         </SelectItem>
                       ))}
                     </SelectContent>
