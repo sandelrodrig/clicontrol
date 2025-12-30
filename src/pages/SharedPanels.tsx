@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Tv, Wifi, DollarSign, Users, Edit, Trash2, Eye, EyeOff, UserPlus, Search, Check, ExternalLink } from 'lucide-react';
+import { Plus, Tv, Wifi, DollarSign, Users, Edit, Trash2, Eye, EyeOff, UserPlus, Search, Check, ExternalLink, Server } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -57,6 +57,13 @@ interface PanelClient {
   panel_id: string;
   client_id: string;
   assigned_at: string;
+}
+
+interface ServerData {
+  id: string;
+  name: string;
+  panel_url: string | null;
+  is_active: boolean;
 }
 
 type PanelTypeFilter = 'all' | 'iptv' | 'p2p' | 'iptv_p2p';
@@ -129,11 +136,29 @@ export default function SharedPanels() {
     enabled: !!user?.id,
   });
 
+  // Fetch servers with panel URLs
+  const { data: servers = [] } = useQuery({
+    queryKey: ['servers-with-urls', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('servers')
+        .select('id, name, panel_url, is_active')
+        .eq('seller_id', user!.id)
+        .not('panel_url', 'is', null)
+        .order('name');
+      if (error) throw error;
+      return data as ServerData[];
+    },
+    enabled: !!user?.id,
+  });
+
+  const serversWithUrl = servers.filter(s => s.panel_url && s.panel_url.trim() !== '');
+
   const createMutation = useMutation({
     mutationFn: async (data: { 
       name: string; 
       panel_type: string; 
-      total_slots: number; 
+      total_slots: number;
       monthly_cost: number; 
       login: string | null; 
       password: string | null; 
@@ -507,6 +532,43 @@ export default function SharedPanels() {
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   />
                 </div>
+                {/* Server selection for URL */}
+                {serversWithUrl.length > 0 && (
+                  <div className="col-span-2 space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Server className="h-4 w-4" />
+                      Usar URL de Servidor Existente
+                    </Label>
+                    <Select
+                      value=""
+                      onValueChange={(serverId) => {
+                        const server = serversWithUrl.find(s => s.id === serverId);
+                        if (server?.panel_url) {
+                          setFormData({ ...formData, url: server.panel_url });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um servidor..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {serversWithUrl.map((server) => (
+                          <SelectItem key={server.id} value={server.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{server.name}</span>
+                              <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                {server.panel_url}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Ou digite uma URL manualmente abaixo
+                    </p>
+                  </div>
+                )}
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="url">URL do Painel</Label>
                   <Input
