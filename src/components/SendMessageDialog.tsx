@@ -79,6 +79,8 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
 
   // Decrypt credentials when dialog opens (only if privacy mode is OFF)
   useEffect(() => {
+    let isCancelled = false;
+    
     if (open && !isPrivacyMode) {
       const decryptCredentials = async () => {
         setIsDecrypting(true);
@@ -88,21 +90,28 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
             client.password ? decrypt(client.password) : Promise.resolve(''),
             client.premium_password ? decrypt(client.premium_password) : Promise.resolve(''),
           ]);
-          setDecryptedCredentials({
-            login: decryptedLogin,
-            password: decryptedPassword,
-            premium_password: decryptedPremiumPassword,
-          });
+          
+          if (!isCancelled) {
+            setDecryptedCredentials({
+              login: decryptedLogin,
+              password: decryptedPassword,
+              premium_password: decryptedPremiumPassword,
+            });
+          }
         } catch (error) {
           console.error('Failed to decrypt credentials:', error);
-          // Fallback to original values if decryption fails
-          setDecryptedCredentials({
-            login: client.login || '',
-            password: client.password || '',
-            premium_password: client.premium_password || '',
-          });
+          if (!isCancelled) {
+            // Fallback to original values if decryption fails
+            setDecryptedCredentials({
+              login: client.login || '',
+              password: client.password || '',
+              premium_password: client.premium_password || '',
+            });
+          }
         } finally {
-          setIsDecrypting(false);
+          if (!isCancelled) {
+            setIsDecrypting(false);
+          }
         }
       };
       decryptCredentials();
@@ -121,7 +130,11 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
       setSelectedTemplate('');
       setMessage('');
     }
-  }, [open, client, decrypt, isPrivacyMode]);
+    
+    return () => {
+      isCancelled = true;
+    };
+  }, [open, client.id, client.login, client.password, client.premium_password, decrypt, isPrivacyMode]);
 
   // Get profile with pix_key and company_name
   const sellerProfile = profile as { 
