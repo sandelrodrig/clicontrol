@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Edit, Trash2, Copy, Info, Wand2, Tv, Wifi, Crown, Tag, Send } from 'lucide-react';
+import { Plus, MessageSquare, Edit, Trash2, Copy, Info, Tv, Wifi, Crown, Tag, Send, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Template {
@@ -42,8 +42,9 @@ interface TemplateCategory {
   seller_id: string;
 }
 
-// Default categories
+// Default categories (Vendedores is admin-only)
 const DEFAULT_CATEGORIES = ['IPTV', 'SSH', 'Contas Premium'] as const;
+const ADMIN_CATEGORIES = ['Vendedores'] as const;
 
 // Platforms for message sending
 const PLATFORMS = [
@@ -64,8 +65,8 @@ const MESSAGE_TYPES = [
   { value: 'custom', label: 'Personalizado', icon: '📝' },
 ];
 
-// Available variables
-const variables = [
+// Available variables for client templates
+const clientVariables = [
   { name: '{nome}', description: 'Nome do cliente' },
   { name: '{empresa}', description: 'Nome da empresa/revendedor' },
   { name: '{login}', description: 'Login do cliente' },
@@ -81,389 +82,18 @@ const variables = [
   { name: '{telegram}', description: 'Username do Telegram (@usuario)' },
 ];
 
-// Default templates for each category, type, and platform
-const getDefaultTemplates = (category: string, platform: 'whatsapp' | 'telegram' = 'whatsapp') => {
-  const templates: { name: string; type: string; message: string }[] = [];
-  const platformPrefix = platform === 'telegram' ? '[TG] ' : '';
-  
-  if (category === 'IPTV') {
-    templates.push(
-      {
-        name: `${platformPrefix}IPTV - Boas-vindas`,
-        type: 'welcome',
-        message: `👋 Olá {nome}!
+// Available variables for seller templates (Admin only)
+const sellerVariables = [
+  { name: '{nome}', description: 'Nome do vendedor' },
+  { name: '{email}', description: 'Email do vendedor' },
+  { name: '{whatsapp}', description: 'WhatsApp do vendedor' },
+  { name: '{vencimento}', description: 'Data de vencimento da assinatura' },
+  { name: '{pix}', description: 'Chave PIX do Admin' },
+];
 
-Seja bem-vindo(a) à *{empresa}*! 🎉
-
-Seus dados de acesso IPTV:
-📺 *Login:* {login}
-🔑 *Senha:* {senha}
-📡 *Servidor:* {servidor}
-
-📅 *Plano:* {plano}
-💰 *Valor:* R$ {valor}
-📆 *Vencimento:* {vencimento}
-
-Qualquer dúvida estamos à disposição! 🙏`
-      },
-      {
-        name: `${platformPrefix}IPTV - Cobrança`,
-        type: 'billing',
-        message: platform === 'telegram' 
-          ? `💰 Olá {nome}!
-
-Estamos enviando os dados para pagamento do seu plano IPTV:
-
-📺 *Plano:* {plano}
-💵 *Valor:* R$ {valor}
-📆 *Vencimento:* {vencimento}
-
-*Chave PIX:* \`{pix}\`
-
-Após o pagamento, envie o comprovante aqui! ✅
-
-*{empresa}*`
-          : `💰 Olá {nome}!
-
-Estamos enviando os dados para pagamento do seu plano IPTV:
-
-📺 *Plano:* {plano}
-💵 *Valor:* R$ {valor}
-📆 *Vencimento:* {vencimento}
-
-Após o pagamento, envie o comprovante aqui! ✅
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}IPTV - Vencendo em 3 dias`,
-        type: 'expiring_3days',
-        message: `⏰ Olá {nome}!
-
-Seu plano IPTV vence em *3 dias* ({vencimento}).
-
-📺 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Renove agora e continue assistindo sem interrupções! 📺
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}IPTV - Vencendo em 2 dias`,
-        type: 'expiring_2days',
-        message: `⚠️ Olá {nome}!
-
-Seu plano IPTV vence em *2 dias* ({vencimento}).
-
-📺 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Não fique sem seu entretenimento! Renove agora! 🎬
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}IPTV - Vencendo amanhã`,
-        type: 'expiring_1day',
-        message: `🔔 Olá {nome}!
-
-⚡ *ATENÇÃO!* Seu plano IPTV vence *AMANHÃ* ({vencimento})!
-
-📺 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Renove agora para não perder o acesso! 📺
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}IPTV - Vencido`,
-        type: 'expired',
-        message: `❌ Olá {nome}!
-
-Seu plano IPTV *venceu* em {vencimento}.
-
-📺 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Entre em contato para renovar e voltar a assistir! 📺
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}IPTV - Renovação Confirmada`,
-        type: 'renewal',
-        message: `✅ Olá {nome}!
-
-Sua renovação foi confirmada! 🎉
-
-📺 *Plano:* {plano}
-📆 *Novo vencimento:* {vencimento}
-🔑 *Login:* {login}
-🔐 *Senha:* {senha}
-
-Obrigado por continuar conosco! 🙏
-
-*{empresa}*`
-      }
-    );
-  }
-  
-  if (category === 'SSH') {
-    templates.push(
-      {
-        name: `${platformPrefix}SSH - Boas-vindas`,
-        type: 'welcome',
-        message: `👋 Olá {nome}!
-
-Seja bem-vindo(a) à *{empresa}*! 🎉
-
-Seus dados de acesso SSH:
-👤 *Login:* {login}
-🔑 *Senha:* {senha}
-🌐 *Servidor:* {servidor}
-
-📅 *Plano:* {plano}
-💰 *Valor:* R$ {valor}
-📆 *Vencimento:* {vencimento}
-
-Qualquer dúvida estamos à disposição! 🙏`
-      },
-      {
-        name: `${platformPrefix}SSH - Cobrança`,
-        type: 'billing',
-        message: platform === 'telegram' 
-          ? `💰 Olá {nome}!
-
-Estamos enviando os dados para pagamento do seu plano SSH:
-
-🌐 *Plano:* {plano}
-💵 *Valor:* R$ {valor}
-📆 *Vencimento:* {vencimento}
-
-*Chave PIX:* \`{pix}\`
-
-Após o pagamento, envie o comprovante aqui! ✅
-
-*{empresa}*`
-          : `💰 Olá {nome}!
-
-Estamos enviando os dados para pagamento do seu plano SSH:
-
-🌐 *Plano:* {plano}
-💵 *Valor:* R$ {valor}
-📆 *Vencimento:* {vencimento}
-
-Após o pagamento, envie o comprovante aqui! ✅
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}SSH - Vencendo em 3 dias`,
-        type: 'expiring_3days',
-        message: `⏰ Olá {nome}!
-
-Seu plano SSH vence em *3 dias* ({vencimento}).
-
-🌐 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Renove agora e continue navegando! 🚀
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}SSH - Vencendo em 2 dias`,
-        type: 'expiring_2days',
-        message: `⚠️ Olá {nome}!
-
-Seu plano SSH vence em *2 dias* ({vencimento}).
-
-🌐 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Não fique sem internet! Renove agora! 📶
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}SSH - Vencendo amanhã`,
-        type: 'expiring_1day',
-        message: `🔔 Olá {nome}!
-
-⚡ *ATENÇÃO!* Seu plano SSH vence *AMANHÃ* ({vencimento})!
-
-🌐 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Renove agora para não perder o acesso! 🚀
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}SSH - Vencido`,
-        type: 'expired',
-        message: `❌ Olá {nome}!
-
-Seu plano SSH *venceu* em {vencimento}.
-
-🌐 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Entre em contato para renovar! 📶
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}SSH - Renovação Confirmada`,
-        type: 'renewal',
-        message: `✅ Olá {nome}!
-
-Sua renovação foi confirmada! 🎉
-
-🌐 *Plano:* {plano}
-📆 *Novo vencimento:* {vencimento}
-👤 *Login:* {login}
-🔐 *Senha:* {senha}
-
-Obrigado por continuar conosco! 🙏
-
-*{empresa}*`
-      }
-    );
-  }
-  
-  if (category === 'Contas Premium') {
-    templates.push(
-      {
-        name: `${platformPrefix}Premium - Boas-vindas`,
-        type: 'welcome',
-        message: `👋 Olá {nome}!
-
-Seja bem-vindo(a) à *{empresa}*! 🎉
-
-Seus dados de acesso Premium:
-📧 *Email:* {email_premium}
-🔑 *Senha:* {senha_premium}
-
-📅 *Plano:* {plano}
-💰 *Valor:* R$ {valor}
-📆 *Vencimento:* {vencimento}
-
-Aproveite sua conta! 👑
-
-Qualquer dúvida estamos à disposição! 🙏`
-      },
-      {
-        name: `${platformPrefix}Premium - Cobrança`,
-        type: 'billing',
-        message: platform === 'telegram' 
-          ? `💰 Olá {nome}!
-
-Estamos enviando os dados para pagamento da sua conta Premium:
-
-👑 *Plano:* {plano}
-💵 *Valor:* R$ {valor}
-📆 *Vencimento:* {vencimento}
-
-*Chave PIX:* \`{pix}\`
-
-Após o pagamento, envie o comprovante aqui! ✅
-
-*{empresa}*`
-          : `💰 Olá {nome}!
-
-Estamos enviando os dados para pagamento da sua conta Premium:
-
-👑 *Plano:* {plano}
-💵 *Valor:* R$ {valor}
-📆 *Vencimento:* {vencimento}
-
-Após o pagamento, envie o comprovante aqui! ✅
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}Premium - Vencendo em 3 dias`,
-        type: 'expiring_3days',
-        message: `⏰ Olá {nome}!
-
-Sua conta Premium vence em *3 dias* ({vencimento}).
-
-👑 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Renove agora e continue aproveitando! 🌟
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}Premium - Vencendo em 2 dias`,
-        type: 'expiring_2days',
-        message: `⚠️ Olá {nome}!
-
-Sua conta Premium vence em *2 dias* ({vencimento}).
-
-👑 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Não perca seu acesso Premium! Renove agora! 👑
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}Premium - Vencendo amanhã`,
-        type: 'expiring_1day',
-        message: `🔔 Olá {nome}!
-
-⚡ *ATENÇÃO!* Sua conta Premium vence *AMANHÃ* ({vencimento})!
-
-👑 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Renove agora para não perder o acesso! 🌟
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}Premium - Vencido`,
-        type: 'expired',
-        message: `❌ Olá {nome}!
-
-Sua conta Premium *venceu* em {vencimento}.
-
-👑 *Plano:* {plano}
-💰 *Valor para renovação:* R$ {valor}
-
-Entre em contato para renovar e voltar a aproveitar! 👑
-
-*{empresa}*`
-      },
-      {
-        name: `${platformPrefix}Premium - Renovação Confirmada`,
-        type: 'renewal',
-        message: `✅ Olá {nome}!
-
-Sua renovação foi confirmada! 🎉
-
-👑 *Plano:* {plano}
-📆 *Novo vencimento:* {vencimento}
-📧 *Email:* {email_premium}
-🔐 *Senha:* {senha_premium}
-
-Obrigado por continuar conosco! 🙏
-
-*{empresa}*`
-      }
-    );
-  }
-  
-  return templates;
-};
 
 export default function Templates() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
@@ -506,8 +136,8 @@ export default function Templates() {
     },
     enabled: !!user?.id,
   });
-
-  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories.map(c => c.name)];
+  // Build categories list based on user role
+  const allCategories = [...DEFAULT_CATEGORIES, ...(isAdmin ? ADMIN_CATEGORIES : []), ...customCategories.map(c => c.name)];
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; type: string; message: string }) => {
@@ -528,26 +158,6 @@ export default function Templates() {
     },
   });
 
-  const createDefaultTemplatesMutation = useMutation({
-    mutationFn: async ({ category, platform }: { category: string; platform: 'whatsapp' | 'telegram' }) => {
-      const defaultTemplates = getDefaultTemplates(category, platform);
-      const templatesToInsert = defaultTemplates.map(t => ({
-        ...t,
-        seller_id: user!.id,
-      }));
-      
-      const { error } = await supabase.from('whatsapp_templates').insert(templatesToInsert);
-      if (error) throw error;
-    },
-    onSuccess: (_, { category, platform }) => {
-      queryClient.invalidateQueries({ queryKey: ['templates'] });
-      const platformName = platform === 'telegram' ? 'Telegram' : 'WhatsApp';
-      toast.success(`Templates ${platformName} de ${category} criados com sucesso!`);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
 
   const addCategoryMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -665,6 +275,7 @@ export default function Templates() {
       case 'IPTV': return <Tv className="h-4 w-4" />;
       case 'SSH': return <Wifi className="h-4 w-4" />;
       case 'Contas Premium': return <Crown className="h-4 w-4" />;
+      case 'Vendedores': return <Users className="h-4 w-4" />;
       default: return <Tag className="h-4 w-4" />;
     }
   };
@@ -681,7 +292,8 @@ export default function Templates() {
       if (categoryFilter === 'IPTV' && !prefix.includes('IPTV')) return false;
       if (categoryFilter === 'SSH' && !prefix.includes('SSH')) return false;
       if (categoryFilter === 'Contas Premium' && !prefix.includes('Premium')) return false;
-      if (!['IPTV', 'SSH', 'Contas Premium'].includes(categoryFilter)) {
+      if (categoryFilter === 'Vendedores' && !prefix.includes('Vendedor')) return false;
+      if (!['IPTV', 'SSH', 'Contas Premium', 'Vendedores'].includes(categoryFilter)) {
         if (!template.name.toLowerCase().includes(categoryFilter.toLowerCase())) return false;
       }
     }
@@ -691,14 +303,6 @@ export default function Templates() {
     
     return true;
   });
-
-  // Check which categories have templates (for each platform)
-  const hasIPTVWhatsApp = templates.some(t => t.name.includes('IPTV') && !t.name.startsWith('[TG]'));
-  const hasSSHWhatsApp = templates.some(t => t.name.includes('SSH') && !t.name.startsWith('[TG]'));
-  const hasPremiumWhatsApp = templates.some(t => t.name.includes('Premium') && !t.name.startsWith('[TG]'));
-  const hasIPTVTelegram = templates.some(t => t.name.includes('IPTV') && t.name.startsWith('[TG]'));
-  const hasSSHTelegram = templates.some(t => t.name.includes('SSH') && t.name.startsWith('[TG]'));
-  const hasPremiumTelegram = templates.some(t => t.name.includes('Premium') && t.name.startsWith('[TG]'));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -787,7 +391,7 @@ export default function Templates() {
                 <div className="p-3 rounded-lg bg-muted/50 space-y-2">
                   <p className="text-sm font-medium">Clique para inserir:</p>
                   <div className="flex flex-wrap gap-2">
-                    {variables.map((v) => (
+                    {clientVariables.map((v) => (
                       <Button
                         key={v.name}
                         type="button"
@@ -815,125 +419,6 @@ export default function Templates() {
           </DialogContent>
         </Dialog>
       </div>
-
-      {/* Generate Default Templates */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Wand2 className="h-4 w-4" />
-            Gerar Templates Padrão
-          </CardTitle>
-          <CardDescription>
-            Crie automaticamente templates para cada categoria com mensagens prontas
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* WhatsApp Templates */}
-            <div>
-              <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                📱 WhatsApp
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={hasIPTVWhatsApp ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(hasIPTVWhatsApp ? 'Já existem templates IPTV. Deseja adicionar novamente?' : 'Criar 7 templates WhatsApp para IPTV?')) {
-                      createDefaultTemplatesMutation.mutate({ category: 'IPTV', platform: 'whatsapp' });
-                    }
-                  }}
-                  disabled={createDefaultTemplatesMutation.isPending}
-                  className="gap-2"
-                >
-                  <Tv className="h-4 w-4" />
-                  IPTV {hasIPTVWhatsApp && '✓'}
-                </Button>
-                <Button
-                  variant={hasSSHWhatsApp ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(hasSSHWhatsApp ? 'Já existem templates SSH. Deseja adicionar novamente?' : 'Criar 7 templates WhatsApp para SSH?')) {
-                      createDefaultTemplatesMutation.mutate({ category: 'SSH', platform: 'whatsapp' });
-                    }
-                  }}
-                  disabled={createDefaultTemplatesMutation.isPending}
-                  className="gap-2"
-                >
-                  <Wifi className="h-4 w-4" />
-                  SSH {hasSSHWhatsApp && '✓'}
-                </Button>
-                <Button
-                  variant={hasPremiumWhatsApp ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(hasPremiumWhatsApp ? 'Já existem templates Premium. Deseja adicionar novamente?' : 'Criar 7 templates WhatsApp para Contas Premium?')) {
-                      createDefaultTemplatesMutation.mutate({ category: 'Contas Premium', platform: 'whatsapp' });
-                    }
-                  }}
-                  disabled={createDefaultTemplatesMutation.isPending}
-                  className="gap-2"
-                >
-                  <Crown className="h-4 w-4" />
-                  Premium {hasPremiumWhatsApp && '✓'}
-                </Button>
-              </div>
-            </div>
-            
-            {/* Telegram Templates */}
-            <div>
-              <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                <Send className="h-4 w-4" />
-                Telegram
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={hasIPTVTelegram ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(hasIPTVTelegram ? 'Já existem templates IPTV Telegram. Deseja adicionar novamente?' : 'Criar 7 templates Telegram para IPTV?')) {
-                      createDefaultTemplatesMutation.mutate({ category: 'IPTV', platform: 'telegram' });
-                    }
-                  }}
-                  disabled={createDefaultTemplatesMutation.isPending}
-                  className="gap-2"
-                >
-                  <Tv className="h-4 w-4" />
-                  IPTV {hasIPTVTelegram && '✓'}
-                </Button>
-                <Button
-                  variant={hasSSHTelegram ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(hasSSHTelegram ? 'Já existem templates SSH Telegram. Deseja adicionar novamente?' : 'Criar 7 templates Telegram para SSH?')) {
-                      createDefaultTemplatesMutation.mutate({ category: 'SSH', platform: 'telegram' });
-                    }
-                  }}
-                  disabled={createDefaultTemplatesMutation.isPending}
-                  className="gap-2"
-                >
-                  <Wifi className="h-4 w-4" />
-                  SSH {hasSSHTelegram && '✓'}
-                </Button>
-                <Button
-                  variant={hasPremiumTelegram ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(hasPremiumTelegram ? 'Já existem templates Premium Telegram. Deseja adicionar novamente?' : 'Criar 7 templates Telegram para Contas Premium?')) {
-                      createDefaultTemplatesMutation.mutate({ category: 'Contas Premium', platform: 'telegram' });
-                    }
-                  }}
-                  disabled={createDefaultTemplatesMutation.isPending}
-                  className="gap-2"
-                >
-                  <Crown className="h-4 w-4" />
-                  Premium {hasPremiumTelegram && '✓'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Add New Category */}
       <Card>
@@ -985,12 +470,12 @@ export default function Templates() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Info className="h-4 w-4" />
-            Variáveis Disponíveis
+            Variáveis Disponíveis - Clientes
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-            {variables.map((v) => (
+            {clientVariables.map((v) => (
               <div
                 key={v.name}
                 className="text-xs bg-muted px-2 py-1.5 rounded"
@@ -1003,6 +488,32 @@ export default function Templates() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Admin-only Seller Variables Reference */}
+      {isAdmin && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Variáveis Disponíveis - Vendedores
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              {sellerVariables.map((v) => (
+                <div
+                  key={v.name}
+                  className="text-xs bg-muted px-2 py-1.5 rounded"
+                  title={v.description}
+                >
+                  <span className="font-mono font-medium">{v.name}</span>
+                  <span className="text-muted-foreground ml-1">- {v.description}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       {templates.length > 0 && (
