@@ -20,7 +20,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    const { email, action, ip_address } = await req.json();
+    const { email, action, ip_address, success } = await req.json();
     
     console.log(`Login attempt check for: ${email}, action: ${action}`);
     
@@ -63,9 +63,7 @@ serve(async (req) => {
     }
 
     if (action === 'record') {
-      // Record login attempt
-      const { success } = await req.json();
-      
+      // Record login attempt - success is now read from initial json parse
       const { error } = await supabase
         .from('login_attempts')
         .insert({
