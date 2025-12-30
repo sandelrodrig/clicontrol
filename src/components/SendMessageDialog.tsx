@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,11 +21,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Send, Copy, MessageCircle, CreditCard, Tv, Wifi, Crown, Tag } from 'lucide-react';
+import { Send, Copy, MessageCircle, CreditCard, Tv, Wifi, Crown, Tag, Loader2 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useCrypto } from '@/hooks/useCrypto';
+import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 
 interface Client {
   id: string;
@@ -62,10 +64,64 @@ const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Contas Premium'];
 export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDialogProps) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
+  const { decrypt } = useCrypto();
+  const { isPrivacyMode } = usePrivacyMode();
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [message, setMessage] = useState('');
   const [platform, setPlatform] = useState<'whatsapp' | 'telegram'>('whatsapp');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [decryptedCredentials, setDecryptedCredentials] = useState<{
+    login: string;
+    password: string;
+    premium_password: string;
+  } | null>(null);
+  const [isDecrypting, setIsDecrypting] = useState(false);
+
+  // Decrypt credentials when dialog opens (only if privacy mode is OFF)
+  useEffect(() => {
+    if (open && !isPrivacyMode) {
+      const decryptCredentials = async () => {
+        setIsDecrypting(true);
+        try {
+          const [decryptedLogin, decryptedPassword, decryptedPremiumPassword] = await Promise.all([
+            client.login ? decrypt(client.login) : Promise.resolve(''),
+            client.password ? decrypt(client.password) : Promise.resolve(''),
+            client.premium_password ? decrypt(client.premium_password) : Promise.resolve(''),
+          ]);
+          setDecryptedCredentials({
+            login: decryptedLogin,
+            password: decryptedPassword,
+            premium_password: decryptedPremiumPassword,
+          });
+        } catch (error) {
+          console.error('Failed to decrypt credentials:', error);
+          // Fallback to original values if decryption fails
+          setDecryptedCredentials({
+            login: client.login || '',
+            password: client.password || '',
+            premium_password: client.premium_password || '',
+          });
+        } finally {
+          setIsDecrypting(false);
+        }
+      };
+      decryptCredentials();
+    } else if (open && isPrivacyMode) {
+      // If privacy mode is ON, use masked values
+      setDecryptedCredentials({
+        login: '●●●●●●●●',
+        password: '●●●●●●●●',
+        premium_password: '●●●●●●●●',
+      });
+    }
+    
+    // Reset when dialog closes
+    if (!open) {
+      setDecryptedCredentials(null);
+      setSelectedTemplate('');
+      setMessage('');
+    }
+  }, [open, client, decrypt, isPrivacyMode]);
 
   // Get profile with pix_key and company_name
   const sellerProfile = profile as { 
@@ -173,12 +229,17 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     else if (daysLeft > 1) dynamicDate = `em ${daysLeft} dias`;
     else dynamicDate = `há ${Math.abs(daysLeft)} dias`;
 
+    // Use decrypted credentials if available
+    const login = decryptedCredentials?.login || '';
+    const password = decryptedCredentials?.password || '';
+    const premiumPassword = decryptedCredentials?.premium_password || '';
+
     return text
       .replace(/{nome}/gi, client.name)
-      .replace(/{login}/gi, client.login || '')
-      .replace(/{senha}/gi, client.password || '')
+      .replace(/{login}/gi, login)
+      .replace(/{senha}/gi, password)
       .replace(/{email_premium}/gi, client.email || '')
-      .replace(/{senha_premium}/gi, client.premium_password || '')
+      .replace(/{senha_premium}/gi, premiumPassword)
       .replace(/{vencimento}/gi, format(expDate, 'dd/MM/yyyy'))
       .replace(/{vencimento_dinamico}/gi, dynamicDate)
       .replace(/{preco}/gi, client.plan_price?.toFixed(2) || '0.00')
@@ -319,10 +380,25 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
           </div>
 
           <div className="space-y-2">
-            <Label>Template</Label>
-            <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
+            <div className="flex items-center gap-2">
+              <Label>Template</Label>
+              {isDecrypting && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Descriptografando...
+                </span>
+              )}
+              {isPrivacyMode && (
+                <span className="text-xs text-warning">⚠️ Modo privacidade ativo</span>
+              )}
+            </div>
+            <Select 
+              value={selectedTemplate} 
+              onValueChange={handleTemplateChange}
+              disabled={isDecrypting}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Selecione um template" />
+                <SelectValue placeholder={isDecrypting ? "Aguarde..." : "Selecione um template"} />
               </SelectTrigger>
               <SelectContent>
                 {filteredTemplates.length === 0 ? (
