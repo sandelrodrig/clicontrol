@@ -121,6 +121,8 @@ export default function Clients() {
   const [decrypting, setDecrypting] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // State for popovers inside the dialog
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
@@ -313,6 +315,21 @@ export default function Clients() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       toast.success('Cliente excluído!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const deleteAllMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('clients').delete().eq('seller_id', user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Todos os clientes foram excluídos!');
+      setShowDeleteAllConfirm(false);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -660,7 +677,18 @@ export default function Clients() {
             setPaidAppsExpirationPopoverOpen(false);
           }
         }}>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {clients.length > 0 && (
+              <Button 
+                variant="destructive" 
+                size="sm"
+                className="gap-1"
+                onClick={() => setShowDeleteAllConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Remover Todos</span>
+              </Button>
+            )}
             <BulkImportClients plans={plans} />
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -1429,6 +1457,61 @@ export default function Clients() {
             </Button>
             <Button onClick={confirmRenew} disabled={!renewPlanId || updateMutation.isPending}>
               Renovar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete All Confirmation Dialog */}
+      <Dialog open={showDeleteAllConfirm} onOpenChange={(open) => {
+        setShowDeleteAllConfirm(open);
+        if (!open) setDeleteConfirmText('');
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Remover Todos os Clientes</DialogTitle>
+            <DialogDescription>
+              Esta ação é <strong>irreversível</strong>. Todos os {clients.length} cliente(s) serão excluídos permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
+              <p className="text-destructive font-medium">⚠️ Atenção!</p>
+              <p className="text-muted-foreground mt-1">
+                Você está prestes a excluir <strong>{clients.length}</strong> cliente(s). 
+                Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>
+                Digite <strong className="text-destructive">CONFIRMAR</strong> para prosseguir:
+              </Label>
+              <Input
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="CONFIRMAR"
+                className="font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowDeleteAllConfirm(false);
+              setDeleteConfirmText('');
+            }}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => deleteAllMutation.mutate()}
+              disabled={deleteConfirmText !== 'CONFIRMAR' || deleteAllMutation.isPending}
+            >
+              {deleteAllMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Excluir Todos
             </Button>
           </DialogFooter>
         </DialogContent>
