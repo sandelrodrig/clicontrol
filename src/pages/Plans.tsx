@@ -247,21 +247,19 @@ export default function Plans() {
         </div>
 
         <div className="flex gap-2">
-          {plans.length === 0 && (
-            <Button 
-              variant="outline" 
-              className="gap-2"
-              onClick={() => {
-                if (confirm('Isso criará 24 planos padrão (IPTV e SSH) com preço R$ 0,00. Você poderá definir os preços depois. Continuar?')) {
-                  createDefaultPlansMutation.mutate();
-                }
-              }}
-              disabled={createDefaultPlansMutation.isPending}
-            >
-              <Wand2 className="h-4 w-4" />
-              Gerar Planos Padrão
-            </Button>
-          )}
+          <Button 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => {
+              if (confirm('Isso criará 24 planos padrão (IPTV e SSH) com preço R$ 0,00. Você poderá definir os preços depois. Continuar?')) {
+                createDefaultPlansMutation.mutate();
+              }
+            }}
+            disabled={createDefaultPlansMutation.isPending}
+          >
+            <Wand2 className="h-4 w-4" />
+            Gerar Planos Padrão
+          </Button>
 
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
