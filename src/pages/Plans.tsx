@@ -40,6 +40,7 @@ interface Plan {
 }
 
 type CategoryFilter = 'all' | 'IPTV' | 'SSH' | 'P2P';
+type DurationFilter = 'all' | 30 | 90 | 180 | 365;
 
 const DEFAULT_PLANS_TEMPLATE = [
   // IPTV Plans
@@ -89,6 +90,7 @@ export default function Plans() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [durationFilter, setDurationFilter] = useState<DurationFilter>('all');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -261,8 +263,9 @@ export default function Plans() {
   };
 
   const filteredPlans = plans.filter(plan => {
-    if (categoryFilter === 'all') return true;
-    return plan.category === categoryFilter;
+    const matchesCategory = categoryFilter === 'all' || plan.category === categoryFilter;
+    const matchesDuration = durationFilter === 'all' || plan.duration_days === durationFilter;
+    return matchesCategory && matchesDuration;
   });
 
   const getDurationLabel = (days: number) => {
@@ -471,16 +474,38 @@ export default function Plans() {
         </div>
       </div>
 
-      {/* Category Filter */}
+      {/* Filters */}
       {plans.length > 0 && (
-        <Tabs value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}>
-          <TabsList>
-            <TabsTrigger value="all">Todos ({plans.length})</TabsTrigger>
-            <TabsTrigger value="IPTV">IPTV ({plans.filter(p => p.category === 'IPTV').length})</TabsTrigger>
-            <TabsTrigger value="P2P">P2P ({plans.filter(p => p.category === 'P2P').length})</TabsTrigger>
-            <TabsTrigger value="SSH">SSH ({plans.filter(p => p.category === 'SSH').length})</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="space-y-3">
+          {/* Category Filter */}
+          <Tabs value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}>
+            <TabsList>
+              <TabsTrigger value="all">Todos ({plans.length})</TabsTrigger>
+              <TabsTrigger value="IPTV">IPTV ({plans.filter(p => p.category === 'IPTV').length})</TabsTrigger>
+              <TabsTrigger value="P2P">P2P ({plans.filter(p => p.category === 'P2P').length})</TabsTrigger>
+              <TabsTrigger value="SSH">SSH ({plans.filter(p => p.category === 'SSH').length})</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Duration Filter */}
+          <Tabs value={durationFilter.toString()} onValueChange={(v) => setDurationFilter(v === 'all' ? 'all' : Number(v) as DurationFilter)}>
+            <TabsList>
+              <TabsTrigger value="all">Todas Durações</TabsTrigger>
+              <TabsTrigger value="30" className="text-blue-600 data-[state=active]:bg-blue-500/10">
+                Mensal ({plans.filter(p => p.duration_days === 30).length})
+              </TabsTrigger>
+              <TabsTrigger value="90" className="text-emerald-600 data-[state=active]:bg-emerald-500/10">
+                Trimestral ({plans.filter(p => p.duration_days === 90).length})
+              </TabsTrigger>
+              <TabsTrigger value="180" className="text-amber-600 data-[state=active]:bg-amber-500/10">
+                Semestral ({plans.filter(p => p.duration_days === 180).length})
+              </TabsTrigger>
+              <TabsTrigger value="365" className="text-purple-600 data-[state=active]:bg-purple-500/10">
+                Anual ({plans.filter(p => p.duration_days === 365).length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       )}
 
       {isLoading ? (
