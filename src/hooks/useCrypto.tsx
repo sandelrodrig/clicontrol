@@ -5,13 +5,22 @@ interface CryptoHook {
   decrypt: (ciphertext: string) => Promise<string>;
 }
 
+async function getAuthHeaders() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Sessão inválida. Faça login novamente.');
+  return { Authorization: `Bearer ${token}` };
+}
+
 export function useCrypto(): CryptoHook {
   const encrypt = async (plaintext: string): Promise<string> => {
     if (!plaintext) return '';
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('crypto', {
-        body: { action: 'encrypt', data: plaintext }
+        headers: await getAuthHeaders(),
+        body: { action: 'encrypt', data: plaintext },
       });
 
       if (error) {
@@ -28,10 +37,11 @@ export function useCrypto(): CryptoHook {
 
   const decrypt = async (ciphertext: string): Promise<string> => {
     if (!ciphertext) return '';
-    
+
     try {
       const { data, error } = await supabase.functions.invoke('crypto', {
-        body: { action: 'decrypt', data: ciphertext }
+        headers: await getAuthHeaders(),
+        body: { action: 'decrypt', data: ciphertext },
       });
 
       if (error) {
@@ -48,3 +58,4 @@ export function useCrypto(): CryptoHook {
 
   return { encrypt, decrypt };
 }
+
