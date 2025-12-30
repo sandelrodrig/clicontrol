@@ -37,6 +37,7 @@ import { format, addDays, addMonths, isBefore, isAfter, startOfToday, difference
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { SendMessageDialog } from '@/components/SendMessageDialog';
+import { PlanSelector } from '@/components/PlanSelector';
 
 interface Client {
   id: string;
@@ -116,10 +117,6 @@ export default function Clients() {
   const [messageClient, setMessageClient] = useState<Client | null>(null);
   const [renewClient, setRenewClient] = useState<Client | null>(null);
   const [renewPlanId, setRenewPlanId] = useState<string>('');
-  const [planCategoryFilter, setPlanCategoryFilter] = useState<string>('all');
-  const [planDurationFilter, setPlanDurationFilter] = useState<string>('all');
-  const [renewPlanCategoryFilter, setRenewPlanCategoryFilter] = useState<string>('all');
-  const [renewPlanDurationFilter, setRenewPlanDurationFilter] = useState<string>('all');
   const [decryptedCredentials, setDecryptedCredentials] = useState<DecryptedCredentials>({});
   const [decrypting, setDecrypting] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -857,59 +854,13 @@ export default function Clients() {
                 {formData.category !== 'Contas Premium' && (
                   <div className="space-y-2">
                     <Label>Plano</Label>
-                    <div className="flex gap-2 mb-2">
-                      <Select value={planCategoryFilter} onValueChange={setPlanCategoryFilter}>
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Categoria" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todas</SelectItem>
-                          <SelectItem value="IPTV">IPTV</SelectItem>
-                          <SelectItem value="P2P">P2P</SelectItem>
-                          <SelectItem value="SSH">SSH</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select value={planDurationFilter} onValueChange={setPlanDurationFilter}>
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Duração" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todas</SelectItem>
-                          <SelectItem value="30">Mensal</SelectItem>
-                          <SelectItem value="90">Trimestral</SelectItem>
-                          <SelectItem value="180">Semestral</SelectItem>
-                          <SelectItem value="365">Anual</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Select
+                    <PlanSelector
+                      plans={plans}
                       value={formData.plan_id || ''}
                       onValueChange={handlePlanChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um plano" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(() => {
-                          const filteredPlans = plans.filter(plan => {
-                            const matchesCategory = planCategoryFilter === 'all' || plan.category === planCategoryFilter;
-                            const matchesDuration = planDurationFilter === 'all' || plan.duration_days === Number(planDurationFilter);
-                            return matchesCategory && matchesDuration;
-                          });
-                          return filteredPlans.length === 0 ? (
-                            <div className="p-2 text-sm text-muted-foreground text-center">
-                              Nenhum plano encontrado
-                            </div>
-                          ) : (
-                            filteredPlans.map((plan) => (
-                              <SelectItem key={plan.id} value={plan.id}>
-                                {plan.name} - R$ {plan.price.toFixed(2)} ({plan.duration_days} dias)
-                              </SelectItem>
-                            ))
-                          );
-                        })()}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Selecione um plano"
+                      showFilters={true}
+                    />
                   </div>
                 )}
 
@@ -1438,59 +1389,13 @@ export default function Clients() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Plano</Label>
-              <div className="flex gap-2 mb-2">
-                <Select value={renewPlanCategoryFilter} onValueChange={setRenewPlanCategoryFilter}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="IPTV">IPTV</SelectItem>
-                    <SelectItem value="P2P">P2P</SelectItem>
-                    <SelectItem value="SSH">SSH</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={renewPlanDurationFilter} onValueChange={setRenewPlanDurationFilter}>
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="Duração" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="30">Mensal</SelectItem>
-                    <SelectItem value="90">Trimestral</SelectItem>
-                    <SelectItem value="180">Semestral</SelectItem>
-                    <SelectItem value="365">Anual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Select
+              <PlanSelector
+                plans={plans}
                 value={renewPlanId}
                 onValueChange={setRenewPlanId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o plano" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(() => {
-                    const filteredPlans = plans.filter(plan => {
-                      const matchesCategory = renewPlanCategoryFilter === 'all' || plan.category === renewPlanCategoryFilter;
-                      const matchesDuration = renewPlanDurationFilter === 'all' || plan.duration_days === Number(renewPlanDurationFilter);
-                      return matchesCategory && matchesDuration;
-                    });
-                    return filteredPlans.length === 0 ? (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        Nenhum plano encontrado
-                      </div>
-                    ) : (
-                      filteredPlans.map((plan) => (
-                        <SelectItem key={plan.id} value={plan.id}>
-                          {plan.name} - R$ {plan.price.toFixed(2)} ({plan.duration_days} dias)
-                        </SelectItem>
-                      ))
-                    );
-                  })()}
-                </SelectContent>
-              </Select>
+                placeholder="Selecione o plano"
+                showFilters={true}
+              />
               <p className="text-xs text-muted-foreground">
                 {renewPlanId ? 
                   `Será adicionado ${plans.find(p => p.id === renewPlanId)?.duration_days || 30} dias ao vencimento` :
