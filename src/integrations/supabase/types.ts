@@ -531,6 +531,7 @@ export type Database = {
           panel_url: string | null
           seller_id: string
           total_credits: number | null
+          total_screens_per_credit: number | null
           updated_at: string | null
           used_credits: number | null
         }
@@ -549,6 +550,7 @@ export type Database = {
           panel_url?: string | null
           seller_id: string
           total_credits?: number | null
+          total_screens_per_credit?: number | null
           updated_at?: string | null
           used_credits?: number | null
         }
@@ -567,6 +569,7 @@ export type Database = {
           panel_url?: string | null
           seller_id?: string
           total_credits?: number | null
+          total_screens_per_credit?: number | null
           updated_at?: string | null
           used_credits?: number | null
         }

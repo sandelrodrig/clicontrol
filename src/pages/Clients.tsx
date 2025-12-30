@@ -89,6 +89,9 @@ interface ServerData {
   name: string;
   is_active: boolean;
   panel_url: string | null;
+  iptv_per_credit: number;
+  p2p_per_credit: number;
+  total_screens_per_credit: number;
 }
 
 type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid' | 'archived';
@@ -153,7 +156,9 @@ export default function Clients() {
     has_paid_apps: false,
     paid_apps_duration: '',
     paid_apps_expiration: '',
+    screens: '1', // Número de telas selecionadas
   });
+
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ['clients', user?.id],
@@ -189,7 +194,7 @@ export default function Clients() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('servers')
-        .select('id, name, is_active, panel_url')
+        .select('id, name, is_active, panel_url, iptv_per_credit, p2p_per_credit, total_screens_per_credit')
         .eq('seller_id', user!.id)
         .order('name');
       if (error) throw error;
@@ -200,6 +205,14 @@ export default function Clients() {
 
   // Active servers for the form select
   const activeServers = servers.filter(s => s.is_active);
+
+  // Get selected server details for screen options
+  const selectedServer = servers.find(s => s.id === formData.server_id);
+  const maxScreens = selectedServer?.total_screens_per_credit || 1;
+  const hasMultipleScreenOptions = maxScreens > 1;
+  
+  // Check if WPLAY for special screen options
+  const isWplayServer = selectedServer?.name?.toUpperCase() === 'WPLAY';
 
   const { data: customCategories = [] } = useQuery({
     queryKey: ['client-categories', user?.id],
@@ -424,6 +437,7 @@ export default function Clients() {
       has_paid_apps: false,
       paid_apps_duration: '',
       paid_apps_expiration: '',
+      screens: '1',
     });
   };
 
@@ -549,6 +563,7 @@ export default function Clients() {
       has_paid_apps: client.has_paid_apps || false,
       paid_apps_duration: client.paid_apps_duration || '',
       paid_apps_expiration: client.paid_apps_expiration || '',
+      screens: '1',
     });
     setIsDialogOpen(true);
   };
@@ -960,8 +975,45 @@ export default function Clients() {
                   </div>
                 )}
 
+                {/* Screen Selection - Only show when server has multiple screen options */}
+                {formData.category !== 'Contas Premium' && formData.server_id && hasMultipleScreenOptions && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4" />
+                      Telas
+                    </Label>
+                    <Select
+                      value={formData.screens}
+                      onValueChange={(value) => setFormData({ ...formData, screens: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione as telas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isWplayServer ? (
+                          <>
+                            <SelectItem value="1">1 Tela</SelectItem>
+                            <SelectItem value="2">2 Telas</SelectItem>
+                            <SelectItem value="3">3 Telas (2 IPTV + 1 P2P)</SelectItem>
+                          </>
+                        ) : (
+                          Array.from({ length: maxScreens }, (_, i) => i + 1).map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num} {num === 1 ? 'Tela' : 'Telas'}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {isWplayServer && formData.screens === '3' && (
+                      <p className="text-xs text-muted-foreground">
+                        WPLAY: 2 telas IPTV + 1 tela P2P no mesmo crédito
+                      </p>
+                    )}
+                  </div>
+                )}
 
-                {/* Expiration Date with adjustment buttons and calendar */}
+
                 <div className="space-y-2">
                   <Label>Data de Vencimento</Label>
                   <div className="flex items-center gap-2">
