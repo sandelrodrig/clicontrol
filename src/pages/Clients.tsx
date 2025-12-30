@@ -1193,8 +1193,10 @@ export default function Clients() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const currentDate = new Date(formData.expiration_date);
-                        setFormData({ ...formData, expiration_date: format(addDays(currentDate, -1), 'yyyy-MM-dd') });
+                        const currentDate = formData.expiration_date ? new Date(formData.expiration_date + 'T12:00:00') : new Date();
+                        if (!isNaN(currentDate.getTime())) {
+                          setFormData({ ...formData, expiration_date: format(addDays(currentDate, -1), 'yyyy-MM-dd') });
+                        }
                       }}
                     >
                       -1 dia
@@ -1204,8 +1206,10 @@ export default function Clients() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const currentDate = new Date(formData.expiration_date);
-                        setFormData({ ...formData, expiration_date: format(addDays(currentDate, 1), 'yyyy-MM-dd') });
+                        const currentDate = formData.expiration_date ? new Date(formData.expiration_date + 'T12:00:00') : new Date();
+                        if (!isNaN(currentDate.getTime())) {
+                          setFormData({ ...formData, expiration_date: format(addDays(currentDate, 1), 'yyyy-MM-dd') });
+                        }
                       }}
                     >
                       +1 dia
@@ -1215,8 +1219,10 @@ export default function Clients() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const currentDate = new Date(formData.expiration_date);
-                        setFormData({ ...formData, expiration_date: format(addMonths(currentDate, -1), 'yyyy-MM-dd') });
+                        const currentDate = formData.expiration_date ? new Date(formData.expiration_date + 'T12:00:00') : new Date();
+                        if (!isNaN(currentDate.getTime())) {
+                          setFormData({ ...formData, expiration_date: format(addMonths(currentDate, -1), 'yyyy-MM-dd') });
+                        }
                       }}
                     >
                       -1 mês
@@ -1226,8 +1232,10 @@ export default function Clients() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const currentDate = new Date(formData.expiration_date);
-                        setFormData({ ...formData, expiration_date: format(addMonths(currentDate, 1), 'yyyy-MM-dd') });
+                        const currentDate = formData.expiration_date ? new Date(formData.expiration_date + 'T12:00:00') : new Date();
+                        if (!isNaN(currentDate.getTime())) {
+                          setFormData({ ...formData, expiration_date: format(addMonths(currentDate, 1), 'yyyy-MM-dd') });
+                        }
                       }}
                     >
                       +1 mês
