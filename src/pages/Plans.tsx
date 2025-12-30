@@ -163,9 +163,22 @@ export default function Plans() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<Plan> }) => {
+    mutationFn: async ({ id, data, syncPrice }: { id: string; data: Partial<Plan>; syncPrice?: { category: string; duration_days: number; screens: number; price: number } }) => {
+      // Update the main plan
       const { error } = await supabase.from('plans').update(data).eq('id', id);
       if (error) throw error;
+      
+      // If IPTV or P2P, sync price with the equivalent plan in the other category
+      if (syncPrice && (syncPrice.category === 'IPTV' || syncPrice.category === 'P2P')) {
+        const otherCategory = syncPrice.category === 'IPTV' ? 'P2P' : 'IPTV';
+        await supabase
+          .from('plans')
+          .update({ price: syncPrice.price })
+          .eq('seller_id', user!.id)
+          .eq('category', otherCategory)
+          .eq('duration_days', syncPrice.duration_days)
+          .eq('screens', syncPrice.screens);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
@@ -218,7 +231,16 @@ export default function Plans() {
     };
 
     if (editingPlan) {
-      updateMutation.mutate({ id: editingPlan.id, data });
+      // Sync prices between IPTV and P2P (SSH is independent)
+      const syncPrice = (formData.category === 'IPTV' || formData.category === 'P2P') 
+        ? {
+            category: formData.category,
+            duration_days: data.duration_days,
+            screens: data.screens,
+            price: data.price,
+          }
+        : undefined;
+      updateMutation.mutate({ id: editingPlan.id, data, syncPrice });
     } else {
       createMutation.mutate(data);
     }
