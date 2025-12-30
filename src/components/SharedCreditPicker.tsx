@@ -21,6 +21,7 @@ interface SharedCreditPickerProps {
 export interface SharedCreditSelection {
   serverId: string;
   serverName: string;
+  panelUrl?: string;
   slotType: 'iptv' | 'p2p';
   proRataPrice: number;
   fullPrice: number;
@@ -38,6 +39,7 @@ interface ServerWithCredits {
   p2p_per_credit: number;
   credit_price: number;
   total_credits: number;
+  panel_url: string | null;
 }
 
 interface PanelClientWithClient {
@@ -78,7 +80,7 @@ export function SharedCreditPicker({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('servers')
-        .select('id, name, iptv_per_credit, p2p_per_credit, credit_price, total_credits')
+        .select('id, name, iptv_per_credit, p2p_per_credit, credit_price, total_credits, panel_url')
         .eq('seller_id', sellerId)
         .eq('is_active', true)
         .or('iptv_per_credit.gt.0,p2p_per_credit.gt.0');
@@ -205,6 +207,7 @@ export function SharedCreditPicker({
     onSelect({
       serverId: server.id,
       serverName: server.name,
+      panelUrl: server.panel_url || undefined,
       slotType,
       proRataPrice: proRataCalc.price,
       fullPrice: server.credit_price,
