@@ -56,6 +56,8 @@ const AppRoutes = () => {
         <Route path="/landing" element={<Landing />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/force-password-update" element={<ForcePasswordUpdate />} />
+        {/* Redirect old shared-panels route to servers */}
+        <Route path="/shared-panels" element={<Navigate to="/servers" replace />} />
         <Route element={
           <PasswordUpdateGuard>
             <AppLayout />
