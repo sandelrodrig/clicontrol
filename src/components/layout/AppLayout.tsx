@@ -68,7 +68,7 @@ function MobileMenuContent({ onNavigate }: { onNavigate?: () => void }) {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Users className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-semibold text-sidebar-foreground">CliControl</span>
+          <span className="font-semibold text-sidebar-foreground">PSControl</span>
         </div>
       </div>
 
@@ -162,7 +162,7 @@ export function AppLayout() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'CliControl',
+          title: 'PSControl',
           text: 'Confira este aplicativo de gerenciamento de clientes!',
           url: url,
         });
