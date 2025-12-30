@@ -128,20 +128,29 @@ export default function Settings() {
               </Button>
             </div>
           ) : (
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={async () => {
-                setIsCheckingUpdates(true);
-                await checkForUpdates();
-                setIsCheckingUpdates(false);
-                toast.success('Você está usando a versão mais recente!');
-              }}
-              disabled={isCheckingUpdates}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
-              {isCheckingUpdates ? 'Verificando...' : 'Verificar Atualizações'}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={async () => {
+                  setIsCheckingUpdates(true);
+                  await checkForUpdates();
+                  setIsCheckingUpdates(false);
+                  toast.success('Você está usando a versão mais recente!');
+                }}
+                disabled={isCheckingUpdates}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
+                {isCheckingUpdates ? 'Verificando...' : 'Verificar Atualizações'}
+              </Button>
+              <Button 
+                variant="secondary"
+                onClick={() => window.location.reload()}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Recarregar
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
