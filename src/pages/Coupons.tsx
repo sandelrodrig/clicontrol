@@ -189,6 +189,9 @@ export default function Coupons() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          if (!open && (createMutation.isPending || updateMutation.isPending)) {
+            return;
+          }
           setIsDialogOpen(open);
           if (!open) {
             setEditingCoupon(null);
@@ -201,7 +204,18 @@ export default function Coupons() {
               Novo Cupom
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent
+            onPointerDownOutside={(e) => {
+              if (createMutation.isPending || updateMutation.isPending) {
+                e.preventDefault();
+              }
+            }}
+            onEscapeKeyDown={(e) => {
+              if (createMutation.isPending || updateMutation.isPending) {
+                e.preventDefault();
+              }
+            }}
+          >
             <DialogHeader>
               <DialogTitle>{editingCoupon ? 'Editar Cupom' : 'Novo Cupom'}</DialogTitle>
               <DialogDescription>

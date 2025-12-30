@@ -313,6 +313,10 @@ export default function Plans() {
           </Button>
 
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            // Prevent closing while mutation is pending
+            if (!open && (createMutation.isPending || updateMutation.isPending)) {
+              return;
+            }
             setIsDialogOpen(open);
             if (!open) {
               setEditingPlan(null);
@@ -325,7 +329,18 @@ export default function Plans() {
                 Novo Plano
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent 
+              onPointerDownOutside={(e) => {
+                if (createMutation.isPending || updateMutation.isPending) {
+                  e.preventDefault();
+                }
+              }}
+              onEscapeKeyDown={(e) => {
+                if (createMutation.isPending || updateMutation.isPending) {
+                  e.preventDefault();
+                }
+              }}
+            >
               <DialogHeader>
                 <DialogTitle>{editingPlan ? 'Editar Plano' : 'Novo Plano'}</DialogTitle>
                 <DialogDescription>
