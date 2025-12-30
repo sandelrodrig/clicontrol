@@ -608,12 +608,12 @@ export default function Clients() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-          <p className="text-muted-foreground">Gerencie seus clientes e assinaturas</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Clientes</h1>
+          <p className="text-sm text-muted-foreground">Gerencie seus clientes</p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -1100,15 +1100,15 @@ export default function Clients() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, telefone ou email..."
+            placeholder="Buscar cliente..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-9"
           />
         </div>
         
@@ -1153,7 +1153,7 @@ export default function Clients() {
 
       {/* Clients Grid */}
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-6">
@@ -1177,7 +1177,7 @@ export default function Clients() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredClients.map((client) => {
             const status = getClientStatus(client);
             const daysLeft = differenceInDays(new Date(client.expiration_date), today);
