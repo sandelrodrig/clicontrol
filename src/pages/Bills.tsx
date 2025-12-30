@@ -173,7 +173,7 @@ export default function Bills() {
       recipient_name: bill.recipient_name,
       recipient_whatsapp: bill.recipient_whatsapp || '',
       recipient_pix: bill.recipient_pix || '',
-      amount: bill.amount.toString(),
+      amount: bill.amount > 0 ? bill.amount.toString() : '',
       due_date: bill.due_date,
       notes: bill.notes || '',
     });
@@ -269,7 +269,7 @@ export default function Bills() {
                     min="0"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    placeholder="0.00"
+                    placeholder="Ex: 50.00"
                     required
                   />
                 </div>

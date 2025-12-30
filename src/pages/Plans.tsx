@@ -251,7 +251,7 @@ export default function Plans() {
     setFormData({
       name: plan.name,
       description: plan.description || '',
-      price: plan.price.toString(),
+      price: plan.price > 0 ? plan.price.toString() : '',
       duration_days: plan.duration_days.toString(),
       is_active: plan.is_active,
       category: plan.category || 'IPTV',
@@ -396,7 +396,7 @@ export default function Plans() {
                       min="0"
                       value={formData.price}
                       onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      placeholder="0.00"
+                      placeholder="Ex: 25.00"
                       required
                     />
                   </div>
