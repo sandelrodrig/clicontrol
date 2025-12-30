@@ -253,25 +253,28 @@ export default function Tutorials() {
 
       {/* Video Player Modal */}
       <Dialog open={!!selectedVideo} onOpenChange={(open) => !open && setSelectedVideo(null)}>
-        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-5xl p-0 overflow-hidden bg-black/95 border-none">
           {selectedVideo && (
-            <>
-              <div className="aspect-video w-full">
+            <div className="flex flex-col">
+              <div className="aspect-video w-full bg-black">
                 <iframe
-                  src={`https://www.youtube.com/embed/${extractYouTubeId(selectedVideo.youtube_url)}?autoplay=1`}
+                  src={`https://www.youtube.com/embed/${extractYouTubeId(selectedVideo.youtube_url)}?autoplay=1&rel=0&modestbranding=1`}
                   title={selectedVideo.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   allowFullScreen
-                  className="w-full h-full"
+                  className="w-full h-full border-0"
                 />
               </div>
-              <div className="p-4">
-                <h3 className="font-semibold text-lg">{selectedVideo.title}</h3>
+              <div className="p-4 bg-background">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <Play className="h-5 w-5 text-red-500" />
+                  {selectedVideo.title}
+                </h3>
                 {selectedVideo.description && (
-                  <p className="text-sm text-muted-foreground mt-1">{selectedVideo.description}</p>
+                  <p className="text-sm text-muted-foreground mt-2">{selectedVideo.description}</p>
                 )}
               </div>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>
