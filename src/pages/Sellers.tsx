@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
-import { Search, UserCog, Calendar, Plus, Shield, Trash2, Key, UserPlus, Copy, Check, RefreshCw } from 'lucide-react';
+import { Search, UserCog, Calendar, Plus, Shield, Trash2, Key, UserPlus, Copy, Check, RefreshCw, FlaskConical } from 'lucide-react';
 import { format, addDays, isBefore, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -232,6 +232,15 @@ export default function Sellers() {
     });
   };
 
+  const handleCreateTestSeller = () => {
+    const timestamp = Date.now();
+    createSellerMutation.mutate({
+      email: `teste${timestamp}@teste.com`,
+      full_name: `Vendedor Teste ${timestamp.toString().slice(-4)}`,
+      subscription_days: 3
+    });
+  };
+
   const copyPassword = () => {
     navigator.clipboard.writeText(tempPasswordDialog.password);
     setCopiedPassword(true);
@@ -297,13 +306,24 @@ export default function Sellers() {
           <p className="text-muted-foreground">Gerencie os vendedores do sistema</p>
         </div>
 
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <UserPlus className="h-4 w-4" />
-              Novo Vendedor
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="gap-2"
+            onClick={handleCreateTestSeller}
+            disabled={createSellerMutation.isPending}
+          >
+            <FlaskConical className="h-4 w-4" />
+            <span className="hidden sm:inline">Teste 3 dias</span>
+          </Button>
+          
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Novo Vendedor
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Criar Novo Vendedor</DialogTitle>
@@ -361,6 +381,7 @@ export default function Sellers() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
