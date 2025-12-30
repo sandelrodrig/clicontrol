@@ -45,11 +45,15 @@ interface SharedPanel {
   expires_at: string | null;
   iptv_per_credit: number;
   p2p_per_credit: number;
+  used_iptv_slots: number;
+  used_p2p_slots: number;
 }
 
 interface Client {
   id: string;
   name: string;
+  login: string | null;
+  password: string | null;
 }
 
 interface PanelClient {
@@ -57,6 +61,7 @@ interface PanelClient {
   panel_id: string;
   client_id: string;
   assigned_at: string;
+  slot_type: string;
 }
 
 interface ServerData {
@@ -79,6 +84,8 @@ export default function SharedPanels() {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<PanelTypeFilter>('all');
   const [viewClientsPanel, setViewClientsPanel] = useState<SharedPanel | null>(null);
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [selectedSlotType, setSelectedSlotType] = useState<'iptv' | 'p2p'>('iptv');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -110,12 +117,13 @@ export default function SharedPanels() {
   });
 
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients', user?.id],
+    queryKey: ['clients-for-panels', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clients')
-        .select('id, name')
+        .select('id, name, login, password')
         .eq('seller_id', user!.id)
+        .eq('is_archived', false)
         .order('name');
       if (error) throw error;
       return data as Client[];
@@ -218,11 +226,12 @@ export default function SharedPanels() {
   });
 
   const assignClientMutation = useMutation({
-    mutationFn: async ({ panel_id, client_id }: { panel_id: string; client_id: string }) => {
+    mutationFn: async ({ panel_id, client_id, slot_type }: { panel_id: string; client_id: string; slot_type: string }) => {
       const { error } = await supabase.from('panel_clients').insert([{
         panel_id,
         client_id,
         seller_id: user!.id,
+        slot_type,
       }]);
       if (error) throw error;
     },
@@ -325,17 +334,54 @@ export default function SharedPanels() {
     return clients.filter(c => clientIds.includes(c.id));
   };
 
-  const getAvailableClients = (panelId: string) => {
+  const getPanelClientsWithSlotType = (panelId: string) => {
+    return panelClients
+      .filter(pc => pc.panel_id === panelId)
+      .map(pc => {
+        const client = clients.find(c => c.id === pc.client_id);
+        return { ...pc, client };
+      })
+      .filter(pc => pc.client);
+  };
+
+  const getAvailableClients = (panelId: string, searchQuery: string = '') => {
     const assignedClientIds = panelClients.filter(pc => pc.panel_id === panelId).map(pc => pc.client_id);
-    return clients.filter(c => !assignedClientIds.includes(c.id));
+    return clients.filter(c => {
+      if (assignedClientIds.includes(c.id)) return false;
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        c.name.toLowerCase().includes(query) ||
+        (c.login && c.login.toLowerCase().includes(query)) ||
+        (c.password && c.password.toLowerCase().includes(query))
+      );
+    });
   };
 
   const getPanelClientRecord = (panelId: string, clientId: string) => {
     return panelClients.find(pc => pc.panel_id === panelId && pc.client_id === clientId);
   };
 
-  // Get full panels (where used_slots >= total_slots)
-  const fullPanels = panels.filter(p => p.used_slots >= p.total_slots);
+  // Calculate available slots for a panel
+  const getAvailableSlots = (panel: SharedPanel) => {
+    const totalIptv = panel.total_slots * (panel.iptv_per_credit || 0);
+    const totalP2p = panel.total_slots * (panel.p2p_per_credit || 0);
+    const usedIptv = panel.used_iptv_slots || 0;
+    const usedP2p = panel.used_p2p_slots || 0;
+    return {
+      iptv: { total: totalIptv, used: usedIptv, available: totalIptv - usedIptv },
+      p2p: { total: totalP2p, used: usedP2p, available: totalP2p - usedP2p },
+    };
+  };
+
+  // Check if panel is truly full
+  const isPanelFull = (panel: SharedPanel) => {
+    const slots = getAvailableSlots(panel);
+    return slots.iptv.available <= 0 && slots.p2p.available <= 0;
+  };
+
+  // Get full panels (where all slots are used)
+  const fullPanels = panels.filter(isPanelFull);
 
   // Get panel type label
   const getPanelTypeLabel = (panel: SharedPanel | null) => {
@@ -369,8 +415,8 @@ export default function SharedPanels() {
   });
 
   // Separate active and full panels
-  const activePanels = filteredPanels.filter(p => p.used_slots < p.total_slots);
-  const completedPanels = filteredPanels.filter(p => p.used_slots >= p.total_slots);
+  const activePanels = filteredPanels.filter(p => !isPanelFull(p));
+  const completedPanels = filteredPanels.filter(isPanelFull);
 
   const totalMonthlyCost = panels.reduce((sum, p) => sum + p.monthly_cost, 0);
   const totalSlots = panels.reduce((sum, p) => sum + p.total_slots, 0);
@@ -776,85 +822,245 @@ export default function SharedPanels() {
       )}
 
       {/* Assign Client Dialog */}
-      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
-        <DialogContent>
+      <Dialog open={assignDialogOpen} onOpenChange={(open) => {
+        setAssignDialogOpen(open);
+        if (!open) {
+          setClientSearchTerm('');
+          setSelectedSlotType('iptv');
+        }
+      }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Atribuir Cliente</DialogTitle>
             <DialogDescription>
-              Selecione um cliente para adicionar ao painel {selectedPanel?.name}
+              Adicione clientes ao painel {selectedPanel?.name}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {selectedPanel && getAvailableClients(selectedPanel.id).length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                Nenhum cliente disponível para atribuir
-              </p>
-            ) : (
-              <div className="max-h-64 overflow-y-auto space-y-2">
-                {selectedPanel && getAvailableClients(selectedPanel.id).map((client) => (
-                  <Button
-                    key={client.id}
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => {
-                      assignClientMutation.mutate({
-                        panel_id: selectedPanel.id,
-                        client_id: client.id,
-                      });
-                      setAssignDialogOpen(false);
-                    }}
-                  >
-                    {client.name}
-                  </Button>
-                ))}
+          {selectedPanel && (
+            <div className="space-y-4">
+              {/* Slot availability info */}
+              {(() => {
+                const slots = getAvailableSlots(selectedPanel);
+                return (
+                  <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                    <p className="text-sm font-medium">Vagas disponíveis:</p>
+                    <div className="flex gap-4">
+                      {selectedPanel.iptv_per_credit > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Tv className="h-4 w-4 text-primary" />
+                          <span className={cn(
+                            "text-sm",
+                            slots.iptv.available <= 0 && "text-destructive"
+                          )}>
+                            IPTV: {slots.iptv.used}/{slots.iptv.total}
+                          </span>
+                        </div>
+                      )}
+                      {selectedPanel.p2p_per_credit > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Wifi className="h-4 w-4 text-success" />
+                          <span className={cn(
+                            "text-sm",
+                            slots.p2p.available <= 0 && "text-destructive"
+                          )}>
+                            P2P: {slots.p2p.used}/{slots.p2p.total}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Slot type selector */}
+              {selectedPanel.iptv_per_credit > 0 && selectedPanel.p2p_per_credit > 0 && (
+                <div className="space-y-2">
+                  <Label>Tipo de vaga</Label>
+                  <Select value={selectedSlotType} onValueChange={(v) => setSelectedSlotType(v as 'iptv' | 'p2p')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="iptv" disabled={getAvailableSlots(selectedPanel).iptv.available <= 0}>
+                        <div className="flex items-center gap-2">
+                          <Tv className="h-4 w-4" />
+                          IPTV ({getAvailableSlots(selectedPanel).iptv.available} vagas)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="p2p" disabled={getAvailableSlots(selectedPanel).p2p.available <= 0}>
+                        <div className="flex items-center gap-2">
+                          <Wifi className="h-4 w-4" />
+                          P2P ({getAvailableSlots(selectedPanel).p2p.available} vagas)
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, usuário ou senha..."
+                  value={clientSearchTerm}
+                  onChange={(e) => setClientSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            )}
-          </div>
+
+              {/* Client list */}
+              {getAvailableClients(selectedPanel.id, clientSearchTerm).length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">
+                  {clientSearchTerm ? 'Nenhum cliente encontrado' : 'Nenhum cliente disponível'}
+                </p>
+              ) : (
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {getAvailableClients(selectedPanel.id, clientSearchTerm).map((client) => {
+                    const slotType = selectedPanel.iptv_per_credit > 0 && selectedPanel.p2p_per_credit === 0 
+                      ? 'iptv' 
+                      : selectedPanel.p2p_per_credit > 0 && selectedPanel.iptv_per_credit === 0
+                        ? 'p2p'
+                        : selectedSlotType;
+                    const slots = getAvailableSlots(selectedPanel);
+                    const canAssign = slotType === 'iptv' ? slots.iptv.available > 0 : slots.p2p.available > 0;
+                    
+                    return (
+                      <Button
+                        key={client.id}
+                        variant="outline"
+                        className="w-full justify-start flex-col items-start h-auto py-2"
+                        disabled={!canAssign}
+                        onClick={() => {
+                          assignClientMutation.mutate({
+                            panel_id: selectedPanel.id,
+                            client_id: client.id,
+                            slot_type: slotType,
+                          });
+                        }}
+                      >
+                        <span className="font-medium">{client.name}</span>
+                        {(client.login || client.password) && (
+                          <span className="text-xs text-muted-foreground">
+                            {client.login && `Usuário: ${client.login}`}
+                            {client.login && client.password && ' | '}
+                            {client.password && `Senha: ${client.password}`}
+                          </span>
+                        )}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
       {/* View Clients Dialog */}
-      <Dialog open={!!viewClientsPanel} onOpenChange={() => setViewClientsPanel(null)}>
-        <DialogContent>
+      <Dialog open={!!viewClientsPanel} onOpenChange={() => {
+        setViewClientsPanel(null);
+        setClientSearchTerm('');
+      }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Clientes do Painel</DialogTitle>
             <DialogDescription>
-              {viewClientsPanel?.name} {viewClientsPanel && `- ${getPanelTypeLabel(viewClientsPanel)}`}
+              {viewClientsPanel?.name} - {viewClientsPanel && getPanelTypeLabel(viewClientsPanel)}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {viewClientsPanel && getPanelClients(viewClientsPanel.id).length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">
-                Nenhum cliente atribuído a este painel
-              </p>
-            ) : (
-              <div className="max-h-64 overflow-y-auto space-y-2">
-                {viewClientsPanel && getPanelClients(viewClientsPanel.id).map((client) => {
-                  const pc = getPanelClientRecord(viewClientsPanel.id, client.id);
-                  return (
-                    <div
-                      key={client.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-border"
-                    >
-                      <span className="font-medium">{client.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => {
-                          if (pc && confirm(`Remover ${client.name} deste painel?`)) {
-                            removeClientMutation.mutate(pc.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  );
-                })}
+          {viewClientsPanel && (
+            <div className="space-y-4">
+              {/* Slot usage info */}
+              {(() => {
+                const slots = getAvailableSlots(viewClientsPanel);
+                return (
+                  <div className="p-3 rounded-lg bg-muted/50 flex gap-4">
+                    {viewClientsPanel.iptv_per_credit > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Tv className="h-4 w-4 text-primary" />
+                        <span className="text-sm">IPTV: {slots.iptv.used}/{slots.iptv.total}</span>
+                      </div>
+                    )}
+                    {viewClientsPanel.p2p_per_credit > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Wifi className="h-4 w-4 text-success" />
+                        <span className="text-sm">P2P: {slots.p2p.used}/{slots.p2p.total}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar clientes..."
+                  value={clientSearchTerm}
+                  onChange={(e) => setClientSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            )}
-          </div>
+
+              {/* Client list */}
+              {getPanelClientsWithSlotType(viewClientsPanel.id).length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">
+                  Nenhum cliente atribuído a este painel
+                </p>
+              ) : (
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {getPanelClientsWithSlotType(viewClientsPanel.id)
+                    .filter(pc => {
+                      if (!clientSearchTerm) return true;
+                      const query = clientSearchTerm.toLowerCase();
+                      return (
+                        pc.client?.name.toLowerCase().includes(query) ||
+                        (pc.client?.login && pc.client.login.toLowerCase().includes(query)) ||
+                        (pc.client?.password && pc.client.password.toLowerCase().includes(query))
+                      );
+                    })
+                    .map((pc) => (
+                      <div
+                        key={pc.id}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{pc.client?.name}</span>
+                            <span className={cn(
+                              "text-xs px-2 py-0.5 rounded",
+                              pc.slot_type === 'iptv' ? 'bg-primary/10 text-primary' : 'bg-success/10 text-success'
+                            )}>
+                              {pc.slot_type.toUpperCase()}
+                            </span>
+                          </div>
+                          {(pc.client?.login || pc.client?.password) && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {pc.client.login && `Usuário: ${pc.client.login}`}
+                              {pc.client.login && pc.client.password && ' | '}
+                              {pc.client.password && `Senha: ${pc.client.password}`}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            if (confirm(`Remover ${pc.client?.name} deste painel?`)) {
+                              removeClientMutation.mutate(pc.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -885,7 +1091,12 @@ function PanelCard({
   getPanelTypeLabel: (panel: SharedPanel) => string;
   isCompleted?: boolean;
 }) {
-  const slotsAvailable = panel.total_slots - panel.used_slots;
+  // Calculate available slots based on individual IPTV and P2P usage
+  const totalIptvSlots = panel.total_slots * (panel.iptv_per_credit || 0);
+  const totalP2pSlots = panel.total_slots * (panel.p2p_per_credit || 0);
+  const availableIptv = totalIptvSlots - (panel.used_iptv_slots || 0);
+  const availableP2p = totalP2pSlots - (panel.used_p2p_slots || 0);
+  const hasAvailableSlots = availableIptv > 0 || availableP2p > 0;
   
   return (
     <Card
@@ -920,21 +1131,54 @@ function PanelCard({
       </CardHeader>
       <CardContent>
         <div className="space-y-3 mb-4">
-          <div>
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-muted-foreground">Créditos</span>
-              <span className={cn(
-                'font-medium',
-                slotsAvailable === 0 ? 'text-success' : slotsAvailable <= 2 ? 'text-warning' : 'text-primary'
-              )}>
-                {panel.used_slots} / {panel.total_slots}
-                {isCompleted && ' ✓'}
-              </span>
-            </div>
-            <Progress 
-              value={(panel.used_slots / panel.total_slots) * 100} 
-              className={cn(isCompleted && "[&>div]:bg-success")}
-            />
+          {/* Individual slot tracking */}
+          <div className="space-y-2">
+            {panel.iptv_per_credit > 0 && (
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Tv className="h-3 w-3" /> IPTV
+                  </span>
+                  <span className={cn(
+                    'font-medium text-xs',
+                    (panel.used_iptv_slots || 0) >= panel.total_slots * panel.iptv_per_credit 
+                      ? 'text-success' 
+                      : 'text-primary'
+                  )}>
+                    {panel.used_iptv_slots || 0} / {panel.total_slots * panel.iptv_per_credit}
+                  </span>
+                </div>
+                <Progress 
+                  value={((panel.used_iptv_slots || 0) / (panel.total_slots * panel.iptv_per_credit)) * 100} 
+                  className="h-1.5"
+                />
+              </div>
+            )}
+            {panel.p2p_per_credit > 0 && (
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Wifi className="h-3 w-3" /> P2P
+                  </span>
+                  <span className={cn(
+                    'font-medium text-xs',
+                    (panel.used_p2p_slots || 0) >= panel.total_slots * panel.p2p_per_credit 
+                      ? 'text-success' 
+                      : 'text-success/70'
+                  )}>
+                    {panel.used_p2p_slots || 0} / {panel.total_slots * panel.p2p_per_credit}
+                  </span>
+                </div>
+                <Progress 
+                  value={((panel.used_p2p_slots || 0) / (panel.total_slots * panel.p2p_per_credit)) * 100} 
+                  className="h-1.5 [&>div]:bg-success"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            {panel.total_slots} crédito{panel.total_slots !== 1 ? 's' : ''} • {panelClients.length} cliente{panelClients.length !== 1 ? 's' : ''}
           </div>
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -984,7 +1228,7 @@ function PanelCard({
               variant="outline"
               size="sm"
               className="flex-1"
-              disabled={slotsAvailable === 0}
+              disabled={!hasAvailableSlots}
               onClick={onAssign}
             >
               <UserPlus className="h-4 w-4 mr-1" />

@@ -342,6 +342,7 @@ export type Database = {
           id: string
           panel_id: string
           seller_id: string
+          slot_type: string
         }
         Insert: {
           assigned_at?: string | null
@@ -349,6 +350,7 @@ export type Database = {
           id?: string
           panel_id: string
           seller_id: string
+          slot_type?: string
         }
         Update: {
           assigned_at?: string | null
@@ -356,6 +358,7 @@ export type Database = {
           id?: string
           panel_id?: string
           seller_id?: string
+          slot_type?: string
         }
         Relationships: [
           {
@@ -578,6 +581,8 @@ export type Database = {
           total_slots: number
           updated_at: string | null
           url: string | null
+          used_iptv_slots: number
+          used_p2p_slots: number
           used_slots: number
         }
         Insert: {
@@ -597,6 +602,8 @@ export type Database = {
           total_slots?: number
           updated_at?: string | null
           url?: string | null
+          used_iptv_slots?: number
+          used_p2p_slots?: number
           used_slots?: number
         }
         Update: {
@@ -616,6 +623,8 @@ export type Database = {
           total_slots?: number
           updated_at?: string | null
           url?: string | null
+          used_iptv_slots?: number
+          used_p2p_slots?: number
           used_slots?: number
         }
         Relationships: []
