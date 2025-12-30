@@ -27,6 +27,7 @@ import {
   History,
   EyeOff,
   Eye,
+  PlayCircle,
 } from 'lucide-react';
 
 const navItems = [
@@ -40,6 +41,7 @@ const navItems = [
   { title: 'Painéis', href: '/shared-panels', icon: Tv, sellerOnly: true },
   { title: 'Templates', href: '/templates', icon: MessageSquare },
   { title: 'Histórico', href: '/message-history', icon: History, sellerOnly: true },
+  { title: 'Tutoriais', href: '/tutorials', icon: PlayCircle },
   { title: 'Vendedores', href: '/sellers', icon: UserCog, adminOnly: true },
   { title: 'Relatórios', href: '/reports', icon: BarChart3, adminOnly: true },
   { title: 'Backup', href: '/backup', icon: Database, adminOnly: true },
