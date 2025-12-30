@@ -425,6 +425,7 @@ export default function SharedPanels() {
                         min="0"
                         value={formData.iptv_per_credit}
                         onChange={(e) => setFormData({ ...formData, iptv_per_credit: e.target.value })}
+                        placeholder="0"
                       />
                     </div>
                   )}
@@ -440,6 +441,7 @@ export default function SharedPanels() {
                         min="0"
                         value={formData.p2p_per_credit}
                         onChange={(e) => setFormData({ ...formData, p2p_per_credit: e.target.value })}
+                        placeholder="0"
                       />
                     </div>
                   )}
@@ -458,6 +460,7 @@ export default function SharedPanels() {
                     min="1"
                     value={formData.total_slots}
                     onChange={(e) => setFormData({ ...formData, total_slots: e.target.value })}
+                    placeholder="1"
                     required
                   />
                 </div>
@@ -467,8 +470,10 @@ export default function SharedPanels() {
                     id="monthly_cost"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.monthly_cost}
                     onChange={(e) => setFormData({ ...formData, monthly_cost: e.target.value })}
+                    placeholder="0.00"
                   />
                 </div>
                 <div className="space-y-2">

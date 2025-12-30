@@ -246,8 +246,10 @@ export default function Servers() {
                   id="monthly_cost"
                   type="number"
                   step="0.01"
+                  min="0"
                   value={formData.monthly_cost}
                   onChange={(e) => setFormData({ ...formData, monthly_cost: e.target.value })}
+                  placeholder="0.00"
                 />
               </div>
               

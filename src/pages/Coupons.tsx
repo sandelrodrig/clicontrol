@@ -259,8 +259,10 @@ export default function Coupons() {
                     id="discount_value"
                     type="number"
                     step={formData.discount_type === 'percentage' ? '1' : '0.01'}
+                    min="0"
                     value={formData.discount_value}
                     onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
+                    placeholder={formData.discount_type === 'percentage' ? '10' : '0.00'}
                     required
                   />
                 </div>
@@ -282,8 +284,10 @@ export default function Coupons() {
                     id="min_plan_value"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={formData.min_plan_value}
                     onChange={(e) => setFormData({ ...formData, min_plan_value: e.target.value })}
+                    placeholder="0.00"
                   />
                 </div>
               </div>
