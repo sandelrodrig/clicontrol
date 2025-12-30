@@ -188,25 +188,25 @@ export function AppLayout() {
     <div className="min-h-screen bg-background">
       {/* Top Action Bar */}
       <div className={cn(
-        "fixed top-0 right-0 z-40 p-2",
-        isMobile ? "left-0" : "left-56"
+        "fixed top-0 right-0 z-50 p-2 bg-background/80 backdrop-blur-sm",
+        isMobile ? "left-0 flex justify-end" : "left-56"
       )}>
-        <div className="flex justify-end gap-1">
+        <div className="flex gap-1">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={handleRefresh}
-            className="gap-2"
+            className="gap-2 bg-background border-border"
             title="Atualizar"
           >
             <RefreshCw className="h-4 w-4" />
             <span className="hidden sm:inline">Atualizar</span>
           </Button>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={handleShare}
-            className="gap-2"
+            className="gap-2 bg-background border-border"
             title="Compartilhar"
           >
             <Share2 className="h-4 w-4" />
