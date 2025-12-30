@@ -39,7 +39,7 @@ serve(async (req) => {
 
     console.log(`Creating backup for user: ${user.id}`);
 
-    // Fetch all user data
+    // Fetch all user data including profiles and client_categories
     const [
       clientsResult,
       plansResult,
@@ -50,7 +50,9 @@ serve(async (req) => {
       billsResult,
       panelsResult,
       panelClientsResult,
-      messageHistoryResult
+      messageHistoryResult,
+      profilesResult,
+      clientCategoriesResult
     ] = await Promise.all([
       supabase.from('clients').select('*').eq('seller_id', user.id),
       supabase.from('plans').select('*').eq('seller_id', user.id),
@@ -61,7 +63,9 @@ serve(async (req) => {
       supabase.from('bills_to_pay').select('*').eq('seller_id', user.id),
       supabase.from('shared_panels').select('*').eq('seller_id', user.id),
       supabase.from('panel_clients').select('*').eq('seller_id', user.id),
-      supabase.from('message_history').select('*').eq('seller_id', user.id)
+      supabase.from('message_history').select('*').eq('seller_id', user.id),
+      supabase.from('profiles').select('*').eq('id', user.id),
+      supabase.from('client_categories').select('*').eq('seller_id', user.id)
     ]);
 
     const nowIso = new Date().toISOString();
@@ -89,7 +93,9 @@ serve(async (req) => {
         bills_to_pay: billsResult.data || [],
         shared_panels: panelsResult.data || [],
         panel_clients: panelClientsResult.data || [],
-        message_history: messageHistoryResult.data || []
+        message_history: messageHistoryResult.data || [],
+        profiles: profilesResult.data || [],
+        client_categories: clientCategoriesResult.data || []
       },
       stats: {
         clients_count: (clientsResult.data || []).length,
@@ -97,7 +103,12 @@ serve(async (req) => {
         servers_count: (serversResult.data || []).length,
         coupons_count: (couponsResult.data || []).length,
         templates_count: (templatesResult.data || []).length,
-        panels_count: (panelsResult.data || []).length
+        panels_count: (panelsResult.data || []).length,
+        referrals_count: (referralsResult.data || []).length,
+        bills_count: (billsResult.data || []).length,
+        message_history_count: (messageHistoryResult.data || []).length,
+        profiles_count: (profilesResult.data || []).length,
+        categories_count: (clientCategoriesResult.data || []).length
       }
     };
 

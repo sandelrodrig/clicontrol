@@ -82,6 +82,18 @@ serve(async (req) => {
         if (tableName === 'panel_clients' && item.client_id && idMapping.has(item.client_id)) {
           newItem.client_id = idMapping.get(item.client_id);
         }
+        if (tableName === 'referrals' && item.referrer_client_id && idMapping.has(item.referrer_client_id)) {
+          newItem.referrer_client_id = idMapping.get(item.referrer_client_id);
+        }
+        if (tableName === 'referrals' && item.referred_client_id && idMapping.has(item.referred_client_id)) {
+          newItem.referred_client_id = idMapping.get(item.referred_client_id);
+        }
+        if (tableName === 'message_history' && item.client_id && idMapping.has(item.client_id)) {
+          newItem.client_id = idMapping.get(item.client_id);
+        }
+        if (tableName === 'message_history' && item.template_id && idMapping.has(item.template_id)) {
+          newItem.template_id = idMapping.get(item.template_id);
+        }
 
         const { data: inserted, error } = await supabase
           .from(tableName)
@@ -104,6 +116,7 @@ serve(async (req) => {
     // If mode is 'replace', delete existing data first
     if (mode === 'replace') {
       console.log('Deleting existing data...');
+      // Delete dependent tables first
       await Promise.all([
         supabase.from('panel_clients').delete().eq('seller_id', user.id),
         supabase.from('message_history').delete().eq('seller_id', user.id),
@@ -117,20 +130,29 @@ serve(async (req) => {
         supabase.from('whatsapp_templates').delete().eq('seller_id', user.id),
         supabase.from('bills_to_pay').delete().eq('seller_id', user.id),
         supabase.from('shared_panels').delete().eq('seller_id', user.id),
+        supabase.from('client_categories').delete().eq('seller_id', user.id),
       ]);
     }
 
     const idMapping = new Map<string, string>();
 
     // Restore in order to handle foreign keys
+    // 1. Plans and servers first (no dependencies)
     results.restored.plans = await restoreTable('plans', backup.data.plans, idMapping);
     results.restored.servers = await restoreTable('servers', backup.data.servers, idMapping);
-    results.restored.clients = await restoreTable('clients', backup.data.clients, idMapping);
-    results.restored.coupons = await restoreTable('coupons', backup.data.coupons, idMapping);
-    results.restored.whatsapp_templates = await restoreTable('whatsapp_templates', backup.data.whatsapp_templates, idMapping);
-    results.restored.bills_to_pay = await restoreTable('bills_to_pay', backup.data.bills_to_pay, idMapping);
     results.restored.shared_panels = await restoreTable('shared_panels', backup.data.shared_panels, idMapping);
+    results.restored.whatsapp_templates = await restoreTable('whatsapp_templates', backup.data.whatsapp_templates, idMapping);
+    results.restored.client_categories = await restoreTable('client_categories', backup.data.client_categories, idMapping);
+    
+    // 2. Clients (depends on plans/servers)
+    results.restored.clients = await restoreTable('clients', backup.data.clients, idMapping);
+    
+    // 3. Tables that depend on clients
+    results.restored.coupons = await restoreTable('coupons', backup.data.coupons, idMapping);
+    results.restored.bills_to_pay = await restoreTable('bills_to_pay', backup.data.bills_to_pay, idMapping);
     results.restored.panel_clients = await restoreTable('panel_clients', backup.data.panel_clients, idMapping);
+    results.restored.referrals = await restoreTable('referrals', backup.data.referrals, idMapping);
+    results.restored.message_history = await restoreTable('message_history', backup.data.message_history, idMapping);
 
     console.log('Restore completed:', results.restored);
 
