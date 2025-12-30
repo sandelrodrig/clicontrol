@@ -273,6 +273,22 @@ export default function Plans() {
     return `${days} dias`;
   };
 
+  const getDurationColor = (days: number) => {
+    if (days === 30) return 'bg-blue-500/10 text-blue-500 border-blue-500/30';
+    if (days === 90) return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
+    if (days === 180) return 'bg-amber-500/10 text-amber-500 border-amber-500/30';
+    if (days === 365) return 'bg-purple-500/10 text-purple-500 border-purple-500/30';
+    return 'bg-muted text-muted-foreground border-border';
+  };
+
+  const getCardBorderColor = (days: number) => {
+    if (days === 30) return 'border-l-blue-500';
+    if (days === 90) return 'border-l-emerald-500';
+    if (days === 180) return 'border-l-amber-500';
+    if (days === 365) return 'border-l-purple-500';
+    return 'border-l-border';
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -492,7 +508,8 @@ export default function Plans() {
             <Card
               key={plan.id}
               className={cn(
-                'transition-all duration-200 hover:shadow-lg animate-slide-up',
+                'transition-all duration-200 hover:shadow-lg animate-slide-up border-l-4',
+                getCardBorderColor(plan.duration_days),
                 !plan.is_active && 'opacity-60',
                 plan.price === 0 && 'ring-2 ring-warning/50'
               )}
@@ -500,12 +517,20 @@ export default function Plans() {
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className={cn(
                         'text-xs px-2 py-0.5 rounded-full font-medium',
-                        plan.category === 'IPTV' ? 'bg-primary/10 text-primary' : 'bg-secondary text-secondary-foreground'
+                        plan.category === 'IPTV' ? 'bg-primary/10 text-primary' : 
+                        plan.category === 'P2P' ? 'bg-primary/10 text-primary' : 
+                        'bg-secondary text-secondary-foreground'
                       )}>
                         {plan.category}
+                      </span>
+                      <span className={cn(
+                        'text-xs px-2 py-0.5 rounded-full font-medium border',
+                        getDurationColor(plan.duration_days)
+                      )}>
+                        {getDurationLabel(plan.duration_days)}
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
                         <Monitor className="h-3 w-3" />
@@ -535,10 +560,6 @@ export default function Plans() {
                     )}>
                       {plan.price === 0 ? 'Definir preço' : `R$ ${plan.price.toFixed(2)}`}
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    <span>{getDurationLabel(plan.duration_days)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pt-3 border-t border-border">
