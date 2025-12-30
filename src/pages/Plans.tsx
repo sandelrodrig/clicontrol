@@ -39,7 +39,7 @@ interface Plan {
   screens: number;
 }
 
-type CategoryFilter = 'all' | 'IPTV' | 'SSH';
+type CategoryFilter = 'all' | 'IPTV' | 'SSH' | 'P2P';
 
 const DEFAULT_PLANS_TEMPLATE = [
   // IPTV Plans
@@ -55,6 +55,19 @@ const DEFAULT_PLANS_TEMPLATE = [
   { name: 'IPTV Anual 1 Tela', duration_days: 365, category: 'IPTV', screens: 1 },
   { name: 'IPTV Anual 2 Telas', duration_days: 365, category: 'IPTV', screens: 2 },
   { name: 'IPTV Anual 3 Telas', duration_days: 365, category: 'IPTV', screens: 3 },
+  // P2P Plans
+  { name: 'P2P Mensal 1 Tela', duration_days: 30, category: 'P2P', screens: 1 },
+  { name: 'P2P Mensal 2 Telas', duration_days: 30, category: 'P2P', screens: 2 },
+  { name: 'P2P Mensal 3 Telas', duration_days: 30, category: 'P2P', screens: 3 },
+  { name: 'P2P Trimestral 1 Tela', duration_days: 90, category: 'P2P', screens: 1 },
+  { name: 'P2P Trimestral 2 Telas', duration_days: 90, category: 'P2P', screens: 2 },
+  { name: 'P2P Trimestral 3 Telas', duration_days: 90, category: 'P2P', screens: 3 },
+  { name: 'P2P Semestral 1 Tela', duration_days: 180, category: 'P2P', screens: 1 },
+  { name: 'P2P Semestral 2 Telas', duration_days: 180, category: 'P2P', screens: 2 },
+  { name: 'P2P Semestral 3 Telas', duration_days: 180, category: 'P2P', screens: 3 },
+  { name: 'P2P Anual 1 Tela', duration_days: 365, category: 'P2P', screens: 1 },
+  { name: 'P2P Anual 2 Telas', duration_days: 365, category: 'P2P', screens: 2 },
+  { name: 'P2P Anual 3 Telas', duration_days: 365, category: 'P2P', screens: 3 },
   // SSH Plans
   { name: 'SSH Mensal 1 Conexão', duration_days: 30, category: 'SSH', screens: 1 },
   { name: 'SSH Mensal 2 Conexões', duration_days: 30, category: 'SSH', screens: 2 },
@@ -314,6 +327,7 @@ export default function Plans() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="IPTV">IPTV</SelectItem>
+                        <SelectItem value="P2P">P2P</SelectItem>
                         <SelectItem value="SSH">SSH</SelectItem>
                       </SelectContent>
                     </Select>
@@ -408,6 +422,7 @@ export default function Plans() {
           <TabsList>
             <TabsTrigger value="all">Todos ({plans.length})</TabsTrigger>
             <TabsTrigger value="IPTV">IPTV ({plans.filter(p => p.category === 'IPTV').length})</TabsTrigger>
+            <TabsTrigger value="P2P">P2P ({plans.filter(p => p.category === 'P2P').length})</TabsTrigger>
             <TabsTrigger value="SSH">SSH ({plans.filter(p => p.category === 'SSH').length})</TabsTrigger>
           </TabsList>
         </Tabs>
