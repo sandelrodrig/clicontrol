@@ -43,7 +43,7 @@ interface TemplateCategory {
 }
 
 // Default categories (Vendedores is admin-only)
-const DEFAULT_CATEGORIES = ['IPTV', 'SSH', 'Contas Premium'] as const;
+const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Contas Premium'] as const;
 const ADMIN_CATEGORIES = ['Vendedores'] as const;
 
 // Platforms for message sending
@@ -136,8 +136,15 @@ export default function Templates() {
     },
     enabled: !!user?.id,
   });
-  // Build categories list based on user role
-  const allCategories = [...DEFAULT_CATEGORIES, ...(isAdmin ? ADMIN_CATEGORIES : []), ...customCategories.map(c => c.name)];
+  // Build categories list based on user role - includes default + custom categories
+  const allCategories = [
+    ...DEFAULT_CATEGORIES, 
+    ...(isAdmin ? ADMIN_CATEGORIES : []), 
+    ...customCategories.map(c => c.name).filter(name => 
+      !DEFAULT_CATEGORIES.includes(name as typeof DEFAULT_CATEGORIES[number]) && 
+      !(isAdmin && ADMIN_CATEGORIES.includes(name as typeof ADMIN_CATEGORIES[number]))
+    )
+  ];
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; type: string; message: string }) => {
@@ -273,6 +280,7 @@ export default function Templates() {
   const getCategoryIcon = (name: string) => {
     switch (name) {
       case 'IPTV': return <Tv className="h-4 w-4" />;
+      case 'P2P': return <Wifi className="h-4 w-4" />;
       case 'SSH': return <Wifi className="h-4 w-4" />;
       case 'Contas Premium': return <Crown className="h-4 w-4" />;
       case 'Vendedores': return <Users className="h-4 w-4" />;
@@ -286,15 +294,21 @@ export default function Templates() {
     if (platformFilter === 'telegram' && !template.name.startsWith('[TG]')) return false;
     if (platformFilter === 'whatsapp' && template.name.startsWith('[TG]')) return false;
     
-    // Category filter by name prefix
+    // Category filter by name prefix - supports all categories including custom ones
     if (categoryFilter !== 'all') {
-      const prefix = template.name.replace('[TG] ', '').split(' - ')[0];
-      if (categoryFilter === 'IPTV' && !prefix.includes('IPTV')) return false;
-      if (categoryFilter === 'SSH' && !prefix.includes('SSH')) return false;
-      if (categoryFilter === 'Contas Premium' && !prefix.includes('Premium')) return false;
-      if (categoryFilter === 'Vendedores' && !prefix.includes('Vendedor')) return false;
-      if (!['IPTV', 'SSH', 'Contas Premium', 'Vendedores'].includes(categoryFilter)) {
-        if (!template.name.toLowerCase().includes(categoryFilter.toLowerCase())) return false;
+      const templateName = template.name.replace('[TG] ', '').toLowerCase();
+      const filterLower = categoryFilter.toLowerCase();
+      
+      // Check for known category mappings
+      if (categoryFilter === 'IPTV' && !templateName.includes('iptv')) return false;
+      if (categoryFilter === 'P2P' && !templateName.includes('p2p')) return false;
+      if (categoryFilter === 'SSH' && !templateName.includes('ssh')) return false;
+      if (categoryFilter === 'Contas Premium' && !templateName.includes('premium')) return false;
+      if (categoryFilter === 'Vendedores' && !templateName.includes('vendedor')) return false;
+      
+      // For custom categories, check if template name contains the category name
+      if (!['IPTV', 'P2P', 'SSH', 'Contas Premium', 'Vendedores'].includes(categoryFilter)) {
+        if (!templateName.includes(filterLower)) return false;
       }
     }
     
