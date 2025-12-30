@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Server, DollarSign, Edit, Trash2, Coins, ExternalLink } from 'lucide-react';
+import { Plus, Server, DollarSign, Edit, Trash2, Coins, ExternalLink, Monitor, Wifi, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ServerData {
@@ -32,7 +32,18 @@ interface ServerData {
   total_credits: number;
   used_credits: number;
   panel_url: string | null;
+  iptv_per_credit: number;
+  p2p_per_credit: number;
+  credit_price: number;
 }
+
+// Helper function to calculate pro-rata price
+const calculateProRataPrice = (monthlyPrice: number, daysUsed: number, totalDays: number = 30): number => {
+  if (daysUsed <= 0 || totalDays <= 0) return monthlyPrice;
+  const remainingDays = totalDays - daysUsed;
+  if (remainingDays <= 0) return 0;
+  return (monthlyPrice / totalDays) * remainingDays;
+};
 
 export default function Servers() {
   const { user } = useAuth();
@@ -49,6 +60,9 @@ export default function Servers() {
     total_credits: '',
     used_credits: '',
     panel_url: '',
+    iptv_per_credit: '',
+    p2p_per_credit: '',
+    credit_price: '',
   });
 
   const { data: servers = [], isLoading } = useQuery({
@@ -149,6 +163,9 @@ export default function Servers() {
       total_credits: '',
       used_credits: '',
       panel_url: '',
+      iptv_per_credit: '',
+      p2p_per_credit: '',
+      credit_price: '',
     });
   };
 
@@ -164,6 +181,9 @@ export default function Servers() {
       total_credits: parseFloat(formData.total_credits) || 0,
       used_credits: parseFloat(formData.used_credits) || 0,
       panel_url: formData.panel_url || null,
+      iptv_per_credit: parseInt(formData.iptv_per_credit) || 0,
+      p2p_per_credit: parseInt(formData.p2p_per_credit) || 0,
+      credit_price: parseFloat(formData.credit_price) || 0,
     };
 
     if (editingServer) {
@@ -185,6 +205,9 @@ export default function Servers() {
       total_credits: server.total_credits && server.total_credits > 0 ? server.total_credits.toString() : '',
       used_credits: server.used_credits && server.used_credits > 0 ? server.used_credits.toString() : '',
       panel_url: server.panel_url || '',
+      iptv_per_credit: server.iptv_per_credit && server.iptv_per_credit > 0 ? server.iptv_per_credit.toString() : '',
+      p2p_per_credit: server.p2p_per_credit && server.p2p_per_credit > 0 ? server.p2p_per_credit.toString() : '',
+      credit_price: server.credit_price && server.credit_price > 0 ? server.credit_price.toString() : '',
     });
     setIsDialogOpen(true);
   };
@@ -317,6 +340,61 @@ export default function Servers() {
                         placeholder="Ex: 25"
                       />
                     </div>
+                  </div>
+                  
+                  {/* Shared credits configuration */}
+                  <div className="pt-3 border-t border-border">
+                    <p className="text-sm font-medium mb-3">Configuração de Créditos Compartilhados</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="credit_price">Preço Mensal do Crédito (R$)</Label>
+                      <Input
+                        id="credit_price"
+                        type="number"
+                        step="0.01"
+                        value={formData.credit_price}
+                        onChange={(e) => setFormData({ ...formData, credit_price: e.target.value })}
+                        placeholder="Ex: 25.00"
+                      />
+                      <p className="text-xs text-muted-foreground">Valor mensal para cálculo pro-rata (desconto por dias)</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="iptv_per_credit">IPTV por Crédito</Label>
+                        <Input
+                          id="iptv_per_credit"
+                          type="number"
+                          step="1"
+                          min="0"
+                          value={formData.iptv_per_credit}
+                          onChange={(e) => setFormData({ ...formData, iptv_per_credit: e.target.value })}
+                          placeholder="Ex: 2"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="p2p_per_credit">P2P por Crédito</Label>
+                        <Input
+                          id="p2p_per_credit"
+                          type="number"
+                          step="1"
+                          min="0"
+                          value={formData.p2p_per_credit}
+                          onChange={(e) => setFormData({ ...formData, p2p_per_credit: e.target.value })}
+                          placeholder="Ex: 1"
+                        />
+                      </div>
+                    </div>
+                    {(parseInt(formData.iptv_per_credit) > 0 || parseInt(formData.p2p_per_credit) > 0) && (
+                      <div className="mt-3 p-2 rounded bg-primary/10 text-sm">
+                        <span className="font-medium">1 crédito = </span>
+                        {parseInt(formData.iptv_per_credit) > 0 && (
+                          <span className="text-blue-500">{formData.iptv_per_credit} IPTV</span>
+                        )}
+                        {parseInt(formData.iptv_per_credit) > 0 && parseInt(formData.p2p_per_credit) > 0 && ' + '}
+                        {parseInt(formData.p2p_per_credit) > 0 && (
+                          <span className="text-green-500">{formData.p2p_per_credit} P2P</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -501,6 +579,38 @@ export default function Servers() {
                         <span>Valor: R$ {(server.credit_value || 0).toFixed(2)}/crédito</span>
                         <span>{remainingCredits} disponíveis</span>
                       </div>
+                      
+                      {/* Shared credits config display */}
+                      {((server.iptv_per_credit || 0) > 0 || (server.p2p_per_credit || 0) > 0) && (
+                        <div className="pt-2 border-t border-border/50 mt-2">
+                          <div className="flex items-center gap-2 text-xs mb-1">
+                            <span className="text-muted-foreground">Crédito Compartilhado:</span>
+                            <div className="flex items-center gap-1">
+                              {(server.iptv_per_credit || 0) > 0 && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500">
+                                  <Monitor className="h-3 w-3" />
+                                  {server.iptv_per_credit} IPTV
+                                </span>
+                              )}
+                              {(server.p2p_per_credit || 0) > 0 && (
+                                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-500/10 text-green-500">
+                                  <Wifi className="h-3 w-3" />
+                                  {server.p2p_per_credit} P2P
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {(server.credit_price || 0) > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              <span>Mensal: R$ {(server.credit_price || 0).toFixed(2)}</span>
+                              <span className="text-warning">
+                                (Pro-rata: R$ {calculateProRataPrice(server.credit_price || 0, 0, 30).toFixed(2)})
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 

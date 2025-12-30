@@ -518,13 +518,16 @@ export type Database = {
       servers: {
         Row: {
           created_at: string | null
+          credit_price: number | null
           credit_value: number | null
           id: string
+          iptv_per_credit: number | null
           is_active: boolean | null
           is_credit_based: boolean | null
           monthly_cost: number | null
           name: string
           notes: string | null
+          p2p_per_credit: number | null
           panel_url: string | null
           seller_id: string
           total_credits: number | null
@@ -533,13 +536,16 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          credit_price?: number | null
           credit_value?: number | null
           id?: string
+          iptv_per_credit?: number | null
           is_active?: boolean | null
           is_credit_based?: boolean | null
           monthly_cost?: number | null
           name: string
           notes?: string | null
+          p2p_per_credit?: number | null
           panel_url?: string | null
           seller_id: string
           total_credits?: number | null
@@ -548,13 +554,16 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          credit_price?: number | null
           credit_value?: number | null
           id?: string
+          iptv_per_credit?: number | null
           is_active?: boolean | null
           is_credit_based?: boolean | null
           monthly_cost?: number | null
           name?: string
           notes?: string | null
+          p2p_per_credit?: number | null
           panel_url?: string | null
           seller_id?: string
           total_credits?: number | null
