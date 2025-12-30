@@ -1296,13 +1296,15 @@ export default function Clients() {
                         Painel
                       </Button>
                     )}
-                    {client.phone && (
+                    {(client.phone || client.telegram) && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-7 text-xs"
+                        className="h-7 text-xs gap-1"
                         onClick={() => setMessageClient(client)}
                       >
+                        <MessageCircle className="h-3.5 w-3.5 text-green-500" />
+                        <Send className="h-3.5 w-3.5 text-blue-500" />
                         Mensagem
                       </Button>
                     )}
