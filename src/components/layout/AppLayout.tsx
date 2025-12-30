@@ -29,6 +29,7 @@ import {
   Eye,
   PlayCircle,
   Share2,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -178,19 +179,34 @@ export function AppLayout() {
     }
   };
 
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Top Share Bar */}
+      {/* Top Action Bar */}
       <div className={cn(
         "fixed top-0 right-0 z-40 p-2",
         isMobile ? "left-0" : "left-56"
       )}>
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            className="gap-2"
+            title="Atualizar"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Atualizar</span>
+          </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleShare}
             className="gap-2"
+            title="Compartilhar"
           >
             <Share2 className="h-4 w-4" />
             <span className="hidden sm:inline">Compartilhar</span>
