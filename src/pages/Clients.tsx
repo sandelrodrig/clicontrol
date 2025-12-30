@@ -38,6 +38,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { SendMessageDialog } from '@/components/SendMessageDialog';
 import { PlanSelector } from '@/components/PlanSelector';
+import { SharedCreditPicker, SharedCreditSelection } from '@/components/SharedCreditPicker';
 
 interface Client {
   id: string;
@@ -128,6 +129,7 @@ export default function Clients() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [selectedSharedCredit, setSelectedSharedCredit] = useState<SharedCreditSelection | null>(null);
 
   // State for popovers inside the dialog
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
@@ -271,17 +273,37 @@ export default function Clients() {
       // Encrypt login and password before saving
       const encrypted = await encryptCredentials(data.login || null, data.password || null);
       
-      const { error } = await supabase.from('clients').insert([{
+      const { data: insertedData, error } = await supabase.from('clients').insert([{
         ...data,
         login: encrypted.login,
         password: encrypted.password,
         seller_id: user!.id,
-      }]);
+      }]).select('id').single();
       if (error) throw error;
+      
+      // If a shared credit is selected, link the client to the panel
+      if (selectedSharedCredit && insertedData?.id) {
+        const { error: panelError } = await supabase.from('panel_clients').insert([{
+          panel_id: selectedSharedCredit.serverId,
+          client_id: insertedData.id,
+          seller_id: user!.id,
+          slot_type: selectedSharedCredit.slotType,
+        }]);
+        if (panelError) {
+          console.error('Error linking to shared credit:', panelError);
+          // Don't throw - client was created successfully
+        }
+      }
+      
+      return insertedData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      toast.success('Cliente criado com sucesso!');
+      queryClient.invalidateQueries({ queryKey: ['server-credit-clients'] });
+      queryClient.invalidateQueries({ queryKey: ['all-panel-clients'] });
+      toast.success(selectedSharedCredit 
+        ? 'Cliente criado e vinculado ao crédito compartilhado!' 
+        : 'Cliente criado com sucesso!');
       resetForm();
       setIsDialogOpen(false);
     },
@@ -439,6 +461,7 @@ export default function Clients() {
       paid_apps_expiration: '',
       screens: '1',
     });
+    setSelectedSharedCredit(null);
   };
 
   const handlePlanChange = (planId: string) => {
@@ -1146,6 +1169,17 @@ export default function Clients() {
                   </Select>
                 </div>
               </div>
+
+              {/* Shared Credit Picker - Only for IPTV/P2P and new clients */}
+              {!editingClient && (formData.category === 'IPTV' || formData.category === 'P2P') && user && (
+                <SharedCreditPicker
+                  sellerId={user.id}
+                  category={formData.category}
+                  selectedCredit={selectedSharedCredit}
+                  onSelect={setSelectedSharedCredit}
+                />
+              )}
+
               {/* Paid Apps Section */}
               <div className="space-y-4 p-4 rounded-lg bg-muted/50 border">
                 <div className="flex items-center justify-between">
