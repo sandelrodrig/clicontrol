@@ -16,10 +16,10 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.backup-data]
-verify_jwt = true
+verify_jwt = false
 
 [functions.restore-data]
-verify_jwt = true
+verify_jwt = false
 
 [functions.cleanup-trash]
 verify_jwt = true

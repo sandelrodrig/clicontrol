@@ -38,7 +38,7 @@ interface BackupData {
 }
 
 export default function Backup() {
-  const { user, isAdmin, session } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
@@ -54,10 +54,15 @@ export default function Backup() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('Sessão inválida. Faça login novamente.');
+
       const { data, error } = await supabase.functions.invoke('backup-data', {
         headers: {
-          Authorization: `Bearer ${session?.access_token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (error) throw error;
@@ -75,7 +80,7 @@ export default function Backup() {
       toast.success('Backup exportado com sucesso!');
     } catch (error) {
       console.error('Erro ao exportar:', error);
-      toast.error('Erro ao exportar backup');
+      toast.error((error as { message?: string })?.message || 'Erro ao exportar backup');
     } finally {
       setIsExporting(false);
     }
@@ -113,19 +118,24 @@ export default function Backup() {
     setRestoreResult(null);
 
     try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('Sessão inválida. Faça login novamente.');
+
       const { data, error } = await supabase.functions.invoke('restore-data', {
         body: { backup: backupFile, mode: restoreMode },
         headers: {
-          Authorization: `Bearer ${session?.access_token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       if (error) throw error;
 
       setRestoreResult(data);
-      
+
       const totalRestored = Object.values(data.restored).reduce((a: number, b: unknown) => a + (b as number), 0);
-      
+
       if (data.errors?.length > 0) {
         toast.warning(`Backup restaurado parcialmente: ${totalRestored} itens. ${data.errors.length} erros.`);
       } else {
@@ -133,7 +143,7 @@ export default function Backup() {
       }
     } catch (error) {
       console.error('Erro ao restaurar:', error);
-      toast.error('Erro ao restaurar backup');
+      toast.error((error as { message?: string })?.message || 'Erro ao restaurar backup');
     } finally {
       setIsRestoring(false);
     }
