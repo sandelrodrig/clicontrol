@@ -28,7 +28,9 @@ import {
   EyeOff,
   Eye,
   PlayCircle,
+  Share2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const navItems = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -155,10 +157,49 @@ export function AppLayout() {
     return <Navigate to="/auth" replace />;
   }
 
+  const handleShare = async () => {
+    const url = window.location.origin;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'CliControl',
+          text: 'Confira este aplicativo de gerenciamento de clientes!',
+          url: url,
+        });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          navigator.clipboard.writeText(url);
+          toast.success('Link copiado!');
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success('Link copiado!');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Top Share Bar */}
+      <div className={cn(
+        "fixed top-0 right-0 z-40 p-2",
+        isMobile ? "left-0" : "left-56"
+      )}>
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleShare}
+            className="gap-2"
+          >
+            <Share2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Compartilhar</span>
+          </Button>
+        </div>
+      </div>
+      
       <Sidebar />
-      <main className={isMobile ? 'min-h-screen pb-20' : 'pl-56 min-h-screen'}>
+      <main className={isMobile ? 'min-h-screen pb-20 pt-12' : 'pl-56 min-h-screen pt-12'}>
         <div className={isMobile ? 'p-3' : 'p-6'}>
           <Outlet />
         </div>
