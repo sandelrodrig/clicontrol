@@ -21,10 +21,11 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Send, Copy, MessageCircle, CreditCard } from 'lucide-react';
+import { Send, Copy, MessageCircle, CreditCard, Tv, Wifi, Crown, Tag } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Client {
   id: string;
@@ -39,6 +40,7 @@ interface Client {
   login: string | null;
   password: string | null;
   premium_password: string | null;
+  category?: string | null;
 }
 
 interface Template {
@@ -54,12 +56,16 @@ interface SendMessageDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// Default categories
+const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Contas Premium'];
+
 export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDialogProps) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [message, setMessage] = useState('');
   const [platform, setPlatform] = useState<'whatsapp' | 'telegram'>('whatsapp');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   // Get profile with pix_key and company_name
   const sellerProfile = profile as { 
@@ -82,10 +88,61 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     enabled: !!user?.id,
   });
 
-  // Filter templates by platform
+  // Get custom categories
+  const { data: customCategories = [] } = useQuery({
+    queryKey: ['client-categories', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('client_categories')
+        .select('name')
+        .eq('seller_id', user!.id)
+        .order('name');
+      if (error) throw error;
+      return data.map(c => c.name);
+    },
+    enabled: !!user?.id,
+  });
+
+  // Build all categories list
+  const allCategories = [
+    ...DEFAULT_CATEGORIES,
+    ...customCategories.filter(name => !DEFAULT_CATEGORIES.includes(name))
+  ];
+
+  // Get category icon
+  const getCategoryIcon = (name: string) => {
+    switch (name) {
+      case 'IPTV': return <Tv className="h-3 w-3" />;
+      case 'P2P': return <Wifi className="h-3 w-3" />;
+      case 'SSH': return <Wifi className="h-3 w-3" />;
+      case 'Contas Premium': return <Crown className="h-3 w-3" />;
+      default: return <Tag className="h-3 w-3" />;
+    }
+  };
+
+  // Filter templates by platform and category
   const filteredTemplates = templates.filter(t => {
-    if (platform === 'telegram') return t.name.startsWith('[TG]');
-    return !t.name.startsWith('[TG]');
+    // Platform filter
+    if (platform === 'telegram' && !t.name.startsWith('[TG]')) return false;
+    if (platform === 'whatsapp' && t.name.startsWith('[TG]')) return false;
+    
+    // Category filter
+    if (categoryFilter !== 'all') {
+      const templateName = t.name.replace('[TG] ', '').toLowerCase();
+      const filterLower = categoryFilter.toLowerCase();
+      
+      if (categoryFilter === 'IPTV' && !templateName.includes('iptv')) return false;
+      if (categoryFilter === 'P2P' && !templateName.includes('p2p')) return false;
+      if (categoryFilter === 'SSH' && !templateName.includes('ssh')) return false;
+      if (categoryFilter === 'Contas Premium' && !templateName.includes('premium')) return false;
+      
+      // For custom categories
+      if (!DEFAULT_CATEGORIES.includes(categoryFilter)) {
+        if (!templateName.includes(filterLower)) return false;
+      }
+    }
+    
+    return true;
   });
 
   const saveHistoryMutation = useMutation({
@@ -149,6 +206,12 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     setMessage('');
   };
 
+  const handleCategoryChange = (newCategory: string) => {
+    setCategoryFilter(newCategory);
+    setSelectedTemplate('');
+    setMessage('');
+  };
+
   const handleSend = async () => {
     if (!message.trim()) return;
 
@@ -196,7 +259,7 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Enviar Mensagem</DialogTitle>
           <DialogDescription>
@@ -224,6 +287,37 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
             </Tabs>
           </div>
 
+          {/* Category Filter */}
+          <div className="space-y-2">
+            <Label>Categoria</Label>
+            <ScrollArea className="w-full">
+              <div className="flex gap-1.5 pb-2">
+                <Button
+                  type="button"
+                  variant={categoryFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 text-xs shrink-0"
+                  onClick={() => handleCategoryChange('all')}
+                >
+                  Todas
+                </Button>
+                {allCategories.map((cat) => (
+                  <Button
+                    key={cat}
+                    type="button"
+                    variant={categoryFilter === cat ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs shrink-0 gap-1"
+                    onClick={() => handleCategoryChange(cat)}
+                  >
+                    {getCategoryIcon(cat)}
+                    {cat}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
           <div className="space-y-2">
             <Label>Template</Label>
             <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
@@ -233,7 +327,7 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
               <SelectContent>
                 {filteredTemplates.length === 0 ? (
                   <div className="p-2 text-sm text-muted-foreground text-center">
-                    Nenhum template para {platform === 'telegram' ? 'Telegram' : 'WhatsApp'}
+                    Nenhum template {categoryFilter !== 'all' ? `para ${categoryFilter}` : ''} ({platform === 'telegram' ? 'Telegram' : 'WhatsApp'})
                   </div>
                 ) : (
                   filteredTemplates.map((template) => (
