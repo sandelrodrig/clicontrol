@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,7 +6,6 @@ import { useCrypto } from '@/hooks/useCrypto';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -77,7 +76,6 @@ export function ImportClientsFromProject() {
   const [parsedClients, setParsedClients] = useState<ParsedClient[]>([]);
   const [step, setStep] = useState<'input' | 'preview'>('input');
   const [importType, setImportType] = useState<'json' | 'csv'>('json');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch sellers for admin to assign clients
   const { data: sellers = [] } = useQuery({
@@ -204,37 +202,12 @@ export function ImportClientsFromProject() {
   };
 
   const parseCSV = (text: string): ParsedClient[] => {
-    const lines = text.trim().split('\n').filter(line => line.trim());
-    
-    if (lines.length === 0) {
-      return [];
-    }
-
-    // Check if first line is a header
-    const firstLine = lines[0].toLowerCase();
-    const hasHeader = firstLine.includes('nome') || firstLine.includes('name') || firstLine.includes('client');
-    const dataLines = hasHeader ? lines.slice(1) : lines;
-
-    return dataLines.map((line, index) => {
-      const parts = line.includes('\t') ? line.split('\t') : line.split(',');
-      const trimmedParts = parts.map(p => p.trim().replace(/^["']|["']$/g, ''));
-
-      const [
-        name = '',
-        phone = '',
-        login = '',
-        password = '',
-        categoryInput = '',
-        expirationStr = '',
-        plan_name = '',
-        plan_price = '',
-        email = '',
-        notes = ''
-      ] = trimmedParts;
-
-      if (!name || name.length < 2) {
-        return {
-          name: name || '(sem nome)',
+    try {
+      const lines = text.trim().split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        return [{
+          name: '',
           phone: null,
           login: null,
           password: null,
@@ -247,51 +220,163 @@ export function ImportClientsFromProject() {
           device: null,
           is_paid: true,
           valid: false,
-          error: `Linha ${index + (hasHeader ? 2 : 1)}: Nome inválido`
-        };
+          error: 'Arquivo CSV vazio'
+        }];
       }
 
-      const category = normalizeCategory(categoryInput);
-      const expiration_date = parseDate(expirationStr) || format(addDays(new Date(), 30), 'yyyy-MM-dd');
+      // Check if first line is a header
+      const firstLine = lines[0].toLowerCase();
+      const hasHeader = firstLine.includes('nome') || firstLine.includes('name') || firstLine.includes('client');
+      const dataLines = hasHeader ? lines.slice(1) : lines;
 
-      return {
-        name: name.slice(0, 100),
-        phone: phone.replace(/\D/g, '').slice(0, 20) || null,
-        login: login.slice(0, 100) || null,
-        password: password.slice(0, 100) || null,
-        email: email.slice(0, 255) || null,
-        category,
-        expiration_date,
-        plan_name: plan_name.slice(0, 100) || null,
-        plan_price: plan_price ? Number(plan_price) : null,
-        notes: notes.slice(0, 500) || null,
+      if (dataLines.length === 0) {
+        return [{
+          name: '',
+          phone: null,
+          login: null,
+          password: null,
+          email: null,
+          category: defaultCategory,
+          expiration_date: null,
+          plan_name: null,
+          plan_price: null,
+          notes: null,
+          device: null,
+          is_paid: true,
+          valid: false,
+          error: 'Nenhum dado encontrado após o cabeçalho'
+        }];
+      }
+
+      return dataLines.map((line, index) => {
+        try {
+          const parts = line.includes('\t') ? line.split('\t') : line.split(',');
+          const trimmedParts = parts.map(p => (p || '').trim().replace(/^["']|["']$/g, ''));
+
+          const [
+            name = '',
+            phone = '',
+            login = '',
+            password = '',
+            categoryInput = '',
+            expirationStr = '',
+            plan_name = '',
+            plan_price = '',
+            email = '',
+            notes = ''
+          ] = trimmedParts;
+
+          if (!name || name.length < 2) {
+            return {
+              name: name || '(sem nome)',
+              phone: null,
+              login: null,
+              password: null,
+              email: null,
+              category: defaultCategory,
+              expiration_date: null,
+              plan_name: null,
+              plan_price: null,
+              notes: null,
+              device: null,
+              is_paid: true,
+              valid: false,
+              error: `Linha ${index + (hasHeader ? 2 : 1)}: Nome inválido`
+            };
+          }
+
+          const category = normalizeCategory(categoryInput);
+          const expiration_date = parseDate(expirationStr) || format(addDays(new Date(), 30), 'yyyy-MM-dd');
+
+          return {
+            name: name.slice(0, 100),
+            phone: (phone || '').replace(/\D/g, '').slice(0, 20) || null,
+            login: (login || '').slice(0, 100) || null,
+            password: (password || '').slice(0, 100) || null,
+            email: (email || '').slice(0, 255) || null,
+            category,
+            expiration_date,
+            plan_name: (plan_name || '').slice(0, 100) || null,
+            plan_price: plan_price ? Number(plan_price) : null,
+            notes: (notes || '').slice(0, 500) || null,
+            device: null,
+            is_paid: true,
+            valid: true
+          };
+        } catch (lineError) {
+          return {
+            name: '(erro)',
+            phone: null,
+            login: null,
+            password: null,
+            email: null,
+            category: defaultCategory,
+            expiration_date: null,
+            plan_name: null,
+            plan_price: null,
+            notes: null,
+            device: null,
+            is_paid: true,
+            valid: false,
+            error: `Linha ${index + (hasHeader ? 2 : 1)}: Erro ao processar`
+          };
+        }
+      });
+    } catch (error) {
+      return [{
+        name: '',
+        phone: null,
+        login: null,
+        password: null,
+        email: null,
+        category: defaultCategory,
+        expiration_date: null,
+        plan_name: null,
+        plan_price: null,
+        notes: null,
         device: null,
         is_paid: true,
-        valid: true
-      };
-    });
+        valid: false,
+        error: `Erro ao processar CSV: ${(error as Error).message}`
+      }];
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setInputText(content);
-      
-      // Auto-detect format
-      if (file.name.endsWith('.json')) {
-        setImportType('json');
-      } else if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
-        setImportType('csv');
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const content = event.target?.result as string;
+          setInputText(content || '');
+          
+          // Auto-detect format
+          if (file.name.endsWith('.json')) {
+            setImportType('json');
+          } else if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+            setImportType('csv');
+          }
+          toast.success(`Arquivo "${file.name}" carregado!`);
+        } catch (loadError) {
+          console.error('Error loading file:', loadError);
+          toast.error('Erro ao ler o arquivo');
+        }
+      };
+      reader.onerror = () => {
+        toast.error('Erro ao ler o arquivo');
+      };
+      reader.readAsText(file);
+    } catch (error) {
+      console.error('Error selecting file:', error);
+      toast.error('Erro ao selecionar arquivo');
+    } finally {
+      // Reset input for re-selection
+      if (e.target) {
+        e.target.value = '';
       }
-    };
-    reader.readAsText(file);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
     }
   };
 
@@ -483,12 +568,11 @@ export function ImportClientsFromProject() {
                 {/* File upload */}
                 <div className="space-y-2">
                   <Label>Carregar Arquivo</Label>
-                  <Input
-                    ref={fileInputRef}
+                  <input
                     type="file"
                     accept=".json,.csv,.txt"
                     onChange={handleFileSelect}
-                    className="cursor-pointer"
+                    className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer border rounded-md"
                   />
                 </div>
 
