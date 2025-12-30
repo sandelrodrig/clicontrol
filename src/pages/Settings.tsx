@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { User, Phone, Mail, Save, Shield, Palette, Smartphone, Building2, CreditCard, Copy, RefreshCw } from 'lucide-react';
+import { User, Phone, Mail, Save, Shield, Palette, Smartphone, Building2, CreditCard, Copy, RefreshCw, Share2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/ThemeSelector';
@@ -152,6 +152,62 @@ export default function Settings() {
               </Button>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Share App Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Share2 className="h-5 w-5" />
+            Compartilhar App
+          </CardTitle>
+          <CardDescription>Compartilhe o link do aplicativo</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                const url = window.location.origin;
+                navigator.clipboard.writeText(url);
+                toast.success('Link copiado!');
+              }}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copiar Link
+            </Button>
+            <Button 
+              onClick={async () => {
+                const url = window.location.origin;
+                if (navigator.share) {
+                  try {
+                    await navigator.share({
+                      title: 'Sistema de Controle de Clientes',
+                      text: 'Confira este aplicativo de gerenciamento de clientes!',
+                      url: url,
+                    });
+                  } catch (err) {
+                    // User cancelled or share failed
+                    if ((err as Error).name !== 'AbortError') {
+                      navigator.clipboard.writeText(url);
+                      toast.success('Link copiado!');
+                    }
+                  }
+                } else {
+                  navigator.clipboard.writeText(url);
+                  toast.success('Link copiado!');
+                }
+              }}
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              Compartilhar
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            {window.location.origin}
+          </p>
         </CardContent>
       </Card>
 
