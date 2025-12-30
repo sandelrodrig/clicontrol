@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,8 @@ import {
   MessageCircle,
   ChevronRight,
   Download,
-  HelpCircle
+  HelpCircle,
+  DollarSign
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -98,6 +99,8 @@ export default function Settings() {
   const { updateAvailable, checkForUpdates, applyUpdate, canInstall, isInstalled } = usePWA();
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showPriceSettings, setShowPriceSettings] = useState(false);
+  const [appPrice, setAppPrice] = useState('25');
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState({
@@ -106,6 +109,26 @@ export default function Settings() {
     company_name: (profile as { company_name?: string })?.company_name || '',
     pix_key: (profile as { pix_key?: string })?.pix_key || '',
   });
+
+  // Fetch app settings
+  const { data: appSettings } = useQuery({
+    queryKey: ['app-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('key, value');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isAdmin,
+  });
+
+  useEffect(() => {
+    if (appSettings) {
+      const price = appSettings.find(s => s.key === 'app_monthly_price')?.value;
+      if (price) setAppPrice(price);
+    }
+  }, [appSettings]);
 
   useEffect(() => {
     if (profile) {
@@ -139,6 +162,29 @@ export default function Settings() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateProfileMutation.mutate(formData);
+  };
+
+  const updatePriceMutation = useMutation({
+    mutationFn: async (newPrice: string) => {
+      const { error } = await supabase
+        .from('app_settings')
+        .update({ value: newPrice })
+        .eq('key', 'app_monthly_price');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['app-settings'] });
+      toast.success('Valor do aplicativo atualizado!');
+      setShowPriceSettings(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const handlePriceSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updatePriceMutation.mutate(appPrice);
   };
 
   const copyPixKey = () => {
@@ -210,6 +256,46 @@ export default function Settings() {
     const message = 'Olá! Preciso de ajuda com o PSControl.';
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
+
+  // Price settings view (Admin only)
+  if (showPriceSettings && isAdmin) {
+    return (
+      <div className="space-y-6 animate-fade-in max-w-lg mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => setShowPriceSettings(false)}>
+            ← Voltar
+          </Button>
+          <h1 className="text-xl font-bold">Valor do Aplicativo</h1>
+        </div>
+
+        <form onSubmit={handlePriceSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="app_price">Valor Mensal (R$)</Label>
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <Input
+                id="app_price"
+                type="number"
+                value={appPrice}
+                onChange={(e) => setAppPrice(e.target.value)}
+                placeholder="25"
+                min="0"
+                step="1"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Este valor será exibido para vendedores quando precisarem renovar a assinatura
+            </p>
+          </div>
+
+          <Button type="submit" className="w-full" disabled={updatePriceMutation.isPending}>
+            <Save className="h-4 w-4 mr-2" />
+            Salvar Valor
+          </Button>
+        </form>
+      </div>
+    );
+  }
 
   // Profile edit view
   if (showProfile) {
@@ -381,6 +467,18 @@ export default function Settings() {
           onClick={handleShare}
         />
       </SettingSection>
+
+      {/* Appearance Section - Admin Only */}
+      {isAdmin && (
+        <SettingSection title="Administração">
+          <SettingItem
+            icon={DollarSign}
+            title="Valor do Aplicativo"
+            description={`R$ ${appPrice},00/mês`}
+            onClick={() => setShowPriceSettings(true)}
+          />
+        </SettingSection>
+      )}
 
       {/* Appearance Section - Admin Only */}
       {isAdmin && (
