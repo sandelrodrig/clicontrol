@@ -31,7 +31,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { format, addDays, addMonths, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -886,7 +886,7 @@ export default function Clients() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={5}>
-                        <Calendar
+                        <CalendarPicker
                           mode="single"
                           selected={formData.expiration_date ? new Date(formData.expiration_date) : undefined}
                           onSelect={(date) => {
@@ -1052,7 +1052,7 @@ export default function Clients() {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={5}>
-                          <Calendar
+                          <CalendarPicker
                             mode="single"
                             selected={formData.paid_apps_expiration ? new Date(formData.paid_apps_expiration) : undefined}
                             onSelect={(date) => {
@@ -1230,7 +1230,7 @@ export default function Clients() {
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5" />
+                      <CalendarIcon className="h-3.5 w-3.5" />
                       <span>{format(new Date(client.expiration_date), "dd/MM/yyyy")}</span>
                     </div>
                     {client.plan_name && (
