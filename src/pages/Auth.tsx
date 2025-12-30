@@ -143,7 +143,7 @@ export default function Auth() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
             <Users className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">Controle de Clientes</h1>
+          <h1 className="text-3xl font-bold text-foreground">PSControl</h1>
           <p className="text-muted-foreground mt-2">Sistema de gestão para revendedores</p>
           <Link 
             to="/landing" 

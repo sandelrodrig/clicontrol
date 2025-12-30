@@ -180,7 +180,7 @@ export default function Settings() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'CliControl - SANPLAY',
+          title: 'PSControl',
           text: 'Confira este aplicativo de gerenciamento de clientes!',
           url: url,
         });
@@ -207,7 +207,7 @@ export default function Settings() {
 
   const openAdminWhatsApp = () => {
     const phone = '5531998518865';
-    const message = 'Olá! Preciso de ajuda com o CliControl.';
+    const message = 'Olá! Preciso de ajuda com o PSControl.';
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -411,7 +411,7 @@ export default function Settings() {
         <SettingItem
           icon={Info}
           title="Sobre"
-          description="CliControl by SANPLAY • v1.0.0"
+          description="PSControl • v1.0.0"
         />
       </SettingSection>
 

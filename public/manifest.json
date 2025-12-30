@@ -1,6 +1,6 @@
 {
-  "name": "Sistema de Controle de Clientes",
-  "short_name": "Controle",
+  "name": "PSControl - Sistema de Gestão de Clientes",
+  "short_name": "PSControl",
   "description": "Gerenciamento completo de clientes, planos e vendas",
   "start_url": "/",
   "display": "standalone",

@@ -75,7 +75,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Users className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-semibold text-sidebar-foreground">CliControl</span>
+          <span className="font-semibold text-sidebar-foreground">PSControl</span>
         </div>
       </div>
 
@@ -173,7 +173,7 @@ export function Sidebar() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Users className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-semibold text-sidebar-foreground">CliControl</span>
+            <span className="font-semibold text-sidebar-foreground">PSControl</span>
           </div>
         </header>
         {/* Spacer for fixed header */}
