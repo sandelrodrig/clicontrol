@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CryptoHook {
@@ -14,7 +15,7 @@ async function getAuthHeaders() {
 }
 
 export function useCrypto(): CryptoHook {
-  const encrypt = async (plaintext: string): Promise<string> => {
+  const encrypt = useCallback(async (plaintext: string): Promise<string> => {
     if (!plaintext) return '';
 
     try {
@@ -33,9 +34,9 @@ export function useCrypto(): CryptoHook {
       console.error('Encryption error:', err);
       throw err;
     }
-  };
+  }, []);
 
-  const decrypt = async (ciphertext: string): Promise<string> => {
+  const decrypt = useCallback(async (ciphertext: string): Promise<string> => {
     if (!ciphertext) return '';
 
     try {
@@ -54,7 +55,7 @@ export function useCrypto(): CryptoHook {
       console.error('Decryption error:', err);
       throw err;
     }
-  };
+  }, []);
 
   return { encrypt, decrypt };
 }
