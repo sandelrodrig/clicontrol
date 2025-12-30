@@ -388,17 +388,6 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
             </div>
           )}
 
-          <div className="bg-muted/50 p-3 rounded-lg text-xs text-muted-foreground">
-            <p className="font-medium mb-1">Variáveis substituídas:</p>
-            <div className="grid grid-cols-2 gap-1">
-              <p>Nome: {client.name}</p>
-              <p>Vencimento: {format(new Date(client.expiration_date), 'dd/MM/yyyy')}</p>
-              {client.login && <p>Login: {client.login}</p>}
-              {client.plan_name && <p>Plano: {client.plan_name}</p>}
-              {sellerProfile?.pix_key && <p>PIX: ✓ Configurado</p>}
-              {sellerProfile?.company_name && <p>Empresa: {sellerProfile.company_name}</p>}
-            </div>
-          </div>
         </div>
 
         <DialogFooter className="gap-2">
