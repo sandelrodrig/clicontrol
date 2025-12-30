@@ -313,15 +313,16 @@ export default function SharedPanels() {
   const fullPanels = panels.filter(p => p.used_slots >= p.total_slots);
 
   // Get panel type label
-  const getPanelTypeLabel = (panel: SharedPanel) => {
-    if (panel.iptv_per_credit > 0 && panel.p2p_per_credit > 0) {
+  const getPanelTypeLabel = (panel: SharedPanel | null) => {
+    if (!panel) return '';
+    if ((panel.iptv_per_credit || 0) > 0 && (panel.p2p_per_credit || 0) > 0) {
       return `${panel.iptv_per_credit} IPTV + ${panel.p2p_per_credit} P2P`;
-    } else if (panel.iptv_per_credit > 0) {
+    } else if ((panel.iptv_per_credit || 0) > 0) {
       return `${panel.iptv_per_credit} IPTV`;
-    } else if (panel.p2p_per_credit > 0) {
+    } else if ((panel.p2p_per_credit || 0) > 0) {
       return `${panel.p2p_per_credit} P2P`;
     }
-    return panel.panel_type.toUpperCase();
+    return panel.panel_type?.toUpperCase() || 'PAINEL';
   };
 
   // Filter panels
@@ -736,7 +737,7 @@ export default function SharedPanels() {
           <DialogHeader>
             <DialogTitle>Clientes do Painel</DialogTitle>
             <DialogDescription>
-              {viewClientsPanel?.name} - {getPanelTypeLabel(viewClientsPanel!)}
+              {viewClientsPanel?.name} {viewClientsPanel && `- ${getPanelTypeLabel(viewClientsPanel)}`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
