@@ -39,6 +39,8 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 
 interface ParsedClient {
   name: string;
@@ -65,6 +67,20 @@ interface Seller {
 
 const VALID_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH'];
 
+// Map common category variations to standard categories
+const CATEGORY_MAPPINGS: Record<string, string> = {
+  'iptv': 'IPTV',
+  'ip tv': 'IPTV',
+  'ip-tv': 'IPTV',
+  'p2p': 'P2P',
+  'peer to peer': 'P2P',
+  'premium': 'Contas Premium',
+  'contas premium': 'Contas Premium',
+  'conta premium': 'Contas Premium',
+  'ssh': 'SSH',
+  'vps': 'SSH',
+};
+
 export function ImportClientsFromProject() {
   const { user, isAdmin } = useAuth();
   const { encrypt } = useCrypto();
@@ -76,6 +92,12 @@ export function ImportClientsFromProject() {
   const [parsedClients, setParsedClients] = useState<ParsedClient[]>([]);
   const [step, setStep] = useState<'input' | 'preview'>('input');
   const [importType, setImportType] = useState<'json' | 'csv'>('json');
+  
+  // Advanced options
+  const [useOriginalCategory, setUseOriginalCategory] = useState(true);
+  const [useOriginalExpiration, setUseOriginalExpiration] = useState(true);
+  const [defaultDurationDays, setDefaultDurationDays] = useState(30);
+  const [markAllAsPaid, setMarkAllAsPaid] = useState(true);
 
   // Fetch sellers for admin to assign clients
   const { data: sellers = [] } = useQuery({
@@ -94,11 +116,25 @@ export function ImportClientsFromProject() {
   if (!isAdmin) return null;
 
   const normalizeCategory = (cat: string): string => {
-    const normalized = cat?.trim() || '';
-    const found = VALID_CATEGORIES.find(
-      c => c.toLowerCase() === normalized.toLowerCase()
+    const normalized = cat?.trim().toLowerCase() || '';
+    
+    // Check direct match first
+    const directMatch = VALID_CATEGORIES.find(
+      c => c.toLowerCase() === normalized
     );
-    return found || defaultCategory;
+    if (directMatch) return directMatch;
+    
+    // Check mappings
+    const mappedCategory = CATEGORY_MAPPINGS[normalized];
+    if (mappedCategory) return mappedCategory;
+    
+    // Partial match
+    if (normalized.includes('iptv')) return 'IPTV';
+    if (normalized.includes('p2p')) return 'P2P';
+    if (normalized.includes('premium')) return 'Contas Premium';
+    if (normalized.includes('ssh')) return 'SSH';
+    
+    return useOriginalCategory ? '' : defaultCategory;
   };
 
   const parseDate = (dateStr: string | null): string | null => {
@@ -156,14 +192,22 @@ export function ImportClientsFromProject() {
         const login = String(client.login || client.usuario || '').trim() || null;
         const password = String(client.password || client.senha || '').trim() || null;
         const email = String(client.email || client.premium_email || '').trim() || null;
-        const category = normalizeCategory(String(client.category || client.categoria || ''));
+        
+        // Use original category or fall back to default
+        const categoryInput = String(client.category || client.categoria || '').trim();
+        const parsedCategory = normalizeCategory(categoryInput);
+        const category = parsedCategory || defaultCategory;
+        
+        // Use original expiration or calculate new one
         const expirationStr = String(client.expiration_date || client.expiracao || client.vencimento || '').trim();
-        const expiration_date = parseDate(expirationStr) || format(addDays(new Date(), 30), 'yyyy-MM-dd');
+        const parsedExpiration = useOriginalExpiration ? parseDate(expirationStr) : null;
+        const expiration_date = parsedExpiration || format(addDays(new Date(), defaultDurationDays), 'yyyy-MM-dd');
+        
         const plan_name = String(client.plan_name || client.plano || '').trim() || null;
         const plan_price = client.plan_price ? Number(client.plan_price) : (client.valor ? Number(client.valor) : null);
         const notes = String(client.notes || client.observacoes || client.obs || '').trim() || null;
         const device = String(client.device || client.dispositivo || '').trim() || null;
-        const is_paid = client.is_paid !== undefined ? Boolean(client.is_paid) : true;
+        const is_paid = markAllAsPaid ? true : (client.is_paid !== undefined ? Boolean(client.is_paid) : true);
 
         return {
           name: name.slice(0, 100),
@@ -285,8 +329,13 @@ export function ImportClientsFromProject() {
             };
           }
 
-          const category = normalizeCategory(categoryInput);
-          const expiration_date = parseDate(expirationStr) || format(addDays(new Date(), 30), 'yyyy-MM-dd');
+          // Use original category or fall back to default
+          const parsedCategory = normalizeCategory(categoryInput);
+          const category = parsedCategory || defaultCategory;
+          
+          // Use original expiration or calculate new one
+          const parsedExpiration = useOriginalExpiration ? parseDate(expirationStr) : null;
+          const expiration_date = parsedExpiration || format(addDays(new Date(), defaultDurationDays), 'yyyy-MM-dd');
 
           return {
             name: name.slice(0, 100),
@@ -300,7 +349,7 @@ export function ImportClientsFromProject() {
             plan_price: plan_price ? Number(plan_price) : null,
             notes: (notes || '').slice(0, 500) || null,
             device: null,
-            is_paid: true,
+            is_paid: markAllAsPaid,
             valid: true
           };
         } catch (lineError) {
@@ -449,6 +498,10 @@ export function ImportClientsFromProject() {
     setParsedClients([]);
     setStep('input');
     setImportType('json');
+    setUseOriginalCategory(true);
+    setUseOriginalExpiration(true);
+    setDefaultDurationDays(30);
+    setMarkAllAsPaid(true);
   };
 
   const validCount = parsedClients.filter(c => c.valid).length;
@@ -576,22 +629,89 @@ export function ImportClientsFromProject() {
                   />
                 </div>
 
-                {/* Default category */}
-                <div className="space-y-2">
-                  <Label>Categoria Padrão</Label>
-                  <Select value={defaultCategory} onValueChange={setDefaultCategory}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VALID_CATEGORIES.map(cat => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Usada quando a categoria não for encontrada nos dados
-                  </p>
+                {/* Advanced Options */}
+                <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                  <Label className="text-sm font-medium">Opções de Importação</Label>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Use original category */}
+                    <div className="flex items-center justify-between gap-2 p-2 rounded bg-background">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-medium">Usar categoria do arquivo</Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          IPTV, P2P, Premium, SSH serão reconhecidos
+                        </p>
+                      </div>
+                      <Switch 
+                        checked={useOriginalCategory} 
+                        onCheckedChange={setUseOriginalCategory}
+                      />
+                    </div>
+
+                    {/* Use original expiration */}
+                    <div className="flex items-center justify-between gap-2 p-2 rounded bg-background">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-medium">Usar vencimento do arquivo</Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Mantém datas originais se existirem
+                        </p>
+                      </div>
+                      <Switch 
+                        checked={useOriginalExpiration} 
+                        onCheckedChange={setUseOriginalExpiration}
+                      />
+                    </div>
+
+                    {/* Mark all as paid */}
+                    <div className="flex items-center justify-between gap-2 p-2 rounded bg-background">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-medium">Marcar como pago</Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Define status de pagamento
+                        </p>
+                      </div>
+                      <Switch 
+                        checked={markAllAsPaid} 
+                        onCheckedChange={setMarkAllAsPaid}
+                      />
+                    </div>
+
+                    {/* Default duration */}
+                    <div className="flex items-center justify-between gap-2 p-2 rounded bg-background">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-medium">Duração padrão (dias)</Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Quando vencimento não existir
+                        </p>
+                      </div>
+                      <Input
+                        type="number"
+                        value={defaultDurationDays}
+                        onChange={(e) => setDefaultDurationDays(Number(e.target.value) || 30)}
+                        className="w-20 h-8 text-sm"
+                        min={1}
+                        max={365}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Default category */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Categoria Padrão (fallback)</Label>
+                    <Select value={defaultCategory} onValueChange={setDefaultCategory}>
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VALID_CATEGORIES.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-muted-foreground">
+                      Usada quando a categoria não for reconhecida
+                    </p>
+                  </div>
                 </div>
 
                 {/* Text area */}
