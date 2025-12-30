@@ -238,11 +238,18 @@ export default function Clients() {
   const handleSharedCreditSelect = useCallback((selection: SharedCreditSelection | null) => {
     setSelectedSharedCredit(selection);
     
-    if (selection?.sharedLogin || selection?.sharedPassword) {
+    if (selection) {
+      // Auto-fill server, credentials, and calculate expiration date
+      const today = new Date();
+      const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      
       setFormData(prev => ({
         ...prev,
+        server_id: selection.serverId,
+        server_name: selection.serverName,
         login: selection.sharedLogin || prev.login,
         password: selection.sharedPassword || prev.password,
+        expiration_date: format(endOfCurrentMonth, 'yyyy-MM-dd'),
       }));
     }
   }, []);
