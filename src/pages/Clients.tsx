@@ -233,6 +233,19 @@ export default function Clients() {
 
   const allCategories = [...DEFAULT_CATEGORIES, ...customCategories.map(c => c.name)];
 
+  // Handle shared credit selection - auto-fill login/password
+  const handleSharedCreditSelect = useCallback((selection: SharedCreditSelection | null) => {
+    setSelectedSharedCredit(selection);
+    
+    if (selection?.sharedLogin || selection?.sharedPassword) {
+      setFormData(prev => ({
+        ...prev,
+        login: selection.sharedLogin || prev.login,
+        password: selection.sharedPassword || prev.password,
+      }));
+    }
+  }, []);
+
   // Encrypt credentials before saving
   const encryptCredentials = async (login: string | null, password: string | null) => {
     try {
@@ -1200,7 +1213,7 @@ export default function Clients() {
                   category={formData.category}
                   serverId={formData.server_id}
                   selectedCredit={selectedSharedCredit}
-                  onSelect={setSelectedSharedCredit}
+                  onSelect={handleSharedCreditSelect}
                 />
               )}
 
