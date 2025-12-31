@@ -234,14 +234,20 @@ export default function Clients() {
 
   const allCategories = [...DEFAULT_CATEGORIES, ...customCategories.map(c => c.name)];
 
-  // Handle shared credit selection - auto-fill login/password
+  // Handle shared credit selection - auto-fill all fields
   const handleSharedCreditSelect = useCallback((selection: SharedCreditSelection | null) => {
     setSelectedSharedCredit(selection);
     
     if (selection) {
-      // Auto-fill server, credentials, and calculate expiration date
-      const today = new Date();
-      const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      // Use expiration date from existing client or fallback to end of month
+      let expirationDate: string;
+      if (selection.expirationDate) {
+        expirationDate = selection.expirationDate;
+      } else {
+        const today = new Date();
+        const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        expirationDate = format(endOfCurrentMonth, 'yyyy-MM-dd');
+      }
       
       setFormData(prev => ({
         ...prev,
@@ -249,7 +255,7 @@ export default function Clients() {
         server_name: selection.serverName,
         login: selection.sharedLogin || prev.login,
         password: selection.sharedPassword || prev.password,
-        expiration_date: format(endOfCurrentMonth, 'yyyy-MM-dd'),
+        expiration_date: expirationDate,
       }));
     }
   }, []);

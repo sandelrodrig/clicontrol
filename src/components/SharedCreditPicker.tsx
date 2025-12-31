@@ -27,6 +27,8 @@ export interface SharedCreditSelection {
   // Shared credentials from existing client
   sharedLogin?: string;
   sharedPassword?: string;
+  // Expiration date from existing clients
+  expirationDate?: string;
 }
 
 interface ServerWithCredits {
@@ -66,19 +68,17 @@ export function SharedCreditPicker({
   onSelect,
   selectedCredit,
 }: SharedCreditPickerProps) {
-  // Fetch servers with credit configuration
+  // Fetch ALL active servers (not just credit-based)
   const { data: servers = [] } = useQuery({
-    queryKey: ['servers-with-credits', sellerId],
+    queryKey: ['servers-all-for-shared', sellerId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('servers')
-        .select('id, name, iptv_per_credit, p2p_per_credit, credit_price, panel_url')
+        .select('id, name, iptv_per_credit, p2p_per_credit, credit_price, panel_url, total_screens_per_credit')
         .eq('seller_id', sellerId)
-        .eq('is_active', true)
-        .eq('is_credit_based', true)
-        .or('iptv_per_credit.gt.0,p2p_per_credit.gt.0');
+        .eq('is_active', true);
       if (error) throw error;
-      return data as ServerWithCredits[];
+      return data as (ServerWithCredits & { total_screens_per_credit: number | null })[];
     },
     enabled: !!sellerId,
   });
@@ -111,7 +111,7 @@ export function SharedCreditPicker({
   // Group clients by server and credentials to find available slots
   const getAvailableSlots = () => {
     const slots: {
-      server: ServerWithCredits;
+      server: ServerWithCredits & { total_screens_per_credit: number | null };
       login: string;
       password: string;
       clientNames: string[];
@@ -119,9 +119,13 @@ export function SharedCreditPicker({
       totalSlots: number;
       usedSlots: number;
       availableSlots: number;
+      expirationDate?: string;
     }[] = [];
 
-    servers.forEach(server => {
+    // Filter servers by serverId if provided
+    const targetServers = serverId ? servers.filter(s => s.id === serverId) : servers;
+
+    targetServers.forEach(server => {
       // Filter clients on this server
       const serverClients = clientsOnServers.filter(c => c.server_id === server.id);
       
@@ -148,9 +152,24 @@ export function SharedCreditPicker({
         // Only show if matches the category we're looking for
         if (slotType !== categorySlotType) return;
         
-        const totalSlots = slotType === 'iptv' ? server.iptv_per_credit : server.p2p_per_credit;
+        // Calculate total slots: use specific per_credit or fallback to total_screens_per_credit
+        let totalSlots = slotType === 'iptv' ? server.iptv_per_credit : server.p2p_per_credit;
+        
+        // Fallback to total_screens_per_credit if specific value is 0
+        if (!totalSlots && server.total_screens_per_credit) {
+          totalSlots = server.total_screens_per_credit;
+        }
+        
+        // Default to at least 2 slots if nothing is configured
+        if (!totalSlots) {
+          totalSlots = 2;
+        }
+        
         const usedSlots = clients.length;
         const availableSlots = totalSlots - usedSlots;
+
+        // Get expiration date from first client to match
+        const expirationDate = clients[0]?.expiration_date;
 
         if (availableSlots > 0) {
           slots.push({
@@ -162,15 +181,11 @@ export function SharedCreditPicker({
             totalSlots,
             usedSlots,
             availableSlots,
+            expirationDate,
           });
         }
       });
     });
-
-    // Filter by selected server if provided
-    if (serverId) {
-      return slots.filter(slot => slot.server.id === serverId);
-    }
 
     return slots;
   };
@@ -178,7 +193,7 @@ export function SharedCreditPicker({
   const availableSlots = getAvailableSlots();
 
   const handleSelect = (slot: typeof availableSlots[0]) => {
-    const proRataCalc = calculateProRataPrice(slot.server.credit_price);
+    const proRataCalc = calculateProRataPrice(slot.server.credit_price || 0);
     
     onSelect({
       serverId: slot.server.id,
@@ -186,11 +201,12 @@ export function SharedCreditPicker({
       panelUrl: slot.server.panel_url || undefined,
       slotType: slot.slotType,
       proRataPrice: proRataCalc.price,
-      fullPrice: slot.server.credit_price,
+      fullPrice: slot.server.credit_price || 0,
       remainingDays: proRataCalc.remainingDays,
       existingClients: slot.clientNames,
       sharedLogin: slot.login,
       sharedPassword: slot.password,
+      expirationDate: slot.expirationDate,
     });
   };
 
