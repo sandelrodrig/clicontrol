@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
 import Servers from "./pages/Servers";
+import Panels from "./pages/Panels";
 import Plans from "./pages/Plans";
 import Bills from "./pages/Bills";
 import Coupons from "./pages/Coupons";
@@ -66,6 +67,7 @@ const AppRoutes = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/servers" element={<Servers />} />
+          <Route path="/panels" element={<Panels />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/bills" element={<Bills />} />
           <Route path="/coupons" element={<Coupons />} />
