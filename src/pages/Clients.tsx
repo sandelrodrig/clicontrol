@@ -397,16 +397,21 @@ export default function Clients() {
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Client> }) => {
       // Encrypt login and password if they were changed
-      let updateData = { ...data };
+      let updateData: Record<string, unknown> = { ...data };
+
+      // Never send form-only fields to the clients table
+      const { screens: _screens, ...cleanUpdateData } = updateData as Record<string, any>;
+      updateData = cleanUpdateData;
+
       if (data.login !== undefined || data.password !== undefined) {
-        const encrypted = await encryptCredentials(data.login || null, data.password || null);
-        updateData.login = encrypted.login;
-        updateData.password = encrypted.password;
+        const encrypted = await encryptCredentials((data.login as any) || null, (data.password as any) || null);
+        (updateData as any).login = encrypted.login;
+        (updateData as any).password = encrypted.password;
       }
-      
+
       const { error } = await supabase.from('clients').update(updateData).eq('id', id);
       if (error) throw error;
-      
+
       // Clear cached decrypted credentials for this client
       setDecryptedCredentials(prev => {
         const newState = { ...prev };
@@ -598,6 +603,9 @@ export default function Clients() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const screens = formData.screens || '1';
+
     const data: Record<string, unknown> = {
       name: formData.name,
       phone: formData.phone || null,
@@ -619,13 +627,15 @@ export default function Clients() {
       has_paid_apps: formData.has_paid_apps || false,
       paid_apps_duration: formData.paid_apps_duration || null,
       paid_apps_expiration: formData.paid_apps_expiration || null,
-      screens: formData.screens || '1',
     };
 
     if (editingClient) {
       updateMutation.mutate({ id: editingClient.id, data: data as Partial<Client> });
     } else {
-      createMutation.mutate(data as Parameters<typeof createMutation.mutate>[0]);
+      createMutation.mutate({
+        ...(data as Parameters<typeof createMutation.mutate>[0]),
+        screens,
+      });
     }
   };
 
