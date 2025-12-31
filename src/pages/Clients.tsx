@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -1595,17 +1595,46 @@ export default function Clients() {
                       </div>
                     )}
 
-                    {/* Panel Quick Access Button */}
+                    {/* Panel Quick Access Button with Copy Login */}
                     {client.server_id && getClientServer(client)?.panel_url && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full h-8 text-xs gap-1.5 mt-2 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 text-primary hover:bg-primary/20 hover:text-primary"
-                        onClick={() => handleOpenPanel(client)}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Abrir Painel
-                      </Button>
+                      <div className="flex gap-1.5 mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-8 text-xs gap-1.5 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 text-primary hover:bg-primary/20 hover:text-primary"
+                          onClick={() => handleOpenPanel(client)}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Abrir Painel
+                        </Button>
+                        {client.login && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2.5 text-xs gap-1 border-border hover:bg-muted"
+                            onClick={async () => {
+                              // Decrypt if needed and copy
+                              let loginToCopy = decryptedCredentials[client.id]?.login;
+                              if (!loginToCopy && client.login) {
+                                try {
+                                  const decrypted = await decrypt(client.login);
+                                  loginToCopy = decrypted;
+                                } catch {
+                                  loginToCopy = client.login;
+                                }
+                              }
+                              if (loginToCopy) {
+                                navigator.clipboard.writeText(loginToCopy);
+                                toast.success(`Login copiado: ${loginToCopy}`);
+                              }
+                            }}
+                            title="Copiar login do cliente"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            Login
+                          </Button>
+                        )}
+                      </div>
                     )}
 
                     {hasCredentials && !isPrivacyMode && (
