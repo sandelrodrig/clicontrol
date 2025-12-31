@@ -1,11 +1,13 @@
+import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Users, Monitor, Wifi, Calendar, Sparkles, Check, X } from 'lucide-react';
+import { Users, Monitor, Wifi, Calendar, Sparkles, Check, X, Loader2 } from 'lucide-react';
 import { differenceInDays, endOfMonth } from 'date-fns';
+import { useCrypto } from '@/hooks/useCrypto';
 
 interface SharedCreditPickerProps {
   sellerId: string;
@@ -68,6 +70,8 @@ export function SharedCreditPicker({
   onSelect,
   selectedCredit,
 }: SharedCreditPickerProps) {
+  const { decrypt } = useCrypto();
+  const [decrypting, setDecrypting] = useState(false);
   // Fetch ALL active servers (not just credit-based)
   const { data: servers = [] } = useQuery({
     queryKey: ['servers-all-for-shared', sellerId],
@@ -192,23 +196,44 @@ export function SharedCreditPicker({
 
   const availableSlots = getAvailableSlots();
 
-  const handleSelect = (slot: typeof availableSlots[0]) => {
-    const proRataCalc = calculateProRataPrice(slot.server.credit_price || 0);
-    
-    onSelect({
-      serverId: slot.server.id,
-      serverName: slot.server.name,
-      panelUrl: slot.server.panel_url || undefined,
-      slotType: slot.slotType,
-      proRataPrice: proRataCalc.price,
-      fullPrice: slot.server.credit_price || 0,
-      remainingDays: proRataCalc.remainingDays,
-      existingClients: slot.clientNames,
-      sharedLogin: slot.login,
-      sharedPassword: slot.password,
-      expirationDate: slot.expirationDate,
-    });
-  };
+  const handleSelect = useCallback(async (slot: typeof availableSlots[0]) => {
+    setDecrypting(true);
+    try {
+      // Decrypt credentials before passing to form
+      let decryptedLogin = slot.login;
+      let decryptedPassword = slot.password;
+      
+      try {
+        if (slot.login) {
+          decryptedLogin = await decrypt(slot.login);
+        }
+        if (slot.password) {
+          decryptedPassword = await decrypt(slot.password);
+        }
+      } catch (err) {
+        // If decryption fails, credentials might be plain text (old data)
+        console.warn('Decryption failed, using original values:', err);
+      }
+      
+      const proRataCalc = calculateProRataPrice(slot.server.credit_price || 0);
+      
+      onSelect({
+        serverId: slot.server.id,
+        serverName: slot.server.name,
+        panelUrl: slot.server.panel_url || undefined,
+        slotType: slot.slotType,
+        proRataPrice: proRataCalc.price,
+        fullPrice: slot.server.credit_price || 0,
+        remainingDays: proRataCalc.remainingDays,
+        existingClients: slot.clientNames,
+        sharedLogin: decryptedLogin,
+        sharedPassword: decryptedPassword,
+        expirationDate: slot.expirationDate,
+      });
+    } finally {
+      setDecrypting(false);
+    }
+  }, [decrypt, onSelect]);
 
   const handleDeselect = () => {
     onSelect(null);
@@ -343,6 +368,7 @@ export function SharedCreditPicker({
                     <Button
                       type="button"
                       size="sm"
+                      disabled={decrypting}
                       className={cn(
                         "w-full",
                         slot.slotType === 'iptv' 
@@ -351,12 +377,14 @@ export function SharedCreditPicker({
                       )}
                       onClick={() => handleSelect(slot)}
                     >
-                      {slot.slotType === 'iptv' ? (
+                      {decrypting ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : slot.slotType === 'iptv' ? (
                         <Monitor className="h-4 w-4 mr-1" />
                       ) : (
                         <Wifi className="h-4 w-4 mr-1" />
                       )}
-                      Usar esta vaga
+                      {decrypting ? 'Carregando...' : 'Usar esta vaga'}
                     </Button>
                   </div>
 
