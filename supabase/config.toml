@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.cleanup-trash]
 verify_jwt = true
+
+[functions.generate-server-icon]
+verify_jwt = true

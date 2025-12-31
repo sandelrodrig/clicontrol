@@ -18,9 +18,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Server, DollarSign, Edit, Trash2, Coins, ExternalLink, Monitor, Wifi, Calendar, Users } from 'lucide-react';
+import { Plus, Server, DollarSign, Edit, Trash2, Coins, ExternalLink, Monitor, Wifi, Calendar, Users, Image, Sparkles, Search, Link } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ServerCreditClients } from '@/components/ServerCreditClients';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ServerData {
   id: string;
@@ -37,6 +38,7 @@ interface ServerData {
   p2p_per_credit: number;
   credit_price: number;
   total_screens_per_credit: number;
+  icon_url: string | null;
 }
 
 // Helper function to calculate pro-rata price
@@ -67,7 +69,9 @@ export default function Servers() {
     p2p_per_credit: '',
     credit_price: '',
     total_screens_per_credit: '',
+    icon_url: '',
   });
+  const [isGeneratingIcon, setIsGeneratingIcon] = useState(false);
 
   const { data: servers = [], isLoading } = useQuery({
     queryKey: ['servers', user?.id],
@@ -171,6 +175,7 @@ export default function Servers() {
       p2p_per_credit: '',
       credit_price: '',
       total_screens_per_credit: '',
+      icon_url: '',
     });
   };
 
@@ -190,6 +195,7 @@ export default function Servers() {
       p2p_per_credit: parseInt(formData.p2p_per_credit) || 0,
       credit_price: parseFloat(formData.credit_price) || 0,
       total_screens_per_credit: parseInt(formData.total_screens_per_credit) || 0,
+      icon_url: formData.icon_url || null,
     };
 
     if (editingServer) {
@@ -215,8 +221,37 @@ export default function Servers() {
       p2p_per_credit: server.p2p_per_credit && server.p2p_per_credit > 0 ? server.p2p_per_credit.toString() : '',
       credit_price: server.credit_price && server.credit_price > 0 ? server.credit_price.toString() : '',
       total_screens_per_credit: server.total_screens_per_credit && server.total_screens_per_credit > 0 ? server.total_screens_per_credit.toString() : '',
+      icon_url: server.icon_url || '',
     });
     setIsDialogOpen(true);
+  };
+
+  const generateIcon = async (action: 'generate' | 'search') => {
+    if (!formData.name.trim()) {
+      toast.error('Digite o nome do servidor primeiro');
+      return;
+    }
+
+    setIsGeneratingIcon(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-server-icon', {
+        body: { serverName: formData.name, action }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.imageUrl) {
+        setFormData(prev => ({ ...prev, icon_url: data.imageUrl }));
+        toast.success('Ícone gerado com sucesso!');
+      } else {
+        throw new Error(data?.error || 'Erro ao gerar ícone');
+      }
+    } catch (error) {
+      console.error('Error generating icon:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao gerar ícone');
+    } finally {
+      setIsGeneratingIcon(false);
+    }
   };
 
   const totalMonthlyCost = servers
@@ -274,7 +309,114 @@ export default function Servers() {
                 {editingServer ? 'Atualize os dados do servidor' : 'Adicione um novo servidor'}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+              {/* Icon Section */}
+              <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+                <Label className="flex items-center gap-2">
+                  <Image className="h-4 w-4" />
+                  Ícone do Servidor
+                </Label>
+                
+                {formData.icon_url && (
+                  <div className="flex justify-center">
+                    <div className="relative group">
+                      <img 
+                        src={formData.icon_url} 
+                        alt="Server icon" 
+                        className="w-20 h-20 rounded-lg object-cover border-2 border-primary/20"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setFormData(prev => ({ ...prev, icon_url: '' }))}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <Tabs defaultValue="url" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="url" className="text-xs gap-1">
+                      <Link className="h-3 w-3" />
+                      URL
+                    </TabsTrigger>
+                    <TabsTrigger value="generate" className="text-xs gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      Gerar IA
+                    </TabsTrigger>
+                    <TabsTrigger value="search" className="text-xs gap-1">
+                      <Search className="h-3 w-3" />
+                      Buscar IA
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="url" className="space-y-2 mt-3">
+                    <Input
+                      id="icon_url"
+                      type="url"
+                      value={formData.icon_url}
+                      onChange={(e) => setFormData({ ...formData, icon_url: e.target.value })}
+                      placeholder="https://exemplo.com/icone.png"
+                    />
+                    <p className="text-xs text-muted-foreground">Cole o link de uma imagem</p>
+                  </TabsContent>
+                  
+                  <TabsContent value="generate" className="space-y-2 mt-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2"
+                      disabled={isGeneratingIcon || !formData.name.trim()}
+                      onClick={() => generateIcon('generate')}
+                    >
+                      {isGeneratingIcon ? (
+                        <>
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          Gerar Ícone Único
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      IA cria um ícone exclusivo baseado no nome "{formData.name || '...'}"
+                    </p>
+                  </TabsContent>
+                  
+                  <TabsContent value="search" className="space-y-2 mt-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2"
+                      disabled={isGeneratingIcon || !formData.name.trim()}
+                      onClick={() => generateIcon('search')}
+                    >
+                      {isGeneratingIcon ? (
+                        <>
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          Buscando...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4" />
+                          Buscar Ícone da Marca
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      IA tenta encontrar/criar ícone similar à marca "{formData.name || '...'}"
+                    </p>
+                  </TabsContent>
+                </Tabs>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">Nome *</Label>
                 <Input
@@ -550,9 +692,21 @@ export default function Servers() {
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
+                      {server.icon_url ? (
+                        <img 
+                          src={server.icon_url} 
+                          alt={server.name}
+                          className="w-10 h-10 rounded-lg object-cover border border-border"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
                       <div className={cn(
                         'p-2 rounded-lg',
-                        server.is_active ? 'bg-success/10' : 'bg-muted'
+                        server.is_active ? 'bg-success/10' : 'bg-muted',
+                        server.icon_url && 'hidden'
                       )}>
                         <Server className={cn(
                           'h-5 w-5',
