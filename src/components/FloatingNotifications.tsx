@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Bell, Clock, AlertTriangle, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Bell, Clock, AlertTriangle, MessageCircle, ChevronDown, Calendar, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { differenceInDays, startOfToday, format } from 'date-fns';
+import { differenceInDays, startOfToday, format, getDate, addMonths, setDate, isBefore, isAfter } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 interface Client {
@@ -15,7 +15,28 @@ interface Client {
   phone: string | null;
   expiration_date: string;
   plan_name: string | null;
+  created_at: string | null;
 }
+
+interface Plan {
+  id: string;
+  duration_days: number;
+}
+
+interface AnnualClientReminder {
+  client: Client;
+  nextBillingDate: Date;
+  daysUntilBilling: number;
+  isAnnual: true;
+}
+
+interface ExpiringClient {
+  client: Client;
+  daysRemaining: number;
+  isAnnual: false;
+}
+
+type NotificationItem = AnnualClientReminder | ExpiringClient;
 
 export function FloatingNotifications() {
   const { user, isSeller } = useAuth();
@@ -29,29 +50,103 @@ export function FloatingNotifications() {
       if (!user?.id || !isSeller) return [];
       const { data, error } = await supabase
         .from('clients')
-        .select('id, name, phone, expiration_date, plan_name')
-        .eq('seller_id', user.id);
+        .select('id, name, phone, expiration_date, plan_name, created_at')
+        .eq('seller_id', user.id)
+        .eq('is_archived', false);
       if (error) throw error;
       return data as Client[] || [];
     },
     enabled: !!user?.id && isSeller,
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: 60000,
+  });
+
+  const { data: plans = [] } = useQuery({
+    queryKey: ['plans-for-notifications', user?.id],
+    queryFn: async () => {
+      if (!user?.id || !isSeller) return [];
+      const { data, error } = await supabase
+        .from('plans')
+        .select('id, duration_days');
+      if (error) throw error;
+      return data as Plan[] || [];
+    },
+    enabled: !!user?.id && isSeller,
   });
 
   const today = startOfToday();
 
-  // Get urgent clients (0-3 days)
-  const urgentClients = clients
+  // Calculate monthly billing date for annual clients
+  const getNextMonthlyBillingDate = (client: Client): Date | null => {
+    // Use created_at as the reference for monthly billing
+    if (!client.created_at) return null;
+    
+    const createdDate = new Date(client.created_at);
+    const billingDay = getDate(createdDate); // Day of month when client was created
+    
+    // Find the next billing date
+    let nextBilling = setDate(today, billingDay);
+    
+    // If today is after the billing day this month, get next month
+    if (isBefore(nextBilling, today) || getDate(today) > billingDay) {
+      nextBilling = addMonths(nextBilling, 1);
+    }
+    
+    // Make sure billing date doesn't exceed expiration
+    const expiration = new Date(client.expiration_date);
+    if (isAfter(nextBilling, expiration)) {
+      return null;
+    }
+    
+    return nextBilling;
+  };
+
+  // Check if client has annual plan (365 days)
+  const isAnnualPlan = (planName: string | null): boolean => {
+    if (!planName) return false;
+    const lowerName = planName.toLowerCase();
+    return lowerName.includes('anual') || lowerName.includes('365');
+  };
+
+  // Get urgent clients (0-3 days to expire)
+  const urgentClients: ExpiringClient[] = clients
+    .filter(c => !isAnnualPlan(c.plan_name)) // Exclude annual clients from regular expiring
     .map(c => ({
-      ...c,
-      daysRemaining: differenceInDays(new Date(c.expiration_date), today)
+      client: c,
+      daysRemaining: differenceInDays(new Date(c.expiration_date), today),
+      isAnnual: false as const
     }))
     .filter(c => c.daysRemaining >= 0 && c.daysRemaining <= 3)
     .sort((a, b) => a.daysRemaining - b.daysRemaining);
 
-  const totalUrgent = urgentClients.length;
+  // Get annual clients with monthly billing reminder (1 day before)
+  const annualClientReminders: AnnualClientReminder[] = clients
+    .filter(c => isAnnualPlan(c.plan_name))
+    .map(c => {
+      const nextBilling = getNextMonthlyBillingDate(c);
+      if (!nextBilling) return null;
+      
+      const daysUntilBilling = differenceInDays(nextBilling, today);
+      
+      // Only show if billing is in 1 day (tomorrow)
+      if (daysUntilBilling === 1) {
+        return {
+          client: c,
+          nextBillingDate: nextBilling,
+          daysUntilBilling,
+          isAnnual: true as const
+        };
+      }
+      return null;
+    })
+    .filter((item): item is AnnualClientReminder => item !== null);
 
-  // Reset dismissed state when new urgent clients appear
+  const allNotifications: NotificationItem[] = [
+    ...annualClientReminders, // Annual reminders first
+    ...urgentClients
+  ];
+
+  const totalUrgent = allNotifications.length;
+
   useEffect(() => {
     if (totalUrgent > 0) {
       setHasNewNotifications(true);
@@ -62,13 +157,15 @@ export function FloatingNotifications() {
     return null;
   }
 
-  const getDayLabel = (days: number) => {
+  const getDayLabel = (days: number, isAnnual: boolean = false) => {
+    if (isAnnual) return 'Cobrança';
     if (days === 0) return 'HOJE';
     if (days === 1) return 'Amanhã';
     return `${days} dias`;
   };
 
-  const getDayColor = (days: number) => {
+  const getDayColor = (days: number, isAnnual: boolean = false) => {
+    if (isAnnual) return 'text-primary bg-primary/20';
     if (days === 0) return 'text-destructive bg-destructive/20';
     if (days === 1) return 'text-destructive/80 bg-destructive/10';
     if (days === 2) return 'text-warning bg-warning/20';
@@ -115,7 +212,7 @@ export function FloatingNotifications() {
           <div className="bg-gradient-to-r from-warning/20 to-destructive/20 px-4 py-3 flex items-center justify-between border-b border-border">
             <div className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-warning" />
-              <span className="font-semibold text-sm">Clientes Vencendo</span>
+              <span className="font-semibold text-sm">Lembretes</span>
               <Badge variant="destructive" className="text-xs">{totalUrgent}</Badge>
             </div>
             <div className="flex gap-1">
@@ -140,9 +237,9 @@ export function FloatingNotifications() {
 
           {/* Notification List */}
           <div className="max-h-72 overflow-y-auto">
-            {urgentClients.slice(0, 10).map((client, index) => (
+            {allNotifications.slice(0, 10).map((item, index) => (
               <div
-                key={client.id}
+                key={item.client.id}
                 className={cn(
                   "px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0",
                   index === 0 && "bg-destructive/5"
@@ -151,31 +248,40 @@ export function FloatingNotifications() {
                 {/* Day Badge */}
                 <div className={cn(
                   "flex-shrink-0 w-14 h-10 rounded-lg flex flex-col items-center justify-center text-xs font-bold",
-                  getDayColor(client.daysRemaining)
+                  getDayColor(item.isAnnual ? 1 : (item as ExpiringClient).daysRemaining, item.isAnnual)
                 )}>
-                  {client.daysRemaining === 0 ? (
+                  {item.isAnnual ? (
+                    <Repeat className="h-4 w-4" />
+                  ) : (item as ExpiringClient).daysRemaining === 0 ? (
                     <AlertTriangle className="h-4 w-4" />
                   ) : (
                     <Clock className="h-3 w-3 mb-0.5" />
                   )}
-                  <span className="text-[10px]">{getDayLabel(client.daysRemaining)}</span>
+                  <span className="text-[10px]">{getDayLabel(item.isAnnual ? 1 : (item as ExpiringClient).daysRemaining, item.isAnnual)}</span>
                 </div>
 
                 {/* Client Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{client.name}</p>
+                  <p className="font-medium text-sm truncate">{item.client.name}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {client.plan_name || 'Sem plano'}
+                    {item.isAnnual ? (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Mensal: {format((item as AnnualClientReminder).nextBillingDate, 'dd/MM')}
+                      </span>
+                    ) : (
+                      item.client.plan_name || 'Sem plano'
+                    )}
                   </p>
                 </div>
 
                 {/* WhatsApp Button */}
-                {client.phone && (
+                {item.client.phone && (
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-500/10 flex-shrink-0"
-                    onClick={() => openWhatsApp(client.phone!, client.name)}
+                    onClick={() => openWhatsApp(item.client.phone!, item.client.name)}
                   >
                     <MessageCircle className="h-4 w-4" />
                   </Button>
@@ -183,9 +289,9 @@ export function FloatingNotifications() {
               </div>
             ))}
 
-            {urgentClients.length > 10 && (
+            {allNotifications.length > 10 && (
               <div className="px-4 py-2 text-center text-xs text-muted-foreground bg-muted/30">
-                +{urgentClients.length - 10} outros clientes
+                +{allNotifications.length - 10} outros clientes
               </div>
             )}
           </div>
