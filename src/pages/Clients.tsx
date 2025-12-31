@@ -1578,20 +1578,43 @@ export default function Clients() {
                       <CalendarIcon className="h-3.5 w-3.5" />
                       <span>{format(new Date(client.expiration_date), "dd/MM/yyyy")}</span>
                     </div>
-                    {client.plan_name && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <CreditCard className="h-3.5 w-3.5" />
-                        <span>{client.plan_name} {client.plan_price && `- ${maskData(`R$ ${client.plan_price.toFixed(2)}`, 'money')}`}</span>
+                    
+                    {/* Plan + Server Badges */}
+                    {(client.plan_name || client.server_name) && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {client.plan_name && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground border border-border">
+                            <CreditCard className="h-3 w-3" />
+                            {client.plan_name}
+                            {client.plan_price && !isPrivacyMode && (
+                              <span className="text-muted-foreground ml-1">
+                                R$ {client.plan_price.toFixed(2)}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                        {client.server_name && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                            <Server className="h-3 w-3" />
+                            {client.server_name}
+                          </span>
+                        )}
                       </div>
                     )}
-                    {client.server_name && (
-                      <div className="flex items-center gap-2">
-                        <Server className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
-                          {client.server_name}
-                        </span>
-                      </div>
+
+                    {/* Panel Quick Access Button */}
+                    {client.server_id && getClientServer(client)?.panel_url && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-8 text-xs gap-1.5 mt-2 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 text-primary hover:bg-primary/20 hover:text-primary"
+                        onClick={() => handleOpenPanel(client)}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Abrir Painel
+                      </Button>
                     )}
+
                     {hasCredentials && !isPrivacyMode && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Lock className="h-3.5 w-3.5" />
@@ -1646,17 +1669,6 @@ export default function Clients() {
                     >
                       Renovar
                     </Button>
-                    {/* Open Panel Button */}
-                    {client.server_id && getClientServer(client)?.panel_url && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => handleOpenPanel(client)}
-                      >
-                        Painel
-                      </Button>
-                    )}
                     {(client.phone || client.telegram) && (
                       <Button
                         variant="outline"
