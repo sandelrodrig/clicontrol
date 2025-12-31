@@ -1078,6 +1078,7 @@ export default function Clients() {
                       onValueChange={handlePlanChange}
                       placeholder="Selecione um plano"
                       showFilters={true}
+                      defaultCategory={formData.category}
                     />
                   </div>
                 )}
@@ -1756,6 +1757,7 @@ export default function Clients() {
                 onValueChange={setRenewPlanId}
                 placeholder="Selecione o plano"
                 showFilters={true}
+                defaultCategory={renewClient?.category}
               />
               <p className="text-xs text-muted-foreground">
                 {renewPlanId ? 

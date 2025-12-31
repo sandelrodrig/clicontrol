@@ -105,9 +105,10 @@ export function SharedCreditPicker({
   });
 
   // Check if category matches slot type
-  const getCategorySlotType = (): 'iptv' | 'p2p' => {
+  const getCategorySlotType = (): 'iptv' | 'p2p' | null => {
     if (category === 'P2P') return 'p2p';
-    return 'iptv';
+    if (category === 'IPTV' || category === 'SSH') return 'iptv';
+    return null; // For other categories like "Contas Premium", don't show shared credits
   };
 
   const categorySlotType = getCategorySlotType();
@@ -154,7 +155,7 @@ export function SharedCreditPicker({
         const slotType: 'iptv' | 'p2p' = firstClientCategory === 'P2P' ? 'p2p' : 'iptv';
         
         // Only show if matches the category we're looking for
-        if (slotType !== categorySlotType) return;
+        if (categorySlotType === null || slotType !== categorySlotType) return;
         
         // Calculate total slots: use specific per_credit or fallback to total_screens_per_credit
         let totalSlots = slotType === 'iptv' ? server.iptv_per_credit : server.p2p_per_credit;
