@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Select,
   SelectContent,
@@ -26,6 +26,7 @@ interface PlanSelectorProps {
   className?: string;
   showFilters?: boolean;
   compact?: boolean;
+  defaultCategory?: string | null; // Pre-select category filter based on client's category
 }
 
 type DurationFilter = 'all' | '30' | '90' | '180' | '365';
@@ -63,11 +64,21 @@ export function PlanSelector({
   placeholder = "Selecione um plano",
   className,
   showFilters = true,
-  compact = false
+  compact = false,
+  defaultCategory = null
 }: PlanSelectorProps) {
   const [durationFilter, setDurationFilter] = useState<DurationFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [screensFilter, setScreensFilter] = useState<ScreensFilter>('all');
+
+  // Update category filter when defaultCategory changes
+  useEffect(() => {
+    if (defaultCategory && ['IPTV', 'P2P', 'SSH'].includes(defaultCategory)) {
+      setCategoryFilter(defaultCategory as CategoryFilter);
+    } else {
+      setCategoryFilter('all');
+    }
+  }, [defaultCategory]);
 
   // Group and sort plans
   const sortedPlans = useMemo(() => {
