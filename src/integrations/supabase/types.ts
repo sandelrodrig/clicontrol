@@ -520,6 +520,7 @@ export type Database = {
           created_at: string | null
           credit_price: number | null
           credit_value: number | null
+          icon_url: string | null
           id: string
           iptv_per_credit: number | null
           is_active: boolean | null
@@ -539,6 +540,7 @@ export type Database = {
           created_at?: string | null
           credit_price?: number | null
           credit_value?: number | null
+          icon_url?: string | null
           id?: string
           iptv_per_credit?: number | null
           is_active?: boolean | null
@@ -558,6 +560,7 @@ export type Database = {
           created_at?: string | null
           credit_price?: number | null
           credit_value?: number | null
+          icon_url?: string | null
           id?: string
           iptv_per_credit?: number | null
           is_active?: boolean | null
