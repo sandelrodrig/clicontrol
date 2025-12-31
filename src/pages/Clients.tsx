@@ -239,23 +239,15 @@ export default function Clients() {
     setSelectedSharedCredit(selection);
     
     if (selection) {
-      // Use expiration date from existing client or fallback to end of month
-      let expirationDate: string;
-      if (selection.expirationDate) {
-        expirationDate = selection.expirationDate;
-      } else {
-        const today = new Date();
-        const endOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        expirationDate = format(endOfCurrentMonth, 'yyyy-MM-dd');
-      }
-      
+      // Only update credentials and server, keep user's chosen expiration date
       setFormData(prev => ({
         ...prev,
         server_id: selection.serverId,
         server_name: selection.serverName,
         login: selection.sharedLogin || prev.login,
         password: selection.sharedPassword || prev.password,
-        expiration_date: expirationDate,
+        // Only set expiration_date if user hasn't already set one
+        expiration_date: prev.expiration_date || selection.expirationDate || format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy-MM-dd'),
       }));
     }
   }, []);
