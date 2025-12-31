@@ -297,12 +297,15 @@ export default function Clients() {
   }, [decrypt, decryptedCredentials]);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null; screens?: string }) => {
+    mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null; screens?: string; category?: string | null; has_paid_apps?: boolean; paid_apps_duration?: string | null; paid_apps_expiration?: string | null; telegram?: string | null; premium_password?: string | null }) => {
       // Encrypt login and password before saving
       const encrypted = await encryptCredentials(data.login || null, data.password || null);
       
+      // Extract screens before spreading - it's not a column in the clients table
+      const { screens, ...clientData } = data;
+      
       const { data: insertedData, error } = await supabase.from('clients').insert([{
-        ...data,
+        ...clientData,
         login: encrypted.login,
         password: encrypted.password,
         seller_id: user!.id,
@@ -325,7 +328,7 @@ export default function Clients() {
       else if (data.server_id && insertedData?.id) {
         const server = servers.find(s => s.id === data.server_id);
         if (server?.is_credit_based) {
-          const screensUsed = parseInt(data.screens || '1');
+          const screensUsed = parseInt(screens || '1');
           const category = formData.category;
           
           // Determine slot types based on category and screens
