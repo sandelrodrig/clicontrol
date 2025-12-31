@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -1569,6 +1569,14 @@ export default function Clients() {
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <CreditCard className="h-3.5 w-3.5" />
                         <span>{client.plan_name} {client.plan_price && `- ${maskData(`R$ ${client.plan_price.toFixed(2)}`, 'money')}`}</span>
+                      </div>
+                    )}
+                    {client.server_name && (
+                      <div className="flex items-center gap-2">
+                        <Server className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                          {client.server_name}
+                        </span>
                       </div>
                     )}
                     {hasCredentials && !isPrivacyMode && (
