@@ -25,7 +25,9 @@ import {
   ChevronRight,
   Download,
   HelpCircle,
-  DollarSign
+  DollarSign,
+  Monitor,
+  ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -100,7 +102,10 @@ export default function Settings() {
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showPriceSettings, setShowPriceSettings] = useState(false);
+  const [showGerenciaAppSettings, setShowGerenciaAppSettings] = useState(false);
   const [appPrice, setAppPrice] = useState('25');
+  const [gerenciaAppPanelUrl, setGerenciaAppPanelUrl] = useState('https://gerenciapp.top');
+  const [gerenciaAppRegisterUrl, setGerenciaAppRegisterUrl] = useState('');
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState({
@@ -127,6 +132,12 @@ export default function Settings() {
     if (appSettings) {
       const price = appSettings.find(s => s.key === 'app_monthly_price')?.value;
       if (price) setAppPrice(price);
+      
+      const panelUrl = appSettings.find(s => s.key === 'gerencia_app_panel_url')?.value;
+      if (panelUrl) setGerenciaAppPanelUrl(panelUrl);
+      
+      const registerUrl = appSettings.find(s => s.key === 'gerencia_app_register_url')?.value;
+      if (registerUrl) setGerenciaAppRegisterUrl(registerUrl);
     }
   }, [appSettings]);
 
@@ -185,6 +196,38 @@ export default function Settings() {
   const handlePriceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updatePriceMutation.mutate(appPrice);
+  };
+
+  const updateGerenciaAppMutation = useMutation({
+    mutationFn: async ({ panelUrl, registerUrl }: { panelUrl: string; registerUrl: string }) => {
+      const { error: error1 } = await supabase
+        .from('app_settings')
+        .update({ value: panelUrl })
+        .eq('key', 'gerencia_app_panel_url');
+      if (error1) throw error1;
+      
+      const { error: error2 } = await supabase
+        .from('app_settings')
+        .update({ value: registerUrl })
+        .eq('key', 'gerencia_app_register_url');
+      if (error2) throw error2;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['app-settings'] });
+      toast.success('Configurações do GerenciaApp atualizadas!');
+      setShowGerenciaAppSettings(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const handleGerenciaAppSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateGerenciaAppMutation.mutate({ 
+      panelUrl: gerenciaAppPanelUrl, 
+      registerUrl: gerenciaAppRegisterUrl 
+    });
   };
 
   const copyPixKey = () => {
@@ -291,6 +334,73 @@ export default function Settings() {
           <Button type="submit" className="w-full" disabled={updatePriceMutation.isPending}>
             <Save className="h-4 w-4 mr-2" />
             Salvar Valor
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  // GerenciaApp settings view (Admin only)
+  if (showGerenciaAppSettings && isAdmin) {
+    return (
+      <div className="space-y-6 animate-fade-in max-w-lg mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => setShowGerenciaAppSettings(false)}>
+            ← Voltar
+          </Button>
+          <h1 className="text-xl font-bold">Configurações GerenciaApp</h1>
+        </div>
+
+        <form onSubmit={handleGerenciaAppSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="gerencia_panel_url">URL do Painel</Label>
+            <div className="flex items-center gap-2">
+              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              <Input
+                id="gerencia_panel_url"
+                type="url"
+                value={gerenciaAppPanelUrl}
+                onChange={(e) => setGerenciaAppPanelUrl(e.target.value)}
+                placeholder="https://gerenciapp.top"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Link de acesso rápido ao painel de gerenciamento
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gerencia_register_url">Link de Cadastro (Afiliado)</Label>
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <Input
+                id="gerencia_register_url"
+                type="url"
+                value={gerenciaAppRegisterUrl}
+                onChange={(e) => setGerenciaAppRegisterUrl(e.target.value)}
+                placeholder="https://gerenciapp.top/register?ref=seu_codigo"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Link de cadastro para revendedores (aparece na página de Painéis)
+            </p>
+          </div>
+
+          {gerenciaAppPanelUrl && (
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full"
+              onClick={() => window.open(gerenciaAppPanelUrl, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Acessar Painel
+            </Button>
+          )}
+
+          <Button type="submit" className="w-full" disabled={updateGerenciaAppMutation.isPending}>
+            <Save className="h-4 w-4 mr-2" />
+            Salvar Configurações
           </Button>
         </form>
       </div>
@@ -476,6 +586,12 @@ export default function Settings() {
             title="Valor do Aplicativo"
             description={`R$ ${appPrice},00/mês`}
             onClick={() => setShowPriceSettings(true)}
+          />
+          <SettingItem
+            icon={Monitor}
+            title="GerenciaApp"
+            description="Configurar painel de apps"
+            onClick={() => setShowGerenciaAppSettings(true)}
           />
         </SettingSection>
       )}

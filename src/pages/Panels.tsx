@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ExternalLink, Server, Search, Globe, Tv, Copy, CheckCircle2 } from 'lucide-react';
+import { ExternalLink, Server, Search, Globe, Tv, Copy, CheckCircle2, Smartphone, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -44,6 +44,31 @@ const Panels = () => {
     enabled: !!user?.id,
   });
 
+  // Fetch GerenciaApp settings
+  const { data: gerenciaAppSettings } = useQuery({
+    queryKey: ['gerencia-app-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['gerencia_app_panel_url', 'gerencia_app_register_url']);
+      
+      if (error) throw error;
+      
+      const settings: { panelUrl: string; registerUrl: string } = {
+        panelUrl: '',
+        registerUrl: ''
+      };
+      
+      data?.forEach(item => {
+        if (item.key === 'gerencia_app_panel_url') settings.panelUrl = item.value;
+        if (item.key === 'gerencia_app_register_url') settings.registerUrl = item.value;
+      });
+      
+      return settings;
+    },
+  });
+
   const filteredServers = servers.filter(server =>
     server.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -67,6 +92,8 @@ const Panels = () => {
     );
   }
 
+  const hasGerenciaApp = gerenciaAppSettings?.panelUrl && gerenciaAppSettings.panelUrl.trim() !== '';
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       {/* Header */}
@@ -89,8 +116,68 @@ const Panels = () => {
           </div>
         </div>
 
+        {/* GerenciaApp Card - Special Panel */}
+        {hasGerenciaApp && (
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <Smartphone className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">GerenciaApp</CardTitle>
+                    <CardDescription>Painel de gerenciamento de apps</CardDescription>
+                  </div>
+                </div>
+                <Badge className="bg-primary text-primary-foreground">
+                  Apps
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-3">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 overflow-hidden">
+                <Globe className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{gerenciaAppSettings?.panelUrl}</span>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1"
+                  onClick={() => handleOpenPanel(gerenciaAppSettings!.panelUrl)}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Acessar Painel
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleCopyUrl('gerencia-app', gerenciaAppSettings!.panelUrl)}
+                >
+                  {copiedId === 'gerencia-app' ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+
+              {gerenciaAppSettings?.registerUrl && (
+                <Button 
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleOpenPanel(gerenciaAppSettings.registerUrl)}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Cadastrar no GerenciaApp
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Panels Grid */}
-        {filteredServers.length === 0 ? (
+        {filteredServers.length === 0 && !hasGerenciaApp ? (
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
               <Globe className="h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -105,7 +192,7 @@ const Panels = () => {
               </p>
             </CardContent>
           </Card>
-        ) : (
+        ) : filteredServers.length > 0 && (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {filteredServers.map((server) => (
               <Card 
@@ -176,9 +263,9 @@ const Panels = () => {
         )}
 
         {/* Quick Stats */}
-        {servers.length > 0 && (
+        {(servers.length > 0 || hasGerenciaApp) && (
           <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-            <span>{servers.length} painel(is) configurado(s)</span>
+            <span>{servers.length + (hasGerenciaApp ? 1 : 0)} painel(is) configurado(s)</span>
           </div>
         )}
       </div>
