@@ -65,6 +65,7 @@ interface Client {
   is_archived: boolean | null;
   archived_at: string | null;
   created_at: string | null;
+  gerencia_app_mac: string | null;
 }
 
 interface ClientCategory {
@@ -162,6 +163,7 @@ export default function Clients() {
     paid_apps_duration: '',
     paid_apps_expiration: '',
     screens: '1', // Número de telas selecionadas
+    gerencia_app_mac: '', // MAC do GerenciaApp
   });
 
 
@@ -541,6 +543,7 @@ export default function Clients() {
       paid_apps_duration: '',
       paid_apps_expiration: '',
       screens: '1',
+      gerencia_app_mac: '',
     });
     setSelectedSharedCredit(null);
   };
@@ -621,6 +624,7 @@ export default function Clients() {
       has_paid_apps: formData.has_paid_apps || false,
       paid_apps_duration: formData.paid_apps_duration || null,
       paid_apps_expiration: formData.paid_apps_expiration || null,
+      gerencia_app_mac: formData.gerencia_app_mac || null,
     };
 
     if (editingClient) {
@@ -674,6 +678,7 @@ export default function Clients() {
       paid_apps_duration: client.paid_apps_duration || '',
       paid_apps_expiration: client.paid_apps_expiration || '',
       screens: '1',
+      gerencia_app_mac: client.gerencia_app_mac || '',
     });
     setIsDialogOpen(true);
   };
@@ -1297,6 +1302,24 @@ export default function Clients() {
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       />
+                    </div>
+                    
+                    {/* MAC GerenciaApp - Opcional */}
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="gerencia_app_mac" className="flex items-center gap-1">
+                        <Monitor className="h-3 w-3 text-muted-foreground" />
+                        MAC GerenciaApp (opcional)
+                      </Label>
+                      <Input
+                        id="gerencia_app_mac"
+                        value={formData.gerencia_app_mac}
+                        onChange={(e) => setFormData({ ...formData, gerencia_app_mac: e.target.value.toUpperCase() })}
+                        placeholder="00:1A:2B:3C:4D:5E"
+                        className="font-mono"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Usado para gerenciar o cliente no painel gerenciapp.top
+                      </p>
                     </div>
                   </>
                 )}
