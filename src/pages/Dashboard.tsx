@@ -4,7 +4,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { MonthlyProfitHistory } from '@/components/dashboard/MonthlyProfitHistory';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp, Bell, Send, Copy, ExternalLink, Timer, Server, Trash2, Archive } from 'lucide-react';
+import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp, Bell, Send, Copy, ExternalLink, Timer, Server, Trash2, Archive, Smartphone, Settings, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -143,6 +143,8 @@ export default function Dashboard() {
   });
 
   const appMonthlyPrice = appSettings?.find(s => s.key === 'app_monthly_price')?.value || '25';
+  const gerenciaAppPanelUrl = appSettings?.find(s => s.key === 'gerencia_app_panel_url')?.value || '';
+  const gerenciaAppRegisterUrl = appSettings?.find(s => s.key === 'gerencia_app_register_url')?.value || '';
 
   const today = startOfToday();
   const nextWeek = addDays(today, 7);
@@ -768,6 +770,61 @@ export default function Dashboard() {
               variant="default"
             />
           </div>
+
+          {/* GerenciaApp Admin Card */}
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
+                    <Smartphone className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>GerenciaApp</CardTitle>
+                    <CardDescription>Painel de gerenciamento de apps</CardDescription>
+                  </div>
+                </div>
+                <Link to="/settings">
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <Settings className="h-4 w-4" />
+                    Configurar
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {gerenciaAppPanelUrl ? (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-2">
+                    <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{gerenciaAppPanelUrl}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button onClick={() => window.open(gerenciaAppPanelUrl, '_blank')}>
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Acessar Painel
+                    </Button>
+                    {gerenciaAppRegisterUrl && (
+                      <Button variant="outline" onClick={() => window.open(gerenciaAppRegisterUrl, '_blank')}>
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Link de Cadastro
+                      </Button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground text-sm">Nenhum painel configurado</p>
+                  <Link to="/settings">
+                    <Button variant="link" className="gap-1 mt-2">
+                      <Settings className="h-4 w-4" />
+                      Configurar GerenciaApp
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
