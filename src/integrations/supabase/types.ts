@@ -134,6 +134,7 @@ export type Database = {
           plan_price: number | null
           premium_password: string | null
           referral_code: string | null
+          renewed_at: string | null
           seller_id: string
           server_id: string | null
           server_name: string | null
@@ -163,6 +164,7 @@ export type Database = {
           plan_price?: number | null
           premium_password?: string | null
           referral_code?: string | null
+          renewed_at?: string | null
           seller_id: string
           server_id?: string | null
           server_name?: string | null
@@ -192,6 +194,7 @@ export type Database = {
           plan_price?: number | null
           premium_password?: string | null
           referral_code?: string | null
+          renewed_at?: string | null
           seller_id?: string
           server_id?: string | null
           server_name?: string | null
