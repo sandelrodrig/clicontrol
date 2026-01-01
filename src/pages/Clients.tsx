@@ -1764,6 +1764,53 @@ export default function Clients() {
                       </div>
                     )}
 
+                    {/* GerenciaApp Panel Quick Access */}
+                    {client.gerencia_app_mac && gerenciaAppSettings?.panelUrl && (
+                      <div className="flex gap-1.5 mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-8 text-xs gap-1.5 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30 text-green-600 dark:text-green-400 hover:bg-green-500/20"
+                          onClick={() => window.open(gerenciaAppSettings.panelUrl, '_blank')}
+                        >
+                          <Monitor className="h-3.5 w-3.5" />
+                          GerenciaApp
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs gap-1 border-border hover:bg-muted"
+                          onClick={() => {
+                            navigator.clipboard.writeText(client.gerencia_app_mac || '');
+                            toast.success(`MAC copiado: ${client.gerencia_app_mac}`);
+                          }}
+                          title="Copiar MAC do cliente"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          MAC
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Show MAC info if exists but no panel URL configured */}
+                    {client.gerencia_app_mac && !gerenciaAppSettings?.panelUrl && (
+                      <div className="flex items-center gap-2 text-muted-foreground mt-2">
+                        <Monitor className="h-3.5 w-3.5 text-green-500" />
+                        <span className="text-xs font-mono">{client.gerencia_app_mac}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => {
+                            navigator.clipboard.writeText(client.gerencia_app_mac || '');
+                            toast.success(`MAC copiado: ${client.gerencia_app_mac}`);
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+
                     {hasCredentials && !isPrivacyMode && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Lock className="h-3.5 w-3.5" />
