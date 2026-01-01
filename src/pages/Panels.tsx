@@ -116,48 +116,71 @@ const Panels = () => {
           </div>
         </div>
 
-        {/* GerenciaApp Card - Special Panel */}
+        {/* GerenciaApp Card - Special Panel - DESTAQUE */}
         {hasGerenciaApp && (
-          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 overflow-hidden relative">
-            {/* Decorative element */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <Card className="border-2 border-primary bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 overflow-hidden relative shadow-lg shadow-primary/20">
+            {/* Decorative elements */}
+            <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/15 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
             
-            <CardHeader className="pb-3 relative">
+            <CardHeader className="pb-2 relative">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center animate-pulse">
-                    <Smartphone className="w-6 h-6 text-primary" />
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
+                    <Smartphone className="w-7 h-7 text-primary-foreground" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">GerenciaApp</CardTitle>
-                    <CardDescription>Ativação de apps na Play Store</CardDescription>
+                    <CardTitle className="text-xl font-bold">GerenciaApp</CardTitle>
+                    <CardDescription className="text-primary/80 font-medium">Ativação de apps na Play Store</CardDescription>
                   </div>
                 </div>
-                <Badge className="bg-primary text-primary-foreground">
-                  Apps
+                <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 px-3 py-1 text-sm font-bold animate-pulse">
+                  ♾️ ILIMITADO
                 </Badge>
               </div>
             </CardHeader>
+            
             <CardContent className="pt-0 space-y-4 relative">
-              {/* Persuasive Text */}
-              <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-lg p-3 border-l-4 border-primary">
-                <p className="text-sm font-medium text-foreground leading-relaxed">
-                  🚀 <span className="text-primary font-semibold">Ative apps Premium direto na Play Store!</span>
+              {/* Price Highlight */}
+              <div className="bg-gradient-to-r from-primary via-primary/90 to-primary rounded-xl p-4 text-center shadow-lg">
+                <p className="text-primary-foreground/90 text-sm font-medium mb-1">
+                  Ative apps Premium direto na Play Store!
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Ativações ilimitadas por apenas <span className="text-primary font-bold">R$ 40/mês</span>. 
-                  Cadastre-se agora e comece a lucrar oferecendo apps premium aos seus clientes!
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-primary-foreground/80 text-lg">Por apenas</span>
+                  <span className="text-4xl font-black text-primary-foreground">R$ 40</span>
+                  <span className="text-primary-foreground/80 text-lg">/mês</span>
+                </div>
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <span className="text-2xl">♾️</span>
+                  <span className="text-primary-foreground font-bold text-lg">Ativações Ilimitadas!</span>
+                </div>
+              </div>
+
+              {/* Benefits */}
+              <div className="bg-card/50 rounded-lg p-3 border border-primary/20">
+                <p className="text-sm text-muted-foreground leading-relaxed text-center">
+                  🚀 Cadastre-se agora e comece a <span className="text-primary font-semibold">lucrar</span> oferecendo apps premium aos seus clientes!
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 overflow-hidden">
-                <Globe className="w-3 h-3 flex-shrink-0" />
-                <span className="truncate">{gerenciaAppSettings?.panelUrl}</span>
-              </div>
-              
+              {/* Register Button - Main CTA */}
+              {gerenciaAppSettings?.registerUrl && (
+                <Button 
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02]"
+                  onClick={() => handleOpenPanel(gerenciaAppSettings.registerUrl)}
+                >
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  CADASTRAR E COMEÇAR A ATIVAR
+                </Button>
+              )}
+
+              {/* Access Panel - Secondary */}
               <div className="flex gap-2">
                 <Button 
-                  className="flex-1"
+                  variant="outline"
+                  className="flex-1 border-primary/30 hover:bg-primary/10"
                   onClick={() => handleOpenPanel(gerenciaAppSettings!.panelUrl)}
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
@@ -166,6 +189,7 @@ const Panels = () => {
                 <Button
                   variant="outline"
                   size="icon"
+                  className="border-primary/30 hover:bg-primary/10"
                   onClick={() => handleCopyUrl('gerencia-app', gerenciaAppSettings!.panelUrl)}
                 >
                   {copiedId === 'gerencia-app' ? (
@@ -175,17 +199,6 @@ const Panels = () => {
                   )}
                 </Button>
               </div>
-
-              {gerenciaAppSettings?.registerUrl && (
-                <Button 
-                  variant="secondary"
-                  className="w-full bg-primary/20 hover:bg-primary/30 text-primary font-semibold"
-                  onClick={() => handleOpenPanel(gerenciaAppSettings.registerUrl)}
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Cadastrar e Começar a Ativar
-                </Button>
-              )}
             </CardContent>
           </Card>
         )}
