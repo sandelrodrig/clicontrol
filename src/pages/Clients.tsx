@@ -1324,6 +1324,7 @@ export default function Clients() {
                   sellerId={user.id}
                   category={formData.category}
                   serverId={formData.server_id || undefined}
+                  planDurationDays={formData.plan_id ? plans.find(p => p.id === formData.plan_id)?.duration_days : undefined}
                   selectedCredit={selectedSharedCredit}
                   onSelect={handleSharedCreditSelect}
                 />

@@ -13,6 +13,7 @@ interface SharedCreditPickerProps {
   sellerId: string;
   category: string;
   serverId?: string; // Filter by selected server
+  planDurationDays?: number; // Filter by plan duration (30, 90, 180, 365)
   onSelect: (selection: SharedCreditSelection | null) => void;
   selectedCredit: SharedCreditSelection | null;
 }
@@ -63,10 +64,29 @@ const calculateProRataPrice = (monthlyPrice: number): { price: number; remaining
   return { price, remainingDays };
 };
 
+// Helper to get duration category from days
+const getDurationCategory = (days: number): 'monthly' | 'quarterly' | 'semiannual' | 'annual' | null => {
+  if (days <= 35) return 'monthly';
+  if (days <= 95) return 'quarterly';
+  if (days <= 185) return 'semiannual';
+  if (days <= 370) return 'annual';
+  return null;
+};
+
+// Helper to calculate remaining days from expiration date
+const getRemainingDaysFromExpiration = (expirationDate: string): number => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expDate = new Date(expirationDate);
+  expDate.setHours(0, 0, 0, 0);
+  return Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+};
+
 export function SharedCreditPicker({
   sellerId,
   category,
   serverId,
+  planDurationDays,
   onSelect,
   selectedCredit,
 }: SharedCreditPickerProps) {
@@ -190,10 +210,30 @@ export function SharedCreditPicker({
       });
     });
 
+    // Sort by expiration date (oldest first - ascending order)
+    slots.sort((a, b) => {
+      if (!a.expirationDate && !b.expirationDate) return 0;
+      if (!a.expirationDate) return 1;
+      if (!b.expirationDate) return -1;
+      return new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime();
+    });
+
     return slots;
   };
 
-  const availableSlots = getAvailableSlots();
+  // Get available slots and filter by plan duration if provided
+  const allAvailableSlots = getAvailableSlots();
+  
+  // Filter by plan duration category
+  const availableSlots = planDurationDays 
+    ? allAvailableSlots.filter(slot => {
+        if (!slot.expirationDate) return false;
+        const remainingDays = getRemainingDaysFromExpiration(slot.expirationDate);
+        const slotDuration = getDurationCategory(remainingDays);
+        const planDuration = getDurationCategory(planDurationDays);
+        return slotDuration === planDuration;
+      })
+    : allAvailableSlots;
 
   const handleSelect = useCallback(async (slot: typeof availableSlots[0], slotType: 'iptv' | 'p2p') => {
     setDecrypting(true);
@@ -243,14 +283,39 @@ export function SharedCreditPicker({
     return null;
   }
 
+  // Get duration label for display
+  const getDurationLabel = (days: number): string => {
+    const cat = getDurationCategory(days);
+    switch (cat) {
+      case 'monthly': return 'Mensais';
+      case 'quarterly': return 'Trimestrais';
+      case 'semiannual': return 'Semestrais';
+      case 'annual': return 'Anuais';
+      default: return '';
+    }
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-amber-500" />
-        <h3 className="font-semibold text-amber-600 dark:text-amber-400">
-          Vagas Disponíveis em Créditos Existentes
-        </h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-amber-500" />
+          <h3 className="font-semibold text-amber-600 dark:text-amber-400">
+            Vagas Disponíveis em Créditos
+          </h3>
+        </div>
+        {planDurationDays && (
+          <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">
+            Planos {getDurationLabel(planDurationDays)}
+          </Badge>
+        )}
       </div>
+      
+      {/* Info about ordering */}
+      <p className="text-xs text-muted-foreground flex items-center gap-1">
+        <Calendar className="h-3 w-3" />
+        Ordenado por vencimento mais próximo (vagas mais antigas primeiro)
+      </p>
 
       {selectedCredit ? (
         <Card className="border-2 border-success bg-success/5">
@@ -308,13 +373,35 @@ export function SharedCreditPicker({
                 className="border-2 border-dashed border-amber-500/30 hover:border-amber-500/50 transition-colors"
               >
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <p className="font-bold text-lg">{slot.server.name}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Users className="h-3 w-3" />
-                        <span>Com: {slot.clientNames.join(', ')}</span>
-                      </div>
+                  {/* Header with server name and expiration badge */}
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-bold text-lg">{slot.server.name}</p>
+                    {slot.expirationDate && (
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-xs",
+                          getRemainingDaysFromExpiration(slot.expirationDate) <= 7 
+                            ? "border-destructive text-destructive" 
+                            : "border-amber-500 text-amber-600"
+                        )}
+                      >
+                        <Calendar className="h-3 w-3 mr-1" />
+                        Vence: {new Date(slot.expirationDate).toLocaleDateString('pt-BR')}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  {/* Clients sharing this credit */}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                    <Users className="h-3 w-3" />
+                    <span>Compartilhado com: {slot.clientNames.join(', ')}</span>
+                  </div>
+
+                  {/* Pricing info */}
+                  <div className="flex items-center justify-between mb-3 p-2 rounded bg-muted/30">
+                    <div className="text-xs text-muted-foreground">
+                      Crédito: {totalUsed} de {totalSlots} telas usadas
                     </div>
                     <div className="text-right">
                       {slot.server.credit_price > 0 && (
@@ -322,19 +409,13 @@ export function SharedCreditPicker({
                           R$ {slot.server.credit_price.toFixed(2)}/mês
                         </p>
                       )}
-                      <p className="text-xl font-bold text-success">
+                      <p className="text-lg font-bold text-success">
                         R$ {proRataCalc.price.toFixed(2)}
                       </p>
-                      <p className="text-xs text-amber-500 flex items-center justify-end gap-1">
-                        <Calendar className="h-3 w-3" />
-                        só {proRataCalc.remainingDays} dias
+                      <p className="text-xs text-amber-500">
+                        ({proRataCalc.remainingDays} dias restantes do mês)
                       </p>
                     </div>
-                  </div>
-
-                  {/* Summary of credit usage */}
-                  <div className="text-xs text-muted-foreground mb-3 p-2 rounded bg-muted/50">
-                    Crédito: {totalUsed} de {totalSlots} telas usadas
                   </div>
 
                   {/* IPTV Slots */}
