@@ -128,6 +128,7 @@ export default function Clients() {
   const [decryptedCredentials, setDecryptedCredentials] = useState<DecryptedCredentials>({});
   const [decrypting, setDecrypting] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [serverFilter, setServerFilter] = useState<string>('all');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -767,6 +768,11 @@ export default function Clients() {
 
     // Filter by category
     if (categoryFilter !== 'all' && client.category !== categoryFilter) {
+      return false;
+    }
+
+    // Filter by server
+    if (serverFilter !== 'all' && client.server_id !== serverFilter) {
       return false;
     }
 
@@ -1464,6 +1470,39 @@ export default function Clients() {
             })}
           </div>
         </div>
+
+        {/* Server Filter - Discrete dropdown */}
+        {servers.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Server className="h-4 w-4 text-muted-foreground" />
+            <Select value={serverFilter} onValueChange={setServerFilter}>
+              <SelectTrigger className="w-[180px] h-8 text-sm">
+                <SelectValue placeholder="Filtrar servidor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os servidores</SelectItem>
+                {servers.map((server) => {
+                  const count = clients.filter(c => c.server_id === server.id).length;
+                  return (
+                    <SelectItem key={server.id} value={server.id}>
+                      {server.name} ({count})
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            {serverFilter !== 'all' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setServerFilter('all')}
+                className="h-8 px-2 text-xs"
+              >
+                Limpar
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Status Filter Tabs */}
         <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterType)} className="w-full">
