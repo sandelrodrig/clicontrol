@@ -68,9 +68,13 @@ export function MonthlyProfitHistory({
   const today = startOfToday();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
+  const currentDay = today.getDate();
 
   // Check if we can show delete button (January 1st to January 31st)
   const canDeleteYearHistory = currentMonth === 1;
+  
+  // Check if it's the first day of the month (reminder to save last month)
+  const isFirstDayOfMonth = currentDay === 1;
 
   // Fetch profit history
   const { data: profitHistory = [], isLoading } = useQuery({
@@ -93,6 +97,16 @@ export function MonthlyProfitHistory({
   const currentMonthData = profitHistory.find(
     p => p.month === currentMonth && p.year === currentYear
   );
+  
+  // Get last month info
+  const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+  const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+  const lastMonthData = profitHistory.find(
+    p => p.month === lastMonth && p.year === lastMonthYear
+  );
+  
+  // Check if last month was saved
+  const lastMonthSaved = !!lastMonthData;
 
   // Get previous months for current year
   const currentYearProfits = profitHistory.filter(p => p.year === currentYear);
@@ -210,15 +224,33 @@ export function MonthlyProfitHistory({
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Current Month Save Button */}
+        {/* Reminder to save last month if it's the first day */}
+        {isFirstDayOfMonth && !lastMonthSaved && (
+          <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
+            <p className="text-sm font-medium text-warning flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Novo mês! Lembre-se de salvar o lucro de {MONTH_NAMES[lastMonth - 1]} {lastMonthYear}.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              O lucro do mês anterior não foi salvo ainda. Verifique os dados e salve antes de continuar.
+            </p>
+          </div>
+        )}
+
+        {/* Current Month Info */}
         <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
           <div>
             <p className="font-medium">
               {MONTH_NAMES[currentMonth - 1]} {currentYear}
             </p>
             <p className="text-sm text-muted-foreground">
-              Lucro atual: {maskData(`R$ ${currentNetProfit.toFixed(2)}`, 'money')}
+              Lucro do mês atual: {maskData(`R$ ${currentNetProfit.toFixed(2)}`, 'money')}
             </p>
+            {currentMonthData && (
+              <p className="text-xs text-success mt-1">
+                Último salvamento: {format(new Date(currentMonthData.closed_at!), "dd/MM 'às' HH:mm", { locale: ptBR })}
+              </p>
+            )}
           </div>
           <Button
             onClick={() => saveCurrentMonth.mutate()}
