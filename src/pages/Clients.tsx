@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { SendMessageDialog } from '@/components/SendMessageDialog';
 import { PlanSelector } from '@/components/PlanSelector';
 import { SharedCreditPicker, SharedCreditSelection } from '@/components/SharedCreditPicker';
+import { Badge } from '@/components/ui/badge';
 
 interface Client {
   id: string;
@@ -861,8 +862,69 @@ export default function Clients() {
     expired: 'Vencido',
   };
 
+  // Fetch GerenciaApp settings for banner
+  const { data: gerenciaAppSettings } = useQuery({
+    queryKey: ['gerencia-app-settings-clients'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['gerencia_app_panel_url', 'gerencia_app_register_url']);
+      
+      if (error) throw error;
+      
+      const settings: { panelUrl: string; registerUrl: string } = {
+        panelUrl: '',
+        registerUrl: ''
+      };
+      
+      data?.forEach(item => {
+        if (item.key === 'gerencia_app_panel_url') settings.panelUrl = item.value;
+        if (item.key === 'gerencia_app_register_url') settings.registerUrl = item.value;
+      });
+      
+      return settings;
+    },
+  });
+
+  const hasGerenciaApp = gerenciaAppSettings?.registerUrl && gerenciaAppSettings.registerUrl.trim() !== '';
+
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* GerenciaApp Banner */}
+      {hasGerenciaApp && (
+        <Card className="border-2 border-primary bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="p-4 relative">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg flex-shrink-0">
+                  <Smartphone className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <div className="text-center sm:text-left">
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <h3 className="font-bold text-lg">GerenciaApp</h3>
+                    <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-xs font-bold animate-pulse">
+                      ♾️ ILIMITADO
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Ative apps Premium na Play Store por apenas <span className="text-primary font-bold text-base">R$ 40/mês</span>
+                  </p>
+                </div>
+              </div>
+              <Button 
+                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02] flex-shrink-0"
+                onClick={() => window.open(gerenciaAppSettings?.registerUrl, '_blank')}
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                CADASTRAR AGORA
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

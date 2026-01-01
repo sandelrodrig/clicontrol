@@ -92,96 +92,75 @@ const Panels = () => {
     );
   }
 
-  const hasGerenciaApp = gerenciaAppSettings?.panelUrl && gerenciaAppSettings.panelUrl.trim() !== '';
+  const hasGerenciaApp = gerenciaAppSettings?.registerUrl && gerenciaAppSettings.registerUrl.trim() !== '';
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Painéis</h1>
-            <p className="text-muted-foreground text-sm">
-              Acesse rapidamente os painéis dos seus servidores
-            </p>
-          </div>
+      {/* GerenciaApp Card - PRIMEIRO NO TOPO */}
+      {hasGerenciaApp && (
+        <Card className="border-2 border-primary bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 overflow-hidden relative shadow-lg shadow-primary/20">
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/15 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
           
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar painel..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        {/* GerenciaApp Card - Special Panel - DESTAQUE */}
-        {hasGerenciaApp && (
-          <Card className="border-2 border-primary bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 overflow-hidden relative shadow-lg shadow-primary/20">
-            {/* Decorative elements */}
-            <div className="absolute top-0 right-0 w-40 h-40 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/15 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
-            
-            <CardHeader className="pb-2 relative">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
-                    <Smartphone className="w-7 h-7 text-primary-foreground" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl font-bold">GerenciaApp</CardTitle>
-                    <CardDescription className="text-primary/80 font-medium">Ativação de apps na Play Store</CardDescription>
-                  </div>
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
+                  <Smartphone className="w-7 h-7 text-primary-foreground" />
                 </div>
-                <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 px-3 py-1 text-sm font-bold animate-pulse">
-                  ♾️ ILIMITADO
-                </Badge>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="pt-0 space-y-4 relative">
-              {/* Price Highlight */}
-              <div className="bg-gradient-to-r from-primary via-primary/90 to-primary rounded-xl p-4 text-center shadow-lg">
-                <p className="text-primary-foreground/90 text-sm font-medium mb-1">
-                  Ative apps Premium direto na Play Store!
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-primary-foreground/80 text-lg">Por apenas</span>
-                  <span className="text-4xl font-black text-primary-foreground">R$ 40</span>
-                  <span className="text-primary-foreground/80 text-lg">/mês</span>
-                </div>
-                <div className="flex items-center justify-center gap-2 mt-2">
-                  <span className="text-2xl">♾️</span>
-                  <span className="text-primary-foreground font-bold text-lg">Ativações Ilimitadas!</span>
+                <div>
+                  <CardTitle className="text-xl font-bold">GerenciaApp</CardTitle>
+                  <CardDescription className="text-primary/80 font-medium">Ativação de apps na Play Store</CardDescription>
                 </div>
               </div>
-
-              {/* Benefits */}
-              <div className="bg-card/50 rounded-lg p-3 border border-primary/20">
-                <p className="text-sm text-muted-foreground leading-relaxed text-center">
-                  🚀 Cadastre-se agora e comece a <span className="text-primary font-semibold">lucrar</span> oferecendo apps premium aos seus clientes!
-                </p>
+              <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 px-3 py-1 text-sm font-bold animate-pulse">
+                ♾️ ILIMITADO
+              </Badge>
+            </div>
+          </CardHeader>
+          
+          <CardContent className="pt-0 space-y-4 relative">
+            {/* Price Highlight */}
+            <div className="bg-gradient-to-r from-primary via-primary/90 to-primary rounded-xl p-4 text-center shadow-lg">
+              <p className="text-primary-foreground/90 text-sm font-medium mb-1">
+                🚀 Ative apps Premium direto na Play Store!
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-primary-foreground/80 text-lg">Por apenas</span>
+                <span className="text-4xl font-black text-primary-foreground">R$ 40</span>
+                <span className="text-primary-foreground/80 text-lg">/mês</span>
               </div>
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <span className="text-2xl">♾️</span>
+                <span className="text-primary-foreground font-bold text-lg">Ativações Ilimitadas!</span>
+              </div>
+            </div>
 
-              {/* Register Button - Main CTA */}
-              {gerenciaAppSettings?.registerUrl && (
-                <Button 
-                  size="lg"
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02]"
-                  onClick={() => handleOpenPanel(gerenciaAppSettings.registerUrl)}
-                >
-                  <UserPlus className="w-5 h-5 mr-2" />
-                  CADASTRAR E COMEÇAR A ATIVAR
-                </Button>
-              )}
+            {/* Benefits */}
+            <div className="bg-card/50 rounded-lg p-3 border border-primary/20">
+              <p className="text-sm text-muted-foreground leading-relaxed text-center">
+                Cadastre-se agora e comece a <span className="text-primary font-semibold">lucrar</span> oferecendo apps premium aos seus clientes! Sem limites de ativações.
+              </p>
+            </div>
 
-              {/* Access Panel - Secondary */}
+            {/* Register Button - Main CTA */}
+            <Button 
+              size="lg"
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02]"
+              onClick={() => handleOpenPanel(gerenciaAppSettings!.registerUrl)}
+            >
+              <UserPlus className="w-5 h-5 mr-2" />
+              CADASTRAR E COMEÇAR A ATIVAR
+            </Button>
+
+            {/* Access Panel - Secondary */}
+            {gerenciaAppSettings?.panelUrl && (
               <div className="flex gap-2">
                 <Button 
                   variant="outline"
                   className="flex-1 border-primary/30 hover:bg-primary/10"
-                  onClick={() => handleOpenPanel(gerenciaAppSettings!.panelUrl)}
+                  onClick={() => handleOpenPanel(gerenciaAppSettings.panelUrl)}
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
                   Acessar Painel
@@ -190,7 +169,7 @@ const Panels = () => {
                   variant="outline"
                   size="icon"
                   className="border-primary/30 hover:bg-primary/10"
-                  onClick={() => handleCopyUrl('gerencia-app', gerenciaAppSettings!.panelUrl)}
+                  onClick={() => handleCopyUrl('gerencia-app', gerenciaAppSettings.panelUrl)}
                 >
                   {copiedId === 'gerencia-app' ? (
                     <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -199,103 +178,124 @@ const Panels = () => {
                   )}
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Panels Grid */}
-        {filteredServers.length === 0 && !hasGerenciaApp ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-              <Globe className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <h3 className="font-medium text-foreground mb-2">
-                {search ? 'Nenhum painel encontrado' : 'Nenhum painel configurado'}
-              </h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                {search 
-                  ? 'Tente buscar por outro termo'
-                  : 'Configure URLs de painel nos seus servidores para acessá-los aqui rapidamente'
-                }
-              </p>
-            </CardContent>
-          </Card>
-        ) : filteredServers.length > 0 && (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredServers.map((server) => (
-              <Card 
-                key={server.id} 
-                className="group hover:shadow-lg hover:border-primary/30 transition-all duration-200"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      {server.icon_url ? (
-                        <img 
-                          src={server.icon_url} 
-                          alt={server.name}
-                          className="w-10 h-10 rounded-lg object-cover border border-border"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Server className="w-5 h-5 text-primary" />
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Painéis</h1>
+          <p className="text-muted-foreground text-sm">
+            Acesse rapidamente os painéis dos seus servidores
+          </p>
+        </div>
+        
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar painel..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      {/* Panels Grid */}
+      {filteredServers.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <Globe className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 className="font-medium text-foreground mb-2">
+              {search ? 'Nenhum painel encontrado' : 'Nenhum painel de servidor configurado'}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              {search 
+                ? 'Tente buscar por outro termo'
+                : 'Configure URLs de painel nos seus servidores para acessá-los aqui rapidamente'
+              }
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredServers.map((server) => (
+            <Card 
+              key={server.id} 
+              className="group hover:shadow-lg hover:border-primary/30 transition-all duration-200"
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {server.icon_url ? (
+                      <img 
+                        src={server.icon_url} 
+                        alt={server.name}
+                        className="w-10 h-10 rounded-lg object-cover border border-border"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Server className="w-5 h-5 text-primary" />
+                      </div>
+                    )}
+                    <div>
+                      <CardTitle className="text-base">{server.name}</CardTitle>
+                      {server.is_credit_based && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Badge variant="secondary" className="text-xs">
+                            <Tv className="w-3 h-3 mr-1" />
+                            {server.used_credits || 0}/{server.total_credits || 0} créditos
+                          </Badge>
                         </div>
                       )}
-                      <div>
-                        <CardTitle className="text-base">{server.name}</CardTitle>
-                        {server.is_credit_based && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <Badge variant="secondary" className="text-xs">
-                              <Tv className="w-3 h-3 mr-1" />
-                              {server.used_credits || 0}/{server.total_credits || 0} créditos
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
                     </div>
-                    <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
-                      Ativo
-                    </Badge>
                   </div>
-                </CardHeader>
-                <CardContent className="pt-0 space-y-3">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 overflow-hidden">
-                    <Globe className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">{server.panel_url}</span>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button 
-                      className="flex-1"
-                      onClick={() => handleOpenPanel(server.panel_url!)}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Acessar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleCopyUrl(server.id, server.panel_url!)}
-                    >
-                      {copiedId === server.id ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                  <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
+                    Ativo
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 overflow-hidden">
+                  <Globe className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">{server.panel_url}</span>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    className="flex-1"
+                    onClick={() => handleOpenPanel(server.panel_url!)}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Acessar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleCopyUrl(server.id, server.panel_url!)}
+                  >
+                    {copiedId === server.id ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-        {/* Quick Stats */}
-        {(servers.length > 0 || hasGerenciaApp) && (
-          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-            <span>{servers.length + (hasGerenciaApp ? 1 : 0)} painel(is) configurado(s)</span>
-          </div>
-        )}
-      </div>
+      {/* Quick Stats */}
+      {servers.length > 0 && (
+        <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+          <span>{servers.length} painel(is) de servidor configurado(s)</span>
+        </div>
+      )}
+    </div>
   );
 };
 
