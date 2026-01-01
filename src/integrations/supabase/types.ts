@@ -335,6 +335,51 @@ export type Database = {
           },
         ]
       }
+      monthly_profits: {
+        Row: {
+          active_clients: number
+          bills_costs: number
+          closed_at: string | null
+          created_at: string
+          id: string
+          month: number
+          net_profit: number
+          revenue: number
+          seller_id: string
+          server_costs: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          active_clients?: number
+          bills_costs?: number
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          month: number
+          net_profit?: number
+          revenue?: number
+          seller_id: string
+          server_costs?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          active_clients?: number
+          bills_costs?: number
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          month?: number
+          net_profit?: number
+          revenue?: number
+          seller_id?: string
+          server_costs?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       panel_clients: {
         Row: {
           assigned_at: string | null

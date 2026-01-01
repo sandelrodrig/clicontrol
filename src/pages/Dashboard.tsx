@@ -1,6 +1,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { StatCard } from '@/components/dashboard/StatCard';
+import { MonthlyProfitHistory } from '@/components/dashboard/MonthlyProfitHistory';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp, Bell, Send, Copy, ExternalLink, Timer, Server, Trash2, Archive } from 'lucide-react';
@@ -99,6 +100,22 @@ export default function Dashboard() {
     enabled: !!user?.id && isSeller,
   });
 
+  // Fetch bills to pay for total costs
+  const { data: billsData = [] } = useQuery({
+    queryKey: ['bills-dashboard', user?.id],
+    queryFn: async () => {
+      if (!user?.id || !isSeller) return [];
+      const { data, error } = await supabase
+        .from('bills_to_pay')
+        .select('amount, is_paid')
+        .eq('seller_id', user.id)
+        .eq('is_paid', false);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id && isSeller,
+  });
+
   const { data: sellers = [] } = useQuery({
     queryKey: ['sellers-count'],
     queryFn: async () => {
@@ -151,8 +168,11 @@ export default function Dashboard() {
   // Total server costs
   const totalServerCosts = serversData.reduce((sum, s) => sum + (s.monthly_cost || 0), 0);
   
-  // Net profit
-  const netProfit = totalRevenue - totalServerCosts;
+  // Total bills costs
+  const totalBillsCosts = billsData.reduce((sum, b) => sum + Number(b.amount || 0), 0);
+  
+  // Net profit (revenue - server costs - bills)
+  const netProfit = totalRevenue - totalServerCosts - totalBillsCosts;
 
   // Calculate profit per server
   const serverProfits = serversData.map(server => {
@@ -490,6 +510,20 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Monthly Profit History */}
+          {user?.id && (
+            <MonthlyProfitHistory
+              sellerId={user.id}
+              currentRevenue={totalRevenue}
+              currentServerCosts={totalServerCosts}
+              currentBillsCosts={totalBillsCosts}
+              currentNetProfit={netProfit}
+              currentActiveClients={activeClients.length}
+              isPrivacyMode={isPrivacyMode}
+              maskData={maskData}
+            />
+          )}
 
           {/* Server Profits Section */}
           {serverProfits.length > 0 && (
