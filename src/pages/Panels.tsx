@@ -118,16 +118,19 @@ const Panels = () => {
 
         {/* GerenciaApp Card - Special Panel */}
         {hasGerenciaApp && (
-          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
-            <CardHeader className="pb-3">
+          <Card className="border-primary/30 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 overflow-hidden relative">
+            {/* Decorative element */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            
+            <CardHeader className="pb-3 relative">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center animate-pulse">
                     <Smartphone className="w-6 h-6 text-primary" />
                   </div>
                   <div>
                     <CardTitle className="text-lg">GerenciaApp</CardTitle>
-                    <CardDescription>Painel de gerenciamento de apps</CardDescription>
+                    <CardDescription>Ativação de apps na Play Store</CardDescription>
                   </div>
                 </div>
                 <Badge className="bg-primary text-primary-foreground">
@@ -135,7 +138,18 @@ const Panels = () => {
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 space-y-3">
+            <CardContent className="pt-0 space-y-4 relative">
+              {/* Persuasive Text */}
+              <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-lg p-3 border-l-4 border-primary">
+                <p className="text-sm font-medium text-foreground leading-relaxed">
+                  🚀 <span className="text-primary font-semibold">Ative apps Premium direto na Play Store!</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ativações ilimitadas por apenas <span className="text-primary font-bold">R$ 40/mês</span>. 
+                  Cadastre-se agora e comece a lucrar oferecendo apps premium aos seus clientes!
+                </p>
+              </div>
+
               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg p-2 overflow-hidden">
                 <Globe className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{gerenciaAppSettings?.panelUrl}</span>
@@ -164,12 +178,12 @@ const Panels = () => {
 
               {gerenciaAppSettings?.registerUrl && (
                 <Button 
-                  variant="outline"
-                  className="w-full"
+                  variant="secondary"
+                  className="w-full bg-primary/20 hover:bg-primary/30 text-primary font-semibold"
                   onClick={() => handleOpenPanel(gerenciaAppSettings.registerUrl)}
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
-                  Cadastrar no GerenciaApp
+                  Cadastrar e Começar a Ativar
                 </Button>
               )}
             </CardContent>
