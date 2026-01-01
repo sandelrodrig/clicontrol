@@ -8,7 +8,7 @@ import { Users, UserCheck, Clock, AlertTriangle, DollarSign, TrendingUp, Bell, S
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays } from 'date-fns';
+import { format, addDays, isBefore, isAfter, startOfToday, differenceInDays, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -38,6 +38,7 @@ interface Client {
   server_id: string | null;
   telegram: string | null;
   is_archived: boolean | null;
+  renewed_at: string | null;
 }
 
 interface ServerData {
@@ -145,6 +146,7 @@ export default function Dashboard() {
 
   const today = startOfToday();
   const nextWeek = addDays(today, 7);
+  const monthStart = startOfMonth(today);
 
   // Seller stats
   const activeClients = clients.filter(c => 
@@ -158,12 +160,17 @@ export default function Dashboard() {
   const expiredClients = clients.filter(c => isBefore(new Date(c.expiration_date), today));
   const unpaidClients = clients.filter(c => !c.is_paid);
 
-  // Only count active (not expired) and paid clients for revenue
-  const activeRevenue = clients
-    .filter(c => !isBefore(new Date(c.expiration_date), today) && c.is_paid)
-    .reduce((sum, c) => sum + (c.plan_price || 0), 0);
+  // Count clients renewed this month (for monthly revenue)
+  const clientsRenewedThisMonth = clients.filter(c => {
+    if (!c.renewed_at || !c.is_paid) return false;
+    const renewedDate = new Date(c.renewed_at);
+    return !isBefore(renewedDate, monthStart) && !isBefore(new Date(c.expiration_date), today);
+  });
 
-  const totalRevenue = activeRevenue;
+  // Monthly revenue: only clients renewed this month
+  const monthlyRevenue = clientsRenewedThisMonth.reduce((sum, c) => sum + (c.plan_price || 0), 0);
+
+  const totalRevenue = monthlyRevenue;
 
   // Total server costs
   const totalServerCosts = serversData.reduce((sum, s) => sum + (s.monthly_cost || 0), 0);
@@ -174,13 +181,13 @@ export default function Dashboard() {
   // Net profit (revenue - server costs - bills)
   const netProfit = totalRevenue - totalServerCosts - totalBillsCosts;
 
-  // Calculate profit per server
+  // Calculate profit per server (based on monthly renewals)
   const serverProfits = serversData.map(server => {
-    const serverClients = clients.filter(c => 
-      c.server_id === server.id && 
-      !isBefore(new Date(c.expiration_date), today) &&
-      c.is_paid
-    );
+    const serverClients = clients.filter(c => {
+      if (c.server_id !== server.id || !c.is_paid || !c.renewed_at) return false;
+      const renewedDate = new Date(c.renewed_at);
+      return !isBefore(renewedDate, monthStart) && !isBefore(new Date(c.expiration_date), today);
+    });
     const serverRevenue = serverClients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
     const serverCost = server.monthly_cost || 0;
     const serverProfit = serverRevenue - serverCost;
@@ -197,13 +204,13 @@ export default function Dashboard() {
   // Get all unique categories from clients
   const allCategories = [...new Set(clients.map(c => c.category || 'Sem categoria'))];
 
-  // Calculate revenue per category
+  // Calculate revenue per category (based on monthly renewals)
   const categoryProfits = allCategories.map(category => {
-    const categoryClients = clients.filter(c => 
-      (c.category || 'Sem categoria') === category && 
-      !isBefore(new Date(c.expiration_date), today) &&
-      c.is_paid
-    );
+    const categoryClients = clients.filter(c => {
+      if ((c.category || 'Sem categoria') !== category || !c.is_paid || !c.renewed_at) return false;
+      const renewedDate = new Date(c.renewed_at);
+      return !isBefore(renewedDate, monthStart) && !isBefore(new Date(c.expiration_date), today);
+    });
     const categoryRevenue = categoryClients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
     const totalCategoryClients = clients.filter(c => (c.category || 'Sem categoria') === category).length;
     

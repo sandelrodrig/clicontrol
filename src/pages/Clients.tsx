@@ -301,6 +301,7 @@ export default function Clients() {
         login: encrypted.login,
         password: encrypted.password,
         seller_id: user!.id,
+        renewed_at: new Date().toISOString(), // Track creation as first renewal for monthly profit
       }]).select('id').single();
       if (error) throw error;
       
@@ -703,6 +704,7 @@ export default function Clients() {
     
     updateData.expiration_date = format(newDate, 'yyyy-MM-dd');
     updateData.is_paid = true;
+    updateData.renewed_at = new Date().toISOString(); // Track renewal date for monthly profit
     
     updateMutation.mutate({ 
       id: renewClient.id, 
