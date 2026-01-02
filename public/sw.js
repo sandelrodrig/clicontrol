@@ -1,8 +1,7 @@
-const CACHE_NAME = 'controle-v3';
+const CACHE_NAME = 'controle-v4';
 const DATA_CACHE_NAME = 'controle-data-v1';
 
 const STATIC_ASSETS = [
-  '/',
   '/index.html',
   '/manifest.json',
   '/icon-192.png',
@@ -113,12 +112,19 @@ self.addEventListener('fetch', (event) => {
   
   const url = new URL(event.request.url);
   
-  // Handle navigation requests - always serve index.html for SPA routing
+  // Handle navigation requests - network first for index.html (prevents stale app after deploy)
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match('/index.html').then((cached) => {
-        return cached || fetch(event.request).catch(() => cached);
-      })
+      fetch('/index.html', { cache: 'no-store' })
+        .then((response) => {
+          if (!response || response.status !== 200) return response;
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put('/index.html', responseClone);
+          });
+          return response;
+        })
+        .catch(() => caches.match('/index.html'))
     );
     return;
   }
