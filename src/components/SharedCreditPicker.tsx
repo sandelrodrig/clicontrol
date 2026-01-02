@@ -295,6 +295,203 @@ export function SharedCreditPicker({
     }
   };
 
+  // Group slots by duration category for organized display
+  const groupSlotsByDuration = () => {
+    const groups: Record<string, typeof availableSlots> = {
+      monthly: [],
+      quarterly: [],
+      semiannual: [],
+      annual: [],
+      unknown: [],
+    };
+
+    availableSlots.forEach(slot => {
+      if (!slot.expirationDate) {
+        groups.unknown.push(slot);
+        return;
+      }
+      const remainingDays = getRemainingDaysFromExpiration(slot.expirationDate);
+      const category = getDurationCategory(remainingDays);
+      if (category) {
+        groups[category].push(slot);
+      } else {
+        groups.unknown.push(slot);
+      }
+    });
+
+    return groups;
+  };
+
+  const groupedSlots = groupSlotsByDuration();
+
+  const durationConfig = [
+    { key: 'monthly', label: 'Mensais (~30 dias)', icon: '📅', color: 'blue' },
+    { key: 'quarterly', label: 'Trimestrais (~90 dias)', icon: '📆', color: 'purple' },
+    { key: 'semiannual', label: 'Semestrais (~180 dias)', icon: '🗓️', color: 'orange' },
+    { key: 'annual', label: 'Anuais (~365 dias)', icon: '📅', color: 'green' },
+  ];
+
+  const renderSlotCard = (slot: typeof availableSlots[0], index: number) => {
+    const proRataCalc = calculateProRataPrice(slot.server.credit_price);
+    const totalUsed = slot.iptvUsed + slot.p2pUsed;
+    const totalSlots = slot.iptvTotal + slot.p2pTotal;
+    
+    return (
+      <Card 
+        key={`${slot.server.id}-${slot.login}-${index}`} 
+        className="border-2 border-dashed border-amber-500/30 hover:border-amber-500/50 transition-colors"
+      >
+        <CardContent className="p-4">
+          {/* Header with server name and expiration badge */}
+          <div className="flex items-center justify-between mb-2">
+            <p className="font-bold text-lg">{slot.server.name}</p>
+            {slot.expirationDate && (
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-xs",
+                  getRemainingDaysFromExpiration(slot.expirationDate) <= 7 
+                    ? "border-destructive text-destructive" 
+                    : "border-amber-500 text-amber-600"
+                )}
+              >
+                <Calendar className="h-3 w-3 mr-1" />
+                Vence: {new Date(slot.expirationDate).toLocaleDateString('pt-BR')}
+              </Badge>
+            )}
+          </div>
+          
+          {/* Clients sharing this credit */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+            <Users className="h-3 w-3" />
+            <span>Compartilhado com: {slot.clientNames.join(', ')}</span>
+          </div>
+
+          {/* Pricing info */}
+          <div className="flex items-center justify-between mb-3 p-2 rounded bg-muted/30">
+            <div className="text-xs text-muted-foreground">
+              Crédito: {totalUsed} de {totalSlots} telas usadas
+            </div>
+            <div className="text-right">
+              {slot.server.credit_price > 0 && (
+                <p className="text-xs text-muted-foreground line-through">
+                  R$ {slot.server.credit_price.toFixed(2)}/mês
+                </p>
+              )}
+              <p className="text-lg font-bold text-success">
+                R$ {proRataCalc.price.toFixed(2)}
+              </p>
+              <p className="text-xs text-amber-500">
+                ({proRataCalc.remainingDays} dias restantes do mês)
+              </p>
+            </div>
+          </div>
+
+          {/* IPTV Slots */}
+          {slot.iptvTotal > 0 && (
+            <div className={cn(
+              "p-3 rounded-lg border-2 mb-2",
+              "border-blue-500/50 bg-blue-500/5",
+              categorySlotType === 'iptv' && "ring-2 ring-blue-500 ring-offset-2"
+            )}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Monitor className="h-4 w-4 text-blue-500" />
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                    IPTV / SSH
+                  </span>
+                  {categorySlotType === 'iptv' && (
+                    <Badge variant="outline" className="text-[10px] border-blue-500 text-blue-500">
+                      Recomendado
+                    </Badge>
+                  )}
+                </div>
+                <Badge 
+                  variant={slot.iptvAvailable > 0 ? "default" : "secondary"}
+                  className={slot.iptvAvailable > 0 ? "bg-blue-500" : ""}
+                >
+                  {slot.iptvAvailable} {slot.iptvAvailable === 1 ? 'vaga' : 'vagas'}
+                </Badge>
+              </div>
+              
+              <p className="text-xs text-muted-foreground mb-3">
+                {slot.iptvUsed} de {slot.iptvTotal} usado(s)
+              </p>
+
+              <Button
+                type="button"
+                size="sm"
+                disabled={decrypting || slot.iptvAvailable <= 0}
+                className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
+                onClick={() => handleSelect(slot, 'iptv')}
+              >
+                {decrypting ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Monitor className="h-4 w-4 mr-1" />
+                )}
+                {decrypting ? 'Carregando...' : slot.iptvAvailable > 0 ? 'Usar vaga IPTV' : 'Sem vagas'}
+              </Button>
+            </div>
+          )}
+
+          {/* P2P Slots */}
+          {slot.p2pTotal > 0 && (
+            <div className={cn(
+              "p-3 rounded-lg border-2 mb-3",
+              "border-green-500/50 bg-green-500/5",
+              categorySlotType === 'p2p' && "ring-2 ring-green-500 ring-offset-2"
+            )}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Wifi className="h-4 w-4 text-green-500" />
+                  <span className="font-semibold text-green-600 dark:text-green-400">
+                    P2P
+                  </span>
+                  {categorySlotType === 'p2p' && (
+                    <Badge variant="outline" className="text-[10px] border-green-500 text-green-500">
+                      Recomendado
+                    </Badge>
+                  )}
+                </div>
+                <Badge 
+                  variant={slot.p2pAvailable > 0 ? "default" : "secondary"}
+                  className={slot.p2pAvailable > 0 ? "bg-green-500" : ""}
+                >
+                  {slot.p2pAvailable} {slot.p2pAvailable === 1 ? 'vaga' : 'vagas'}
+                </Badge>
+              </div>
+              
+              <p className="text-xs text-muted-foreground mb-3">
+                {slot.p2pUsed} de {slot.p2pTotal} usado(s)
+              </p>
+
+              <Button
+                type="button"
+                size="sm"
+                disabled={decrypting || slot.p2pAvailable <= 0}
+                className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50"
+                onClick={() => handleSelect(slot, 'p2p')}
+              >
+                {decrypting ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Wifi className="h-4 w-4 mr-1" />
+                )}
+                {decrypting ? 'Carregando...' : slot.p2pAvailable > 0 ? 'Usar vaga P2P' : 'Sem vagas'}
+              </Button>
+            </div>
+          )}
+
+          <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+            <Sparkles className="h-3 w-3" />
+            Credenciais serão compartilhadas automaticamente
+          </p>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -314,7 +511,9 @@ export function SharedCreditPicker({
       {/* Info about ordering */}
       <p className="text-xs text-muted-foreground flex items-center gap-1">
         <Calendar className="h-3 w-3" />
-        Ordenado por vencimento mais próximo (vagas mais antigas primeiro)
+        {planDurationDays 
+          ? 'Mostrando apenas vagas compatíveis com o plano selecionado'
+          : 'Organizado por período de vencimento'}
       </p>
 
       {selectedCredit ? (
@@ -360,166 +559,38 @@ export function SharedCreditPicker({
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : planDurationDays ? (
+        // When plan is selected, show filtered list
         <div className="space-y-3">
-          {availableSlots.map((slot, index) => {
-            const proRataCalc = calculateProRataPrice(slot.server.credit_price);
-            const totalUsed = slot.iptvUsed + slot.p2pUsed;
-            const totalSlots = slot.iptvTotal + slot.p2pTotal;
+          {availableSlots.map((slot, index) => renderSlotCard(slot, index))}
+          {availableSlots.length === 0 && (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              Nenhuma vaga disponível para planos {getDurationLabel(planDurationDays).toLowerCase()}
+            </div>
+          )}
+        </div>
+      ) : (
+        // When no plan is selected, show organized by duration
+        <div className="space-y-4">
+          {durationConfig.map(({ key, label, icon }) => {
+            const slots = groupedSlots[key];
+            if (slots.length === 0) return null;
             
             return (
-              <Card 
-                key={`${slot.server.id}-${slot.login}-${index}`} 
-                className="border-2 border-dashed border-amber-500/30 hover:border-amber-500/50 transition-colors"
-              >
-                <CardContent className="p-4">
-                  {/* Header with server name and expiration badge */}
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-bold text-lg">{slot.server.name}</p>
-                    {slot.expirationDate && (
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "text-xs",
-                          getRemainingDaysFromExpiration(slot.expirationDate) <= 7 
-                            ? "border-destructive text-destructive" 
-                            : "border-amber-500 text-amber-600"
-                        )}
-                      >
-                        <Calendar className="h-3 w-3 mr-1" />
-                        Vence: {new Date(slot.expirationDate).toLocaleDateString('pt-BR')}
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  {/* Clients sharing this credit */}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-                    <Users className="h-3 w-3" />
-                    <span>Compartilhado com: {slot.clientNames.join(', ')}</span>
-                  </div>
-
-                  {/* Pricing info */}
-                  <div className="flex items-center justify-between mb-3 p-2 rounded bg-muted/30">
-                    <div className="text-xs text-muted-foreground">
-                      Crédito: {totalUsed} de {totalSlots} telas usadas
-                    </div>
-                    <div className="text-right">
-                      {slot.server.credit_price > 0 && (
-                        <p className="text-xs text-muted-foreground line-through">
-                          R$ {slot.server.credit_price.toFixed(2)}/mês
-                        </p>
-                      )}
-                      <p className="text-lg font-bold text-success">
-                        R$ {proRataCalc.price.toFixed(2)}
-                      </p>
-                      <p className="text-xs text-amber-500">
-                        ({proRataCalc.remainingDays} dias restantes do mês)
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* IPTV Slots */}
-                  {slot.iptvTotal > 0 && (
-                    <div className={cn(
-                      "p-3 rounded-lg border-2 mb-2",
-                      "border-blue-500/50 bg-blue-500/5",
-                      categorySlotType === 'iptv' && "ring-2 ring-blue-500 ring-offset-2"
-                    )}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Monitor className="h-4 w-4 text-blue-500" />
-                          <span className="font-semibold text-blue-600 dark:text-blue-400">
-                            IPTV / SSH
-                          </span>
-                          {categorySlotType === 'iptv' && (
-                            <Badge variant="outline" className="text-[10px] border-blue-500 text-blue-500">
-                              Recomendado
-                            </Badge>
-                          )}
-                        </div>
-                        <Badge 
-                          variant={slot.iptvAvailable > 0 ? "default" : "secondary"}
-                          className={slot.iptvAvailable > 0 ? "bg-blue-500" : ""}
-                        >
-                          {slot.iptvAvailable} {slot.iptvAvailable === 1 ? 'vaga' : 'vagas'}
-                        </Badge>
-                      </div>
-                      
-                      <p className="text-xs text-muted-foreground mb-3">
-                        {slot.iptvUsed} de {slot.iptvTotal} usado(s)
-                      </p>
-
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={decrypting || slot.iptvAvailable <= 0}
-                        className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
-                        onClick={() => handleSelect(slot, 'iptv')}
-                      >
-                        {decrypting ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <Monitor className="h-4 w-4 mr-1" />
-                        )}
-                        {decrypting ? 'Carregando...' : slot.iptvAvailable > 0 ? 'Usar vaga IPTV' : 'Sem vagas'}
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* P2P Slots */}
-                  {slot.p2pTotal > 0 && (
-                    <div className={cn(
-                      "p-3 rounded-lg border-2 mb-3",
-                      "border-green-500/50 bg-green-500/5",
-                      categorySlotType === 'p2p' && "ring-2 ring-green-500 ring-offset-2"
-                    )}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Wifi className="h-4 w-4 text-green-500" />
-                          <span className="font-semibold text-green-600 dark:text-green-400">
-                            P2P
-                          </span>
-                          {categorySlotType === 'p2p' && (
-                            <Badge variant="outline" className="text-[10px] border-green-500 text-green-500">
-                              Recomendado
-                            </Badge>
-                          )}
-                        </div>
-                        <Badge 
-                          variant={slot.p2pAvailable > 0 ? "default" : "secondary"}
-                          className={slot.p2pAvailable > 0 ? "bg-green-500" : ""}
-                        >
-                          {slot.p2pAvailable} {slot.p2pAvailable === 1 ? 'vaga' : 'vagas'}
-                        </Badge>
-                      </div>
-                      
-                      <p className="text-xs text-muted-foreground mb-3">
-                        {slot.p2pUsed} de {slot.p2pTotal} usado(s)
-                      </p>
-
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={decrypting || slot.p2pAvailable <= 0}
-                        className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50"
-                        onClick={() => handleSelect(slot, 'p2p')}
-                      >
-                        {decrypting ? (
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : (
-                          <Wifi className="h-4 w-4 mr-1" />
-                        )}
-                        {decrypting ? 'Carregando...' : slot.p2pAvailable > 0 ? 'Usar vaga P2P' : 'Sem vagas'}
-                      </Button>
-                    </div>
-                  )}
-
-                  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" />
-                    Credenciais serão compartilhadas automaticamente
-                  </p>
-                </CardContent>
-              </Card>
+              <div key={key} className="space-y-2">
+                <div className="flex items-center gap-2 sticky top-0 bg-background py-2 z-10">
+                  <span className="text-lg">{icon}</span>
+                  <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+                    {label}
+                  </h4>
+                  <Badge variant="secondary" className="text-xs">
+                    {slots.length} {slots.length === 1 ? 'vaga' : 'vagas'}
+                  </Badge>
+                </div>
+                <div className="space-y-3 pl-2 border-l-2 border-muted">
+                  {slots.map((slot, index) => renderSlotCard(slot, index))}
+                </div>
+              </div>
             );
           })}
         </div>
