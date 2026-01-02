@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCrypto } from '@/hooks/useCrypto';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
+import { useOfflineClients } from '@/hooks/useOfflineClients';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,6 +41,7 @@ import { SendMessageDialog } from '@/components/SendMessageDialog';
 import { PlanSelector } from '@/components/PlanSelector';
 import { SharedCreditPicker, SharedCreditSelection } from '@/components/SharedCreditPicker';
 import { Badge } from '@/components/ui/badge';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 
 interface Client {
   id: string;
@@ -118,6 +120,7 @@ export default function Clients() {
   const { user } = useAuth();
   const { encrypt, decrypt } = useCrypto();
   const { isPrivacyMode, maskData } = usePrivacyMode();
+  const { isOffline, lastSync, syncClients: syncOfflineClients, loading: offlineLoading } = useOfflineClients();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -939,9 +942,17 @@ export default function Clients() {
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Clientes</h1>
-          <p className="text-sm text-muted-foreground">Gerencie seus clientes</p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Clientes</h1>
+            <p className="text-sm text-muted-foreground">Gerencie seus clientes</p>
+          </div>
+          <OfflineIndicator 
+            isOffline={isOffline} 
+            lastSync={lastSync} 
+            onSync={syncOfflineClients}
+            syncing={offlineLoading}
+          />
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
