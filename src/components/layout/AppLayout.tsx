@@ -5,6 +5,7 @@ import { BottomNavigation } from './BottomNavigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { FloatingNotifications } from '@/components/FloatingNotifications';
+import { PendingQueueIndicator } from '@/components/PendingQueueIndicator';
 import { useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -190,6 +191,7 @@ export function AppLayout() {
       {!isMobile && (
         <div className="fixed top-0 right-0 left-56 z-50 p-2 bg-background/80 backdrop-blur-sm">
           <div className="flex justify-end gap-1">
+            <PendingQueueIndicator />
             <Button
               variant="outline"
               size="sm"
@@ -210,6 +212,15 @@ export function AppLayout() {
               <Share2 className="h-4 w-4" />
               <span>Compartilhar</span>
             </Button>
+          </div>
+        </div>
+      )}
+      
+      {/* Mobile top indicator for pending queue */}
+      {isMobile && (
+        <div className="fixed top-0 left-0 right-0 z-50 p-2 bg-background/80 backdrop-blur-sm border-b border-border">
+          <div className="flex justify-end">
+            <PendingQueueIndicator />
           </div>
         </div>
       )}
