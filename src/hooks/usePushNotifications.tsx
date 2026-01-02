@@ -46,23 +46,23 @@ export function usePushNotifications() {
     checkSupport();
   }, []);
 
-  // Generate or fetch VAPID public key
+  // Fetch VAPID public key from backend
   const getVapidPublicKey = useCallback(async (): Promise<string | null> => {
     if (vapidPublicKey) return vapidPublicKey;
 
     try {
-      // For now, use a static key - in production you'd store this in secrets
-      // This is the public key that needs to match the private key on the server
-      const { data, error } = await supabase.functions.invoke('generate-vapid-keys');
+      const { data, error } = await supabase.functions.invoke('get-vapid-public-key');
       
       if (error) {
-        console.error('Error generating VAPID keys:', error);
+        console.error('Error fetching VAPID public key:', error);
         return null;
       }
 
       const key = data.publicKey;
-      localStorage.setItem(VAPID_PUBLIC_KEY_STORAGE, key);
-      setVapidPublicKey(key);
+      if (key) {
+        localStorage.setItem(VAPID_PUBLIC_KEY_STORAGE, key);
+        setVapidPublicKey(key);
+      }
       return key;
     } catch (error) {
       console.error('Error getting VAPID key:', error);
@@ -70,7 +70,7 @@ export function usePushNotifications() {
     }
   }, [vapidPublicKey]);
 
-  // Convert VAPID key to Uint8Array
+  // Convert VAPID key to ArrayBuffer
   const urlBase64ToUint8Array = (base64String: string): ArrayBuffer => {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
