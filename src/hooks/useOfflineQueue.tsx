@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -18,11 +18,36 @@ interface QueuedMessage {
 const QUEUE_KEY = 'offline_message_queue';
 const QUEUE_SYNC_STATUS_KEY = 'offline_queue_sync_status';
 
+// Helper to show push notification
+const showPushNotification = (count: number) => {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      const notification = new Notification('Sincronização Concluída', {
+        body: `${count} cobrança(s) sincronizada(s) com sucesso!`,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'sync-complete',
+        requireInteraction: false,
+      });
+
+      setTimeout(() => notification.close(), 5000);
+
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    } catch (error) {
+      console.error('Error showing notification:', error);
+    }
+  }
+};
+
 export function useOfflineQueue() {
   const { user } = useAuth();
   const [queue, setQueue] = useState<QueuedMessage[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const hasRequestedPermission = useRef(false);
 
   // Load queue from localStorage
   const loadQueue = useCallback((): QueuedMessage[] => {
@@ -48,6 +73,15 @@ export function useOfflineQueue() {
     }
   }, []);
 
+  // Request notification permission
+  const requestNotificationPermissionOnAdd = useCallback(() => {
+    if (hasRequestedPermission.current) return;
+    if ('Notification' in window && Notification.permission === 'default') {
+      hasRequestedPermission.current = true;
+      Notification.requestPermission();
+    }
+  }, []);
+
   // Add message to queue
   const addToQueue = useCallback((message: Omit<QueuedMessage, 'id' | 'created_at'>) => {
     const newMessage: QueuedMessage = {
@@ -61,12 +95,15 @@ export function useOfflineQueue() {
     saveQueue(updatedQueue);
     setQueue(updatedQueue);
 
+    // Request notification permission when first item is added
+    requestNotificationPermissionOnAdd();
+
     toast.success(`Cobrança para ${message.client_name} salva offline`, {
       description: 'Será sincronizada quando voltar online',
     });
 
     return newMessage;
-  }, [loadQueue, saveQueue]);
+  }, [loadQueue, saveQueue, requestNotificationPermissionOnAdd]);
 
   // Remove item from queue
   const removeFromQueue = useCallback((id: string) => {
@@ -133,12 +170,23 @@ export function useOfflineQueue() {
 
     if (successCount > 0) {
       toast.success(`${successCount} cobrança(s) sincronizada(s)!`);
+      // Show push notification
+      showPushNotification(successCount);
     }
 
     if (failedMessages.length > 0) {
       toast.error(`${failedMessages.length} cobrança(s) falharam ao sincronizar`);
     }
   }, [user, loadQueue, saveQueue]);
+
+  // Request notification permission on first queue add
+  const requestNotificationPermission = useCallback(() => {
+    if (hasRequestedPermission.current) return;
+    if ('Notification' in window && Notification.permission === 'default') {
+      hasRequestedPermission.current = true;
+      Notification.requestPermission();
+    }
+  }, []);
 
   // Auto-sync when coming back online
   useEffect(() => {
