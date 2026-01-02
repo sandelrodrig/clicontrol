@@ -95,34 +95,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    // Get initial session immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!isMounted) return;
-      
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Load from cache first for instant display
-        const cached = getCachedData(session.user.id);
-        if (cached.profile) {
-          setProfile(cached.profile);
-        }
-        if (cached.role) {
-          setRole(cached.role);
-        }
-        
-        // If we have cached data, show it immediately but still fetch fresh data
-        if (cached.profile && cached.role) {
-          setLoading(false);
-        }
-        
-        fetchUserData(session.user.id, isMounted);
-      } else {
-        clearCachedData();
+    // Safety timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (isMounted && loading) {
+        console.warn('[Auth] Loading timeout reached, forcing state update');
         setLoading(false);
       }
-    });
+    }, 5000);
+
+    // Get initial session immediately
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (!isMounted) return;
+        
+        if (error) {
+          console.error('[Auth] Error getting session:', error);
+          clearCachedData();
+          setLoading(false);
+          return;
+        }
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          // Load from cache first for instant display
+          const cached = getCachedData(session.user.id);
+          if (cached.profile) {
+            setProfile(cached.profile);
+          }
+          if (cached.role) {
+            setRole(cached.role);
+          }
+          
+          // If we have cached data, show it immediately but still fetch fresh data
+          if (cached.profile && cached.role) {
+            setLoading(false);
+          }
+          
+          fetchUserData(session.user.id, isMounted);
+        } else {
+          clearCachedData();
+          setLoading(false);
+        }
+      })
+      .catch((error) => {
+        console.error('[Auth] Failed to get session:', error);
+        if (isMounted) {
+          clearCachedData();
+          setLoading(false);
+        }
+      });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -157,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isMounted = false;
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
