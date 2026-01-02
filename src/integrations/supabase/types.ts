@@ -112,6 +112,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          app_name: string | null
           archived_at: string | null
           category: string | null
           created_at: string | null
@@ -145,6 +146,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          app_name?: string | null
           archived_at?: string | null
           category?: string | null
           created_at?: string | null
@@ -178,6 +180,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          app_name?: string | null
           archived_at?: string | null
           category?: string | null
           created_at?: string | null

@@ -167,6 +167,7 @@ export default function Clients() {
     paid_apps_password: '', // Senha ou código do app pago
     screens: '1', // Número de telas selecionadas
     gerencia_app_mac: '', // MAC do GerenciaApp
+    app_name: '', // Nome do aplicativo usado pelo cliente
   });
 
 
@@ -549,6 +550,7 @@ export default function Clients() {
       paid_apps_password: '',
       screens: '1',
       gerencia_app_mac: '',
+      app_name: '',
     });
     setSelectedSharedCredit(null);
   };
@@ -632,6 +634,7 @@ export default function Clients() {
       paid_apps_email: formData.paid_apps_email || null,
       paid_apps_password: formData.paid_apps_password || null,
       gerencia_app_mac: formData.gerencia_app_mac || null,
+      app_name: formData.app_name || null,
     };
 
     if (editingClient) {
@@ -688,6 +691,7 @@ export default function Clients() {
       paid_apps_password: (client as any).paid_apps_password || '',
       screens: '1',
       gerencia_app_mac: client.gerencia_app_mac || '',
+      app_name: (client as any).app_name || '',
     });
     setIsDialogOpen(true);
   };
@@ -1454,6 +1458,14 @@ export default function Clients() {
                           value={formData.paid_apps_password}
                           onChange={(e) => setFormData({ ...formData, paid_apps_password: e.target.value })}
                           placeholder="Senha, código ou chave de ativação"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Nome do Aplicativo (opcional)</Label>
+                        <Input
+                          value={formData.app_name}
+                          onChange={(e) => setFormData({ ...formData, app_name: e.target.value })}
+                          placeholder="Ex: Netflix, Spotify, IPTV Smarters..."
                         />
                       </div>
                     </div>
