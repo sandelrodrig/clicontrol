@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Package, DollarSign, Clock, Edit, Trash2, Monitor } from 'lucide-react';
+import { Plus, Package, DollarSign, Clock, Edit, Trash2, Monitor, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Plan {
@@ -177,6 +177,44 @@ export default function Plans() {
     },
   });
 
+  const syncAllClientsMutation = useMutation({
+    mutationFn: async () => {
+      // Get all plans
+      const { data: allPlans, error: plansError } = await supabase
+        .from('plans')
+        .select('id, name, price')
+        .eq('seller_id', user!.id);
+      
+      if (plansError) throw plansError;
+      
+      let syncedCount = 0;
+      
+      // Update clients for each plan
+      for (const plan of allPlans || []) {
+        const { data: updatedClients } = await supabase
+          .from('clients')
+          .update({ 
+            plan_price: plan.price,
+            plan_name: plan.name
+          })
+          .eq('plan_id', plan.id)
+          .eq('seller_id', user!.id)
+          .select('id');
+        
+        syncedCount += updatedClients?.length || 0;
+      }
+      
+      return syncedCount;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success(`${count} cliente(s) sincronizado(s) com sucesso!`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -270,6 +308,15 @@ export default function Plans() {
         </div>
 
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => syncAllClientsMutation.mutate()}
+            disabled={syncAllClientsMutation.isPending}
+          >
+            <RefreshCw className={cn("h-4 w-4", syncAllClientsMutation.isPending && "animate-spin")} />
+            {syncAllClientsMutation.isPending ? 'Sincronizando...' : 'Sincronizar Clientes'}
+          </Button>
 
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             // Prevent closing while mutation is pending
