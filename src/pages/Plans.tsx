@@ -111,10 +111,49 @@ export default function Plans() {
           .eq('duration_days', syncPrice.duration_days)
           .eq('screens', syncPrice.screens);
       }
+      
+      // Sync plan_price for clients with this plan that have price 0 or null
+      if (data.price !== undefined && data.price > 0) {
+        // Update clients that have this plan_id and plan_price = 0 or null
+        await supabase
+          .from('clients')
+          .update({ 
+            plan_price: data.price,
+            plan_name: data.name || undefined
+          })
+          .eq('plan_id', id)
+          .eq('seller_id', user!.id)
+          .or('plan_price.is.null,plan_price.eq.0');
+        
+        // Also sync clients that have the equivalent plan in IPTV/P2P
+        if (syncPrice && (syncPrice.category === 'IPTV' || syncPrice.category === 'P2P')) {
+          const otherCategory = syncPrice.category === 'IPTV' ? 'P2P' : 'IPTV';
+          
+          // Find the equivalent plan ID
+          const { data: equivalentPlans } = await supabase
+            .from('plans')
+            .select('id')
+            .eq('seller_id', user!.id)
+            .eq('category', otherCategory)
+            .eq('duration_days', syncPrice.duration_days)
+            .eq('screens', syncPrice.screens)
+            .limit(1);
+          
+          if (equivalentPlans && equivalentPlans.length > 0) {
+            await supabase
+              .from('clients')
+              .update({ plan_price: data.price })
+              .eq('plan_id', equivalentPlans[0].id)
+              .eq('seller_id', user!.id)
+              .or('plan_price.is.null,plan_price.eq.0');
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
-      toast.success('Plano atualizado!');
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Plano atualizado! Clientes com valor R$ 0 foram sincronizados.');
       resetForm();
       setIsDialogOpen(false);
       setEditingPlan(null);
