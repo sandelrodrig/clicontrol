@@ -34,6 +34,79 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Push notification event - handle incoming push notifications
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push received:', event);
+  
+  let data = {
+    title: 'PSControl',
+    body: 'Nova notificação',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: 'default',
+    data: {}
+  };
+
+  try {
+    if (event.data) {
+      const payload = event.data.json();
+      data = { ...data, ...payload };
+    }
+  } catch (error) {
+    console.error('[SW] Error parsing push data:', error);
+    if (event.data) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon || '/icon-192.png',
+    badge: data.badge || '/icon-192.png',
+    tag: data.tag || 'default',
+    data: data.data || {},
+    vibrate: [100, 50, 100],
+    requireInteraction: false,
+    actions: [
+      { action: 'open', title: 'Abrir' },
+      { action: 'close', title: 'Fechar' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// Notification click event - handle notification interactions
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event);
+  
+  event.notification.close();
+
+  if (event.action === 'close') {
+    return;
+  }
+
+  // Open or focus the app
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Try to focus an existing window
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        // Open a new window
+        if (clients.openWindow) {
+          const targetUrl = event.notification.data?.url || '/';
+          return clients.openWindow(targetUrl);
+        }
+      })
+  );
+});
+
 // Fetch event - Cache first for assets, Network first for API
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
