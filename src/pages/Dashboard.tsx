@@ -27,6 +27,7 @@ interface Client {
   phone: string | null;
   email: string | null;
   expiration_date: string;
+  plan_id: string | null;
   plan_name: string | null;
   plan_price: number | null;
   is_paid: boolean | null;

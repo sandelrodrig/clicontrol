@@ -1168,17 +1168,34 @@ export default function Clients() {
 
                 {/* Plan Select - Not for Contas Premium */}
                 {formData.category !== 'Contas Premium' && (
-                  <div className="space-y-2">
-                    <Label>Plano</Label>
-                    <PlanSelector
-                      plans={plans}
-                      value={formData.plan_id || ''}
-                      onValueChange={handlePlanChange}
-                      placeholder="Selecione um plano"
-                      showFilters={true}
-                      defaultCategory={formData.category}
-                    />
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <Label>Plano</Label>
+                      <PlanSelector
+                        plans={plans}
+                        value={formData.plan_id || ''}
+                        onValueChange={handlePlanChange}
+                        placeholder="Selecione um plano (opcional)"
+                        showFilters={true}
+                        defaultCategory={formData.category}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="plan_price">Valor (R$)</Label>
+                      <Input
+                        id="plan_price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.plan_price}
+                        onChange={(e) => setFormData({ ...formData, plan_price: e.target.value })}
+                        placeholder="Ex: 25.00"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {formData.plan_id ? 'Preenchido pelo plano. Edite para promoções.' : 'Defina o valor manualmente ou selecione um plano.'}
+                      </p>
+                    </div>
+                  </>
                 )}
 
                 {/* Server Select - Only for IPTV/SSH/P2P, not for Contas Premium */}
