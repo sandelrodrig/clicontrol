@@ -127,7 +127,9 @@ export type Database = {
           name: string
           notes: string | null
           paid_apps_duration: string | null
+          paid_apps_email: string | null
           paid_apps_expiration: string | null
+          paid_apps_password: string | null
           password: string | null
           phone: string | null
           plan_id: string | null
@@ -158,7 +160,9 @@ export type Database = {
           name: string
           notes?: string | null
           paid_apps_duration?: string | null
+          paid_apps_email?: string | null
           paid_apps_expiration?: string | null
+          paid_apps_password?: string | null
           password?: string | null
           phone?: string | null
           plan_id?: string | null
@@ -189,7 +193,9 @@ export type Database = {
           name?: string
           notes?: string | null
           paid_apps_duration?: string | null
+          paid_apps_email?: string | null
           paid_apps_expiration?: string | null
+          paid_apps_password?: string | null
           password?: string | null
           phone?: string | null
           plan_id?: string | null

@@ -163,6 +163,8 @@ export default function Clients() {
     has_paid_apps: false,
     paid_apps_duration: '',
     paid_apps_expiration: '',
+    paid_apps_email: '', // Email ou MAC do app pago
+    paid_apps_password: '', // Senha ou código do app pago
     screens: '1', // Número de telas selecionadas
     gerencia_app_mac: '', // MAC do GerenciaApp
   });
@@ -543,6 +545,8 @@ export default function Clients() {
       has_paid_apps: false,
       paid_apps_duration: '',
       paid_apps_expiration: '',
+      paid_apps_email: '',
+      paid_apps_password: '',
       screens: '1',
       gerencia_app_mac: '',
     });
@@ -625,6 +629,8 @@ export default function Clients() {
       has_paid_apps: formData.has_paid_apps || false,
       paid_apps_duration: formData.paid_apps_duration || null,
       paid_apps_expiration: formData.paid_apps_expiration || null,
+      paid_apps_email: formData.paid_apps_email || null,
+      paid_apps_password: formData.paid_apps_password || null,
       gerencia_app_mac: formData.gerencia_app_mac || null,
     };
 
@@ -678,6 +684,8 @@ export default function Clients() {
       has_paid_apps: client.has_paid_apps || false,
       paid_apps_duration: client.paid_apps_duration || '',
       paid_apps_expiration: client.paid_apps_expiration || '',
+      paid_apps_email: (client as any).paid_apps_email || '',
+      paid_apps_password: (client as any).paid_apps_password || '',
       screens: '1',
       gerencia_app_mac: client.gerencia_app_mac || '',
     });
@@ -1430,61 +1438,81 @@ export default function Clients() {
                 </div>
                 
                 {formData.has_paid_apps && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                    <div className="space-y-2">
-                      <Label>Duração do App</Label>
-                      <Select
-                        value={formData.paid_apps_duration}
-                        onValueChange={handlePaidAppsDurationChange}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a duração" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="3_months">3 Meses</SelectItem>
-                          <SelectItem value="6_months">6 Meses</SelectItem>
-                          <SelectItem value="1_year">1 Ano</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <div className="space-y-4 pt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>E-mail ou MAC do App</Label>
+                        <Input
+                          value={formData.paid_apps_email}
+                          onChange={(e) => setFormData({ ...formData, paid_apps_email: e.target.value })}
+                          placeholder="email@exemplo.com ou AA:BB:CC:DD:EE:FF"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Senha ou Código</Label>
+                        <Input
+                          value={formData.paid_apps_password}
+                          onChange={(e) => setFormData({ ...formData, paid_apps_password: e.target.value })}
+                          placeholder="Senha, código ou chave de ativação"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Vencimento do App</Label>
-                      <Popover
-                        open={paidAppsExpirationPopoverOpen}
-                        onOpenChange={setPaidAppsExpirationPopoverOpen}
-                        modal={false}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !formData.paid_apps_expiration && "text-muted-foreground"
-                            )}
-                            type="button"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {formData.paid_apps_expiration 
-                              ? format(new Date(formData.paid_apps_expiration), "dd/MM/yyyy", { locale: ptBR })
-                              : "Selecione a data"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={5}>
-                          <CalendarPicker
-                            mode="single"
-                            selected={formData.paid_apps_expiration ? new Date(formData.paid_apps_expiration) : undefined}
-                            onSelect={(date) => {
-                              if (date) {
-                                setFormData({ ...formData, paid_apps_expiration: format(date, "yyyy-MM-dd") });
-                                setPaidAppsExpirationPopoverOpen(false);
-                              }
-                            }}
-                            initialFocus
-                            locale={ptBR}
-                            className="p-3 pointer-events-auto"
-                          />
-                        </PopoverContent>
-                      </Popover>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Duração do App</Label>
+                        <Select
+                          value={formData.paid_apps_duration}
+                          onValueChange={handlePaidAppsDurationChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a duração" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="3_months">3 Meses</SelectItem>
+                            <SelectItem value="6_months">6 Meses</SelectItem>
+                            <SelectItem value="1_year">1 Ano</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Vencimento do App</Label>
+                        <Popover
+                          open={paidAppsExpirationPopoverOpen}
+                          onOpenChange={setPaidAppsExpirationPopoverOpen}
+                          modal={false}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !formData.paid_apps_expiration && "text-muted-foreground"
+                              )}
+                              type="button"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {formData.paid_apps_expiration 
+                                ? format(new Date(formData.paid_apps_expiration), "dd/MM/yyyy", { locale: ptBR })
+                                : "Selecione a data"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={5}>
+                            <CalendarPicker
+                              mode="single"
+                              selected={formData.paid_apps_expiration ? new Date(formData.paid_apps_expiration) : undefined}
+                              onSelect={(date) => {
+                                if (date) {
+                                  setFormData({ ...formData, paid_apps_expiration: format(date, "yyyy-MM-dd") });
+                                  setPaidAppsExpirationPopoverOpen(false);
+                                }
+                              }}
+                              initialFocus
+                              locale={ptBR}
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </div>
                   </div>
                 )}
