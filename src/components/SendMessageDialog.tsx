@@ -21,11 +21,12 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Send, Copy, MessageCircle, CreditCard, Tv, Wifi, Crown, Tag, Loader2, WifiOff } from 'lucide-react';
+import { Send, Copy, MessageCircle, CreditCard, Tv, Wifi, Crown, Tag, Loader2, WifiOff, Calendar, RefreshCw, Bell, MoreHorizontal } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { useCrypto } from '@/hooks/useCrypto';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
@@ -37,6 +38,7 @@ interface Client {
   telegram: string | null;
   email: string | null;
   expiration_date: string;
+  plan_id: string | null;
   plan_name: string | null;
   plan_price: number | null;
   server_name: string | null;
@@ -62,6 +64,24 @@ interface SendMessageDialogProps {
 // Default categories
 const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Contas Premium'];
 
+// Duration options for filtering
+const DURATION_FILTERS = [
+  { value: 'all', label: 'Todas', days: null },
+  { value: 'monthly', label: 'Mensal', days: 30 },
+  { value: 'quarterly', label: 'Trimestral', days: 90 },
+  { value: 'semiannual', label: 'Semestral', days: 180 },
+  { value: 'annual', label: 'Anual', days: 365 },
+];
+
+// Template type options
+const TYPE_FILTERS = [
+  { value: 'all', label: 'Todos' },
+  { value: 'renewal', label: 'Renovação' },
+  { value: 'collection', label: 'Cobrança' },
+  { value: 'welcome', label: 'Boas-vindas' },
+  { value: 'other', label: 'Outros' },
+];
+
 export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDialogProps) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
@@ -72,6 +92,8 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
   const [message, setMessage] = useState('');
   const [platform, setPlatform] = useState<'whatsapp' | 'telegram'>('whatsapp');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [durationFilter, setDurationFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [decryptedCredentials, setDecryptedCredentials] = useState<{
     login: string;
@@ -189,6 +211,25 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     enabled: !!user?.id,
   });
 
+  // Get plans to determine client's plan duration
+  const { data: plans = [] } = useQuery({
+    queryKey: ['plans', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('plans')
+        .select('id, duration_days')
+        .eq('seller_id', user!.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Get client's plan duration
+  const clientPlanDuration = client.plan_id 
+    ? plans.find(p => p.id === client.plan_id)?.duration_days 
+    : null;
+
   // Build all categories list
   const allCategories = [
     ...DEFAULT_CATEGORIES,
@@ -206,7 +247,49 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     }
   };
 
-  // Filter templates by platform and category
+  // Helper to check if template matches a duration
+  const templateMatchesDuration = (templateName: string, durationDays: number | null): boolean => {
+    if (!durationDays) return true;
+    const name = templateName.toLowerCase();
+    
+    // Check for duration keywords in template name
+    if (durationDays <= 30) {
+      return name.includes('mensal') || name.includes('30 dias') || name.includes('1 mês');
+    } else if (durationDays <= 90) {
+      return name.includes('trimestral') || name.includes('90 dias') || name.includes('3 meses');
+    } else if (durationDays <= 180) {
+      return name.includes('semestral') || name.includes('180 dias') || name.includes('6 meses');
+    } else if (durationDays <= 365) {
+      return name.includes('anual') || name.includes('365 dias') || name.includes('1 ano') || name.includes('12 meses');
+    }
+    return true;
+  };
+
+  // Helper to check if template matches a type
+  const templateMatchesType = (templateName: string, templateType: string, filterType: string): boolean => {
+    if (filterType === 'all') return true;
+    
+    const name = templateName.toLowerCase();
+    const type = templateType.toLowerCase();
+    
+    switch (filterType) {
+      case 'renewal':
+        return type.includes('renov') || name.includes('renov') || name.includes('renovação');
+      case 'collection':
+        return type.includes('cobran') || name.includes('cobran') || name.includes('cobrança') || name.includes('lembrete');
+      case 'welcome':
+        return type.includes('boas') || name.includes('boas') || name.includes('bem-vindo') || name.includes('bemvindo');
+      case 'other':
+        const isRenewal = type.includes('renov') || name.includes('renov');
+        const isCollection = type.includes('cobran') || name.includes('cobran') || name.includes('lembrete');
+        const isWelcome = type.includes('boas') || name.includes('boas') || name.includes('bem-vindo');
+        return !isRenewal && !isCollection && !isWelcome;
+      default:
+        return true;
+    }
+  };
+
+  // Filter templates by platform, category, duration and type
   const filteredTemplates = templates.filter(t => {
     // Platform filter
     if (platform === 'telegram' && !t.name.startsWith('[TG]')) return false;
@@ -227,6 +310,17 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
         if (!templateName.includes(filterLower)) return false;
       }
     }
+
+    // Duration filter
+    if (durationFilter !== 'all') {
+      const durationOption = DURATION_FILTERS.find(d => d.value === durationFilter);
+      if (durationOption?.days) {
+        if (!templateMatchesDuration(t.name, durationOption.days)) return false;
+      }
+    }
+
+    // Type filter
+    if (!templateMatchesType(t.name, t.type, typeFilter)) return false;
     
     return true;
   });
@@ -299,6 +393,18 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
 
   const handleCategoryChange = (newCategory: string) => {
     setCategoryFilter(newCategory);
+    setSelectedTemplate('');
+    setMessage('');
+  };
+
+  const handleDurationChange = (newDuration: string) => {
+    setDurationFilter(newDuration);
+    setSelectedTemplate('');
+    setMessage('');
+  };
+
+  const handleTypeChange = (newType: string) => {
+    setTypeFilter(newType);
     setSelectedTemplate('');
     setMessage('');
   };
@@ -394,35 +500,93 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
             </Tabs>
           </div>
 
-          {/* Category Filter */}
-          <div className="space-y-2">
-            <Label>Categoria</Label>
-            <ScrollArea className="w-full">
-              <div className="flex gap-1.5 pb-2">
-                <Button
-                  type="button"
-                  variant={categoryFilter === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-7 text-xs shrink-0"
-                  onClick={() => handleCategoryChange('all')}
-                >
-                  Todas
-                </Button>
-                {allCategories.map((cat) => (
+          {/* Filters */}
+          <div className="space-y-3">
+            {/* Category Filter */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Categoria</Label>
+              <ScrollArea className="w-full">
+                <div className="flex gap-1 pb-1">
                   <Button
-                    key={cat}
                     type="button"
-                    variant={categoryFilter === cat ? 'default' : 'outline'}
+                    variant={categoryFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
-                    className="h-7 text-xs shrink-0 gap-1"
-                    onClick={() => handleCategoryChange(cat)}
+                    className="h-6 text-xs shrink-0 px-2"
+                    onClick={() => handleCategoryChange('all')}
                   >
-                    {getCategoryIcon(cat)}
-                    {cat}
+                    Todas
+                  </Button>
+                  {allCategories.map((cat) => (
+                    <Button
+                      key={cat}
+                      type="button"
+                      variant={categoryFilter === cat ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-6 text-xs shrink-0 gap-1 px-2"
+                      onClick={() => handleCategoryChange(cat)}
+                    >
+                      {getCategoryIcon(cat)}
+                      {cat}
+                    </Button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+
+            {/* Duration Filter */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Duração
+                </Label>
+                {clientPlanDuration && (
+                  <Badge variant="secondary" className="text-xs h-5">
+                    Cliente: {clientPlanDuration <= 30 ? 'Mensal' : 
+                             clientPlanDuration <= 90 ? 'Trimestral' : 
+                             clientPlanDuration <= 180 ? 'Semestral' : 'Anual'}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {DURATION_FILTERS.map((dur) => (
+                  <Button
+                    key={dur.value}
+                    type="button"
+                    variant={durationFilter === dur.value ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-6 text-xs px-2"
+                    onClick={() => handleDurationChange(dur.value)}
+                  >
+                    {dur.label}
                   </Button>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
+
+            {/* Type Filter */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <Tag className="h-3 w-3" />
+                Tipo
+              </Label>
+              <div className="flex gap-1 flex-wrap">
+                {TYPE_FILTERS.map((t) => (
+                  <Button
+                    key={t.value}
+                    type="button"
+                    variant={typeFilter === t.value ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-6 text-xs px-2 gap-1"
+                    onClick={() => handleTypeChange(t.value)}
+                  >
+                    {t.value === 'renewal' && <RefreshCw className="h-3 w-3" />}
+                    {t.value === 'collection' && <Bell className="h-3 w-3" />}
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">
