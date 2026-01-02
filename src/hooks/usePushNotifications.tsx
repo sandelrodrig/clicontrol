@@ -88,38 +88,58 @@ export function usePushNotifications() {
 
   // Subscribe to push notifications
   const subscribe = useCallback(async (): Promise<boolean> => {
-    if (!isSupported) return false;
+    if (!isSupported) {
+      console.error('[Push] Not supported in this browser');
+      return false;
+    }
     
     setIsLoading(true);
     
     try {
       // Request permission
+      console.log('[Push] Requesting notification permission...');
       const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult);
+      console.log('[Push] Permission result:', permissionResult);
       
       if (permissionResult !== 'granted') {
+        console.log('[Push] Permission not granted');
         setIsLoading(false);
         return false;
       }
 
       // Get VAPID public key
+      console.log('[Push] Getting VAPID public key...');
       const publicKey = await getVapidPublicKey();
       if (!publicKey) {
-        console.error('Failed to get VAPID public key');
+        console.error('[Push] Failed to get VAPID public key');
         setIsLoading(false);
         return false;
       }
+      console.log('[Push] VAPID key obtained, length:', publicKey.length);
 
       // Get service worker registration
+      console.log('[Push] Getting service worker registration...');
       const registration = await navigator.serviceWorker.ready;
+      console.log('[Push] Service worker ready');
+      
+      // Check if already subscribed
+      const existingSubscription = await registration.pushManager.getSubscription();
+      if (existingSubscription) {
+        console.log('[Push] Already subscribed, unsubscribing first...');
+        await existingSubscription.unsubscribe();
+      }
       
       // Subscribe to push
+      console.log('[Push] Subscribing to push manager...');
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
+      console.log('[Push] Subscription created:', subscription.endpoint);
 
       // Send subscription to backend
+      console.log('[Push] Saving subscription to backend...');
       const { error } = await supabase.functions.invoke('save-push-subscription', {
         body: { 
           subscription: subscription.toJSON(),
@@ -128,10 +148,11 @@ export function usePushNotifications() {
       });
 
       if (error) {
-        console.error('Error saving subscription:', error);
+        console.error('[Push] Error saving subscription:', error);
         setIsLoading(false);
         return false;
       }
+      console.log('[Push] Subscription saved successfully');
 
       localStorage.setItem(PUSH_SUBSCRIPTION_STORAGE, 'true');
       setIsSubscribed(true);
@@ -146,7 +167,7 @@ export function usePushNotifications() {
       
       return true;
     } catch (error) {
-      console.error('Error subscribing to push:', error);
+      console.error('[Push] Error subscribing:', error);
       setIsLoading(false);
       return false;
     }
