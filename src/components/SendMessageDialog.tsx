@@ -21,13 +21,14 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Send, Copy, MessageCircle, CreditCard, Tv, Wifi, Crown, Tag, Loader2 } from 'lucide-react';
+import { Send, Copy, MessageCircle, CreditCard, Tv, Wifi, Crown, Tag, Loader2, WifiOff } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCrypto } from '@/hooks/useCrypto';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
+import { useOfflineQueue } from '@/hooks/useOfflineQueue';
 
 interface Client {
   id: string;
@@ -66,16 +67,32 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
   const queryClient = useQueryClient();
   const { decrypt } = useCrypto();
   const { isPrivacyMode } = usePrivacyMode();
+  const { addToQueue } = useOfflineQueue();
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [message, setMessage] = useState('');
   const [platform, setPlatform] = useState<'whatsapp' | 'telegram'>('whatsapp');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [decryptedCredentials, setDecryptedCredentials] = useState<{
     login: string;
     password: string;
     premium_password: string;
   } | null>(null);
   const [isDecrypting, setIsDecrypting] = useState(false);
+
+  // Monitor online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Decrypt credentials when dialog opens (only if privacy mode is OFF)
   useEffect(() => {
@@ -289,18 +306,34 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
   const handleSend = async () => {
     if (!message.trim()) return;
 
-    // Save to history
-    await saveHistoryMutation.mutateAsync({
-      message_content: message,
-      template_id: selectedTemplate || null,
-    });
+    const messageType = selectedTemplate ? templates.find(t => t.id === selectedTemplate)?.type || 'custom' : 'custom';
+    const phone = platform === 'telegram' ? (client.telegram || '') : (client.phone || '');
+
+    // If offline, add to queue and open messaging app
+    if (isOffline) {
+      addToQueue({
+        client_id: client.id,
+        client_name: client.name,
+        template_id: selectedTemplate || null,
+        message_type: messageType,
+        message_content: message,
+        phone,
+        platform,
+      });
+    } else {
+      // Save to history when online
+      await saveHistoryMutation.mutateAsync({
+        message_content: message,
+        template_id: selectedTemplate || null,
+      });
+    }
 
     if (platform === 'whatsapp' && client.phone) {
       // Open WhatsApp
       const phoneNumber = client.phone.replace(/\D/g, '');
       const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
       window.open(url, '_blank');
-      toast.success('Mensagem enviada via WhatsApp!');
+      toast.success(isOffline ? 'WhatsApp aberto (histórico será salvo quando online)' : 'Mensagem enviada via WhatsApp!');
     } else if (platform === 'telegram' && client.telegram) {
       // Open Telegram
       const username = client.telegram.replace('@', '');
@@ -308,7 +341,7 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
       window.open(url, '_blank');
       // Copy message to clipboard for Telegram
       navigator.clipboard.writeText(message);
-      toast.success('Telegram aberto e mensagem copiada!');
+      toast.success(isOffline ? 'Telegram aberto (histórico será salvo quando online)' : 'Telegram aberto e mensagem copiada!');
     } else {
       toast.error(`${platform === 'whatsapp' ? 'Telefone' : 'Telegram'} não configurado para este cliente`);
       return;
