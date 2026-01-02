@@ -34,6 +34,57 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Cache keys
+const CACHE_KEYS = {
+  PROFILE: 'cached_profile',
+  ROLE: 'cached_role',
+  USER_ID: 'cached_user_id',
+} as const;
+
+// Cache helpers
+const getCachedData = (userId: string): { profile: Profile | null; role: AppRole | null } => {
+  try {
+    const cachedUserId = localStorage.getItem(CACHE_KEYS.USER_ID);
+    if (cachedUserId !== userId) {
+      return { profile: null, role: null };
+    }
+    
+    const profileStr = localStorage.getItem(CACHE_KEYS.PROFILE);
+    const roleStr = localStorage.getItem(CACHE_KEYS.ROLE);
+    
+    return {
+      profile: profileStr ? JSON.parse(profileStr) : null,
+      role: roleStr as AppRole | null,
+    };
+  } catch {
+    return { profile: null, role: null };
+  }
+};
+
+const setCachedData = (userId: string, profile: Profile | null, role: AppRole | null) => {
+  try {
+    localStorage.setItem(CACHE_KEYS.USER_ID, userId);
+    if (profile) {
+      localStorage.setItem(CACHE_KEYS.PROFILE, JSON.stringify(profile));
+    }
+    if (role) {
+      localStorage.setItem(CACHE_KEYS.ROLE, role);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+const clearCachedData = () => {
+  try {
+    localStorage.removeItem(CACHE_KEYS.PROFILE);
+    localStorage.removeItem(CACHE_KEYS.ROLE);
+    localStorage.removeItem(CACHE_KEYS.USER_ID);
+  } catch {
+    // Ignore storage errors
+  }
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -52,8 +103,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserData(session.user.id);
+        // Load from cache first for instant display
+        const cached = getCachedData(session.user.id);
+        if (cached.profile) {
+          setProfile(cached.profile);
+        }
+        if (cached.role) {
+          setRole(cached.role);
+        }
+        
+        // If we have cached data, show it immediately but still fetch fresh data
+        if (cached.profile && cached.role) {
+          setLoading(false);
+        }
+        
+        fetchUserData(session.user.id, isMounted);
       } else {
+        clearCachedData();
         setLoading(false);
       }
     });
@@ -67,13 +133,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // Load from cache first
+          const cached = getCachedData(session.user.id);
+          if (cached.profile) {
+            setProfile(cached.profile);
+          }
+          if (cached.role) {
+            setRole(cached.role);
+          }
+          
           // Use queueMicrotask for faster execution than setTimeout
           queueMicrotask(() => {
-            if (isMounted) fetchUserData(session.user.id);
+            if (isMounted) fetchUserData(session.user.id, isMounted);
           });
         } else {
           setProfile(null);
           setRole(null);
+          clearCachedData();
           setLoading(false);
         }
       }
@@ -85,12 +161,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const fetchUserData = async (userId: string) => {
+  const fetchUserData = async (userId: string, isMounted: boolean) => {
     try {
       const [profileResult, roleResult] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('user_roles').select('role').eq('user_id', userId).maybeSingle()
       ]);
+
+      if (!isMounted) return;
 
       if (profileResult.data) {
         setProfile(profileResult.data as Profile);
@@ -99,10 +177,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (roleResult.data) {
         setRole(roleResult.data.role as AppRole);
       }
+
+      // Update cache with fresh data
+      setCachedData(
+        userId,
+        profileResult.data as Profile | null,
+        roleResult.data?.role as AppRole | null
+      );
     } catch (error) {
       console.error('Error fetching user data:', error);
     } finally {
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     }
   };
 
@@ -125,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    clearCachedData();
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -146,7 +234,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('id', user.id);
     
     if (profile) {
-      setProfile({ ...profile, needs_password_update: false });
+      const updatedProfile = { ...profile, needs_password_update: false };
+      setProfile(updatedProfile);
+      setCachedData(user.id, updatedProfile, role);
     }
   };
 
