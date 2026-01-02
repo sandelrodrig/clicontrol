@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { PrivacyModeProvider } from "@/hooks/usePrivacyMode";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ExpirationNotificationProvider } from "@/components/ExpirationNotificationProvider";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -92,11 +93,13 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <PrivacyModeProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <AppRoutes />
-          </TooltipProvider>
+          <ExpirationNotificationProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <AppRoutes />
+            </TooltipProvider>
+          </ExpirationNotificationProvider>
         </PrivacyModeProvider>
       </AuthProvider>
     </ThemeProvider>

@@ -34,6 +34,7 @@ import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { InstallPWA } from '@/components/InstallPWA';
 import { usePWA } from '@/hooks/usePWA';
+import { NotificationSettings } from '@/components/NotificationSettings';
 import { cn } from '@/lib/utils';
 
 // Setting item component for mobile-like appearance
@@ -544,6 +545,9 @@ export default function Settings() {
 
       {/* App Section */}
       <SettingSection title="Aplicativo">
+        <div className="p-4 border-b border-border">
+          <NotificationSettings />
+        </div>
         <SettingItem
           icon={RefreshCw}
           title="Atualizações"
