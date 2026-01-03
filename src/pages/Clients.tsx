@@ -153,7 +153,7 @@ export default function Clients() {
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [selectedSharedCredit, setSelectedSharedCredit] = useState<SharedCreditSelection | null>(null);
-  const [externalApps, setExternalApps] = useState<{ appId: string; devices: { name: string; mac: string; device_key?: string }[]; email: string; password: string }[]>([]);
+  const [externalApps, setExternalApps] = useState<{ appId: string; devices: { name: string; mac: string; device_key?: string }[]; email: string; password: string; expirationDate: string }[]>([]);
   // State for popovers inside the dialog
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [expirationPopoverOpen, setExpirationPopoverOpen] = useState(false);
@@ -427,6 +427,7 @@ export default function Clients() {
             devices: app.devices.filter(d => d.mac.trim() !== ''),
             email: app.email || null,
             password: encryptedPassword,
+            expiration_date: app.expirationDate || null,
           }]);
           
           if (appError) {

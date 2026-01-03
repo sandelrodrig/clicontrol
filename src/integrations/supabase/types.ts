@@ -116,6 +116,7 @@ export type Database = {
           created_at: string | null
           devices: Json | null
           email: string | null
+          expiration_date: string | null
           external_app_id: string
           id: string
           notes: string | null
@@ -128,6 +129,7 @@ export type Database = {
           created_at?: string | null
           devices?: Json | null
           email?: string | null
+          expiration_date?: string | null
           external_app_id: string
           id?: string
           notes?: string | null
@@ -140,6 +142,7 @@ export type Database = {
           created_at?: string | null
           devices?: Json | null
           email?: string | null
+          expiration_date?: string | null
           external_app_id?: string
           id?: string
           notes?: string | null

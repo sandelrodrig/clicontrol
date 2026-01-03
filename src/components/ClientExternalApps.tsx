@@ -13,10 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
-import { Plus, Trash2, Monitor, Mail, Key, ExternalLink, Loader2, AppWindow, Copy } from 'lucide-react';
+import { Plus, Trash2, Monitor, Mail, Key, ExternalLink, Loader2, AppWindow, Copy, CalendarIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { format, addMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import type { ExternalApp } from './ExternalAppsManager';
 
 interface MacDevice {
@@ -40,8 +45,8 @@ interface ClientExternalApp {
 interface ClientExternalAppsProps {
   clientId?: string; // For editing existing client
   sellerId: string;
-  onChange?: (apps: { appId: string; devices: MacDevice[]; email: string; password: string }[]) => void;
-  initialApps?: { appId: string; devices: MacDevice[]; email: string; password: string }[];
+  onChange?: (apps: { appId: string; devices: MacDevice[]; email: string; password: string; expirationDate: string }[]) => void;
+  initialApps?: { appId: string; devices: MacDevice[]; email: string; password: string; expirationDate: string }[];
 }
 
 export function ClientExternalApps({ clientId, sellerId, onChange, initialApps = [] }: ClientExternalAppsProps) {
@@ -49,7 +54,7 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
   const queryClient = useQueryClient();
   
   // Local state for form (when creating new client)
-  const [localApps, setLocalApps] = useState<{ appId: string; devices: MacDevice[]; email: string; password: string }[]>(initialApps);
+  const [localApps, setLocalApps] = useState<{ appId: string; devices: MacDevice[]; email: string; password: string; expirationDate: string }[]>(initialApps);
 
   // Fetch available external apps
   const { data: availableApps = [] } = useQuery({
@@ -111,16 +116,17 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
         devices: la.devices || [],
         email: la.email || '',
         password: la.password || '',
+        expirationDate: (la as unknown as { expiration_date?: string }).expiration_date || '',
       })));
     }
   }, [clientId, linkedApps]);
 
   const addApp = () => {
     if (availableApps.length === 0) {
-      toast.error('Cadastre um app externo primeiro nas configurações');
+      toast.error('Cadastre um app primeiro em Apps Pagos');
       return;
     }
-    setLocalApps([...localApps, { appId: '', devices: [], email: '', password: '' }]);
+    setLocalApps([...localApps, { appId: '', devices: [], email: '', password: '', expirationDate: '' }]);
   };
 
   const removeApp = (index: number) => {
@@ -128,10 +134,15 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
     setLocalApps(newApps);
   };
 
-  const updateApp = (index: number, updates: Partial<{ appId: string; devices: MacDevice[]; email: string; password: string }>) => {
+  const updateApp = (index: number, updates: Partial<{ appId: string; devices: MacDevice[]; email: string; password: string; expirationDate: string }>) => {
     const newApps = [...localApps];
     newApps[index] = { ...newApps[index], ...updates };
     setLocalApps(newApps);
+  };
+
+  const setQuickExpiration = (appIndex: number, months: number) => {
+    const newDate = addMonths(new Date(), months);
+    updateApp(appIndex, { expirationDate: format(newDate, 'yyyy-MM-dd') });
   };
 
   const addDevice = (appIndex: number) => {
@@ -160,8 +171,8 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
     return (
       <div className="text-center py-4 text-sm text-muted-foreground border border-dashed rounded-lg">
         <AppWindow className="h-8 w-8 mx-auto mb-2 opacity-50" />
-        <p>Nenhum app externo cadastrado.</p>
-        <p className="text-xs mt-1">Cadastre apps em Configurações → Apps Externos</p>
+        <p>Nenhum app cadastrado.</p>
+        <p className="text-xs mt-1">Cadastre apps no menu "Apps Pagos"</p>
       </div>
     );
   }
@@ -368,6 +379,78 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
                           </div>
                         </div>
                       )}
+
+                      {/* Expiration Date Section */}
+                      <div className="space-y-2 pt-2 border-t">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                          <CalendarIcon className="h-3 w-3" />
+                          Data de Vencimento
+                        </Label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setQuickExpiration(appIndex, 6)}
+                            >
+                              6 meses
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setQuickExpiration(appIndex, 12)}
+                            >
+                              1 ano
+                            </Button>
+                          </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className={cn(
+                                  "h-7 text-xs gap-1 min-w-[140px] justify-start",
+                                  !app.expirationDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="h-3 w-3" />
+                                {app.expirationDate
+                                  ? format(new Date(app.expirationDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })
+                                  : 'Escolher data'}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={app.expirationDate ? new Date(app.expirationDate + 'T12:00:00') : undefined}
+                                onSelect={(date) => {
+                                  if (date) {
+                                    updateApp(appIndex, { expirationDate: format(date, 'yyyy-MM-dd') });
+                                  }
+                                }}
+                                initialFocus
+                                className={cn("p-3 pointer-events-auto")}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          {app.expirationDate && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                              onClick={() => updateApp(appIndex, { expirationDate: '' })}
+                            >
+                              Limpar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </>
                   )}
                 </CardContent>
@@ -428,6 +511,12 @@ export function ClientExternalAppsDisplay({ clientId, sellerId }: { clientId: st
               <span className="text-xs font-medium text-violet-600 dark:text-violet-400">
                 {app.external_app?.name}
               </span>
+              {(app as unknown as { expiration_date?: string }).expiration_date && (
+                <Badge variant="outline" className="text-[10px] px-1.5 border-violet-500/30 text-violet-600 dark:text-violet-400">
+                  <CalendarIcon className="h-2.5 w-2.5 mr-0.5" />
+                  {format(new Date((app as unknown as { expiration_date: string }).expiration_date + 'T12:00:00'), 'dd/MM/yy', { locale: ptBR })}
+                </Badge>
+              )}
             </div>
             {app.external_app?.website_url && (
               <Button

@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Share2,
   Globe,
+  AppWindow,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
@@ -53,6 +54,7 @@ const navGroups: NavGroup[] = [
     items: [
       { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
       { title: 'Clientes', href: '/clients', icon: Users, sellerOnly: true },
+      { title: 'Apps Pagos', href: '/external-apps', icon: AppWindow, sellerOnly: true },
       { title: 'Servidores', href: '/servers', icon: Server, sellerOnly: true },
       { title: 'Painéis', href: '/panels', icon: Globe, sellerOnly: true },
       { title: 'Planos', href: '/plans', icon: Package, sellerOnly: true },
