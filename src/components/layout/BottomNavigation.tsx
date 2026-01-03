@@ -1,13 +1,14 @@
 import { forwardRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Menu, Server, Package, Users, AppWindow } from 'lucide-react';
+import { Menu, LayoutDashboard, Server, Package, Users, AppWindow } from 'lucide-react';
 
 interface BottomNavigationProps {
   onMenuClick: () => void;
 }
 
 const quickNavItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: Server, label: 'Servidor', href: '/servers' },
   { icon: Package, label: 'Planos', href: '/plans' },
   { icon: Users, label: 'Clientes', href: '/clients' },
