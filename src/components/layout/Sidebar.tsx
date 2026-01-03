@@ -4,27 +4,11 @@ import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { useMenuStyle } from '@/hooks/useMenuStyle';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard,
-  Users,
-  Server,
-  CreditCard,
-  Tag,
-  UserPlus,
-  MessageSquare,
-  Settings,
   LogOut,
-  UserCog,
-  BarChart3,
-  Package,
-  Database,
-  PlayCircle,
-  History,
   EyeOff,
   Eye,
   RefreshCw,
   Share2,
-  Globe,
-  AppWindow,
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
@@ -35,58 +19,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-interface NavItem {
-  title: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  adminOnly?: boolean;
-  sellerOnly?: boolean;
-}
-
-interface NavGroup {
-  title: string;
-  items: NavItem[];
-}
-
-const navGroups: NavGroup[] = [
-  {
-    title: 'Principal',
-    items: [
-      { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { title: 'Clientes', href: '/clients', icon: Users, sellerOnly: true },
-      { title: 'Apps Pagos', href: '/external-apps', icon: AppWindow, sellerOnly: true },
-      { title: 'Servidores', href: '/servers', icon: Server, sellerOnly: true },
-      { title: 'Painéis', href: '/panels', icon: Globe, sellerOnly: true },
-      { title: 'Planos', href: '/plans', icon: Package, sellerOnly: true },
-    ],
-  },
-  {
-    title: 'Financeiro',
-    items: [
-      { title: 'Contas a Pagar', href: '/bills', icon: CreditCard, sellerOnly: true },
-      { title: 'Cupons', href: '/coupons', icon: Tag, sellerOnly: true },
-      { title: 'Indicações', href: '/referrals', icon: UserPlus, sellerOnly: true },
-    ],
-  },
-  {
-    title: 'Mensagens',
-    items: [
-      { title: 'Templates', href: '/templates', icon: MessageSquare },
-      { title: 'Histórico', href: '/message-history', icon: History, sellerOnly: true },
-    ],
-  },
-  {
-    title: 'Sistema',
-    items: [
-      { title: 'Tutoriais', href: '/tutorials', icon: PlayCircle },
-      { title: 'Vendedores', href: '/sellers', icon: UserCog, adminOnly: true },
-      { title: 'Relatórios', href: '/reports', icon: BarChart3, adminOnly: true },
-      { title: 'Backup', href: '/backup', icon: Database, adminOnly: true },
-      { title: 'Configurações', href: '/settings', icon: Settings },
-    ],
-  },
-];
+import { navGroups, filterNavGroups } from '@/config/navigation';
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { profile, isAdmin, isSeller, signOut } = useAuth();
@@ -94,14 +27,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { menuStyle } = useMenuStyle();
   const location = useLocation();
 
-  const filteredGroups = navGroups.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => {
-      if (item.adminOnly && !isAdmin) return false;
-      if (item.sellerOnly && !isSeller && !isAdmin) return false;
-      return true;
-    }),
-  })).filter((group) => group.items.length > 0);
+  const filteredGroups = filterNavGroups(navGroups, isAdmin, isSeller);
 
   const isCompact = menuStyle === 'compact';
   const isIconsOnly = menuStyle === 'icons-only';
