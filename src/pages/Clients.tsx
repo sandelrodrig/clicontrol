@@ -429,16 +429,29 @@ export default function Clients() {
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null; screens?: string; category?: string | null; has_paid_apps?: boolean; paid_apps_duration?: string | null; paid_apps_expiration?: string | null; telegram?: string | null; premium_password?: string | null }) => {
-      // Encrypt login and password before saving
-      const encrypted = await encryptCredentials(data.login || null, data.password || null);
-      
       // Extract screens before spreading - it's not a column in the clients table
       const { screens, ...clientData } = data;
       
+      // If using shared credit, use the ORIGINAL encrypted credentials to ensure matching
+      // Otherwise, encrypt the new credentials
+      let finalLogin: string | null;
+      let finalPassword: string | null;
+      
+      if (selectedSharedCredit?.encryptedLogin) {
+        // Use original encrypted credentials from shared credit (avoids re-encryption mismatch)
+        finalLogin = selectedSharedCredit.encryptedLogin;
+        finalPassword = selectedSharedCredit.encryptedPassword || null;
+      } else {
+        // Encrypt new credentials
+        const encrypted = await encryptCredentials(data.login || null, data.password || null);
+        finalLogin = encrypted.login;
+        finalPassword = encrypted.password;
+      }
+      
       const { data: insertedData, error } = await supabase.from('clients').insert([{
         ...clientData,
-        login: encrypted.login,
-        password: encrypted.password,
+        login: finalLogin,
+        password: finalPassword,
         seller_id: user!.id,
         renewed_at: new Date().toISOString(), // Track creation as first renewal for monthly profit
       }]).select('id').single();
