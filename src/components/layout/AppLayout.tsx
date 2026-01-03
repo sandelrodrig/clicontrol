@@ -13,59 +13,22 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
-  LayoutDashboard,
   Users,
-  Server,
-  CreditCard,
-  Tag,
-  UserPlus,
-  MessageSquare,
-  Settings,
   LogOut,
-  UserCog,
-  BarChart3,
-  Package,
-  Database,
-  Tv,
-  History,
   EyeOff,
   Eye,
-  PlayCircle,
   Share2,
   RefreshCw,
-  AppWindow,
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-const navItems = [
-  { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { title: 'Clientes', href: '/clients', icon: Users, sellerOnly: true },
-  { title: 'Apps Pagos', href: '/external-apps', icon: AppWindow, sellerOnly: true },
-  { title: 'Servidores', href: '/servers', icon: Server, sellerOnly: true },
-  { title: 'Planos', href: '/plans', icon: Package, sellerOnly: true },
-  { title: 'Contas a Pagar', href: '/bills', icon: CreditCard, sellerOnly: true },
-  { title: 'Cupons', href: '/coupons', icon: Tag, sellerOnly: true },
-  { title: 'Indicações', href: '/referrals', icon: UserPlus, sellerOnly: true },
-  { title: 'Painéis', href: '/shared-panels', icon: Tv, sellerOnly: true },
-  { title: 'Templates', href: '/templates', icon: MessageSquare },
-  { title: 'Histórico', href: '/message-history', icon: History, sellerOnly: true },
-  { title: 'Tutoriais', href: '/tutorials', icon: PlayCircle },
-  { title: 'Vendedores', href: '/sellers', icon: UserCog, adminOnly: true },
-  { title: 'Relatórios', href: '/reports', icon: BarChart3, adminOnly: true },
-  { title: 'Backup', href: '/backup', icon: Database, adminOnly: true },
-  { title: 'Configurações', href: '/settings', icon: Settings },
-];
+import { navItems, filterNavItems } from '@/config/navigation';
 
 function MobileMenuContent({ onNavigate }: { onNavigate?: () => void }) {
   const { profile, isAdmin, isSeller, signOut } = useAuth();
   const { isPrivacyMode, togglePrivacyMode } = usePrivacyMode();
   const location = useLocation();
 
-  const filteredNavItems = navItems.filter((item: any) => {
-    if (item.adminOnly && !isAdmin) return false;
-    if (item.sellerOnly && !isSeller && !isAdmin) return false;
-    return true;
-  });
+  const filteredNavItems = filterNavItems(navItems, isAdmin, isSeller);
 
   return (
     <div className="flex flex-col h-full">
