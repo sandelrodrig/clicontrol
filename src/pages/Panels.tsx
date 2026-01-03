@@ -144,41 +144,49 @@ const Panels = () => {
               </p>
             </div>
 
-            {/* Register Button - Main CTA */}
-            <Button 
-              size="lg"
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-base shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02]"
-              onClick={() => handleOpenPanel(gerenciaAppSettings!.registerUrl)}
-            >
-              <UserPlus className="w-5 h-5 mr-2" />
-              CADASTRAR E COMEÇAR A ATIVAR
-            </Button>
-
-            {/* Access Panel - Secondary */}
+            {/* Access Panel - Primary for existing users */}
             {gerenciaAppSettings?.panelUrl && (
               <div className="flex gap-2">
                 <Button 
-                  variant="outline"
-                  className="flex-1 border-primary/30 hover:bg-primary/10"
+                  size="lg"
+                  className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 font-bold shadow-lg transition-all hover:scale-[1.02]"
                   onClick={() => handleOpenPanel(gerenciaAppSettings.panelUrl)}
                 >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Acessar Painel
+                  <ExternalLink className="w-5 h-5 mr-2" />
+                  ENTRAR NO PAINEL
                 </Button>
                 <Button
                   variant="outline"
-                  size="icon"
+                  size="lg"
                   className="border-primary/30 hover:bg-primary/10"
                   onClick={() => handleCopyUrl('gerencia-app', gerenciaAppSettings.panelUrl)}
                 >
                   {copiedId === 'gerencia-app' ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
                   ) : (
-                    <Copy className="w-4 h-4" />
+                    <Copy className="w-5 h-5" />
                   )}
                 </Button>
               </div>
             )}
+
+            {/* Divider with text */}
+            <div className="text-center py-1">
+              <p className="text-sm text-muted-foreground">
+                Se você não tem conta, cadastre aqui 👇
+              </p>
+            </div>
+
+            {/* Register Button - Secondary CTA */}
+            <Button 
+              size="lg"
+              variant="outline"
+              className="w-full border-2 border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-bold text-base transition-all hover:scale-[1.02]"
+              onClick={() => handleOpenPanel(gerenciaAppSettings!.registerUrl)}
+            >
+              <UserPlus className="w-5 h-5 mr-2" />
+              CRIAR MINHA CONTA
+            </Button>
           </CardContent>
         </Card>
       )}
