@@ -147,6 +147,8 @@ export default function Clients() {
   const [renewPlanId, setRenewPlanId] = useState<string>('');
   const [decryptedCredentials, setDecryptedCredentials] = useState<DecryptedCredentials>({});
   const [decrypting, setDecrypting] = useState<string | null>(null);
+  const [isDecryptingAll, setIsDecryptingAll] = useState(false);
+  const [allCredentialsDecrypted, setAllCredentialsDecrypted] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [serverFilter, setServerFilter] = useState<string>('all');
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -322,6 +324,66 @@ export default function Clients() {
       setDecrypting(null);
     }
   }, [decrypt, decryptedCredentials]);
+
+  // Decrypt all credentials in batch for search functionality
+  const decryptAllCredentials = useCallback(async () => {
+    if (allCredentialsDecrypted || isDecryptingAll || !clients.length) return;
+    
+    setIsDecryptingAll(true);
+    
+    const clientsWithCredentials = clients.filter(c => 
+      (c.login || c.password) && !decryptedCredentials[c.id]
+    );
+    
+    if (clientsWithCredentials.length === 0) {
+      setAllCredentialsDecrypted(true);
+      setIsDecryptingAll(false);
+      return;
+    }
+    
+    // Decrypt in batches to avoid overwhelming the API
+    const batchSize = 10;
+    const newDecrypted: DecryptedCredentials = { ...decryptedCredentials };
+    
+    for (let i = 0; i < clientsWithCredentials.length; i += batchSize) {
+      const batch = clientsWithCredentials.slice(i, i + batchSize);
+      
+      await Promise.all(batch.map(async (client) => {
+        try {
+          const decryptedLogin = client.login ? await decrypt(client.login) : '';
+          const decryptedPassword = client.password ? await decrypt(client.password) : '';
+          newDecrypted[client.id] = { login: decryptedLogin, password: decryptedPassword };
+        } catch (error) {
+          // If decryption fails, use raw values (might be plain text)
+          newDecrypted[client.id] = { login: client.login || '', password: client.password || '' };
+        }
+      }));
+    }
+    
+    setDecryptedCredentials(newDecrypted);
+    setAllCredentialsDecrypted(true);
+    setIsDecryptingAll(false);
+  }, [clients, decrypt, decryptedCredentials, allCredentialsDecrypted, isDecryptingAll]);
+
+  // Trigger decryption when user starts searching
+  useEffect(() => {
+    if (search.length >= 2 && !allCredentialsDecrypted) {
+      decryptAllCredentials();
+    }
+  }, [search, allCredentialsDecrypted, decryptAllCredentials]);
+
+  // Reset decrypted state when clients change (refetch)
+  useEffect(() => {
+    if (clients.length > 0) {
+      // Check if there are new clients not in decrypted list
+      const hasNewClients = clients.some(c => 
+        (c.login || c.password) && !decryptedCredentials[c.id]
+      );
+      if (hasNewClients && allCredentialsDecrypted) {
+        setAllCredentialsDecrypted(false);
+      }
+    }
+  }, [clients, decryptedCredentials, allCredentialsDecrypted]);
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null; screens?: string; category?: string | null; has_paid_apps?: boolean; paid_apps_duration?: string | null; paid_apps_expiration?: string | null; telegram?: string | null; premium_password?: string | null }) => {
