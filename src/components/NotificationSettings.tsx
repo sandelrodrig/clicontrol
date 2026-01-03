@@ -1,9 +1,10 @@
-import { Bell, BellOff, Loader2, AlertTriangle, CheckCircle2, Info, Smartphone, Globe } from 'lucide-react';
+import { Bell, BellOff, Loader2, AlertTriangle, CheckCircle2, Info, Smartphone, Globe, Send } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Collapsible,
   CollapsibleContent,
@@ -24,7 +25,9 @@ export function NotificationSettings() {
     lastError,
   } = usePushNotifications();
   
+  const { isAdmin } = useAuth();
   const [showDetails, setShowDetails] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
 
   const handleToggle = async (checked: boolean) => {
     if (!isSupported) {
@@ -59,6 +62,44 @@ export function NotificationSettings() {
       } else {
         toast.error('Erro ao desativar notificações');
       }
+    }
+  };
+
+  const handleTestNotification = async () => {
+    if (!isSubscribed) {
+      toast.error('Ative as notificações primeiro');
+      return;
+    }
+    
+    setIsSendingTest(true);
+    
+    try {
+      // Simulate a fake seller expiration notification
+      const fakeSellerName = 'João Silva (Teste)';
+      const fakeDaysLeft = Math.floor(Math.random() * 3) + 1; // 1-3 days
+      
+      // Show local notification for testing
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('🔔 Revendedor Vencendo!', {
+          body: `${fakeSellerName} vence em ${fakeDaysLeft} dia${fakeDaysLeft > 1 ? 's' : ''}. Entre em contato para renovação.`,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          tag: 'test-seller-expiration',
+        });
+        
+        toast.success('Notificação de teste enviada!', {
+          description: 'Verifique a notificação do sistema.'
+        });
+      } else {
+        toast.info('Notificação de teste', {
+          description: `${fakeSellerName} vence em ${fakeDaysLeft} dia${fakeDaysLeft > 1 ? 's' : ''}.`
+        });
+      }
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      toast.error('Erro ao enviar notificação de teste');
+    } finally {
+      setIsSendingTest(false);
     }
   };
 
@@ -133,6 +174,24 @@ export function NotificationSettings() {
           </Button>
         )}
       </div>
+      
+      {/* Admin Test Button */}
+      {isAdmin && isSubscribed && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={handleTestNotification}
+          disabled={isSendingTest}
+        >
+          {isSendingTest ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4 mr-2" />
+          )}
+          Testar Notificação (Revendedor Vencendo)
+        </Button>
+      )}
       
       {/* Error display */}
       {lastError && !isSubscribed && (
