@@ -7,6 +7,8 @@ import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { useMenuStyle } from '@/hooks/useMenuStyle';
 import { FloatingNotifications } from '@/components/FloatingNotifications';
 import { PendingQueueIndicator } from '@/components/PendingQueueIndicator';
+import { OnboardingTutorial } from '@/components/OnboardingTutorial';
+import { OnboardingProgressBar } from '@/components/OnboardingProgressBar';
 import { useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -221,6 +223,8 @@ export function AppLayout() {
         </>
       )}
       <FloatingNotifications />
+      <OnboardingTutorial />
+      <OnboardingProgressBar />
     </div>
   );
 }

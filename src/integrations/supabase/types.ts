@@ -602,6 +602,7 @@ export type Database = {
           needs_password_update: boolean | null
           pix_key: string | null
           subscription_expires_at: string | null
+          tutorial_visto: boolean | null
           updated_at: string | null
           whatsapp: string | null
         }
@@ -616,6 +617,7 @@ export type Database = {
           needs_password_update?: boolean | null
           pix_key?: string | null
           subscription_expires_at?: string | null
+          tutorial_visto?: boolean | null
           updated_at?: string | null
           whatsapp?: string | null
         }
@@ -630,6 +632,7 @@ export type Database = {
           needs_password_update?: boolean | null
           pix_key?: string | null
           subscription_expires_at?: string | null
+          tutorial_visto?: boolean | null
           updated_at?: string | null
           whatsapp?: string | null
         }
