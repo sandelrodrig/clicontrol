@@ -110,6 +110,60 @@ export type Database = {
         }
         Relationships: []
       }
+      client_external_apps: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          devices: Json | null
+          email: string | null
+          external_app_id: string
+          id: string
+          notes: string | null
+          password: string | null
+          seller_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          devices?: Json | null
+          email?: string | null
+          external_app_id: string
+          id?: string
+          notes?: string | null
+          password?: string | null
+          seller_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          devices?: Json | null
+          email?: string | null
+          external_app_id?: string
+          id?: string
+          notes?: string | null
+          password?: string | null
+          seller_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_external_apps_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_external_apps_external_app_id_fkey"
+            columns: ["external_app_id"]
+            isOneToOne: false
+            referencedRelation: "external_apps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           app_name: string | null
@@ -290,6 +344,39 @@ export type Database = {
           name?: string
           seller_id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      external_apps: {
+        Row: {
+          auth_type: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          seller_id: string
+          updated_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          auth_type?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          seller_id: string
+          updated_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          auth_type?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          seller_id?: string
+          updated_at?: string | null
+          website_url?: string | null
         }
         Relationships: []
       }
