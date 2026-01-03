@@ -92,7 +92,7 @@ interface ClientCategory {
 }
 
 interface DecryptedCredentials {
-  [clientId: string]: { login: string; password: string };
+  [clientId: string]: { login: string; password: string; login_2?: string; password_2?: string };
 }
 
 interface Plan {
@@ -328,38 +328,68 @@ export default function Clients() {
   // Decrypt all credentials in batch for search functionality
   const decryptAllCredentials = useCallback(async () => {
     if (allCredentialsDecrypted || isDecryptingAll || !clients.length) return;
-    
+
     setIsDecryptingAll(true);
-    
-    const clientsWithCredentials = clients.filter(c => 
-      (c.login || c.password) && !decryptedCredentials[c.id]
-    );
-    
+
+    const clientsWithCredentials = clients.filter((c) => {
+      const hasAnyCredentials = Boolean(c.login || c.password || c.login_2 || c.password_2);
+      if (!hasAnyCredentials) return false;
+
+      const existing = decryptedCredentials[c.id];
+      if (!existing) return true;
+
+      // If server 2 credentials exist but weren't decrypted yet, we still need to process this client
+      const needsSecondServerCredentials =
+        Boolean(c.login_2 || c.password_2) &&
+        existing.login_2 === undefined &&
+        existing.password_2 === undefined;
+
+      return needsSecondServerCredentials;
+    });
+
     if (clientsWithCredentials.length === 0) {
       setAllCredentialsDecrypted(true);
       setIsDecryptingAll(false);
       return;
     }
-    
+
+    const safeDecrypt = async (value: string | null) => {
+      if (!value) return '';
+      try {
+        return await decrypt(value);
+      } catch {
+        // Might already be plain text (old data) or invalid ciphertext
+        return value;
+      }
+    };
+
     // Decrypt in batches to avoid overwhelming the API
     const batchSize = 10;
     const newDecrypted: DecryptedCredentials = { ...decryptedCredentials };
-    
+
     for (let i = 0; i < clientsWithCredentials.length; i += batchSize) {
       const batch = clientsWithCredentials.slice(i, i + batchSize);
-      
-      await Promise.all(batch.map(async (client) => {
-        try {
-          const decryptedLogin = client.login ? await decrypt(client.login) : '';
-          const decryptedPassword = client.password ? await decrypt(client.password) : '';
-          newDecrypted[client.id] = { login: decryptedLogin, password: decryptedPassword };
-        } catch (error) {
-          // If decryption fails, use raw values (might be plain text)
-          newDecrypted[client.id] = { login: client.login || '', password: client.password || '' };
-        }
-      }));
+
+      await Promise.all(
+        batch.map(async (client) => {
+          const previous = newDecrypted[client.id] ?? { login: '', password: '' };
+
+          const decryptedLogin = client.login ? await safeDecrypt(client.login) : previous.login;
+          const decryptedPassword = client.password ? await safeDecrypt(client.password) : previous.password;
+          const decryptedLogin2 = client.login_2 ? await safeDecrypt(client.login_2) : (previous.login_2 ?? '');
+          const decryptedPassword2 = client.password_2 ? await safeDecrypt(client.password_2) : (previous.password_2 ?? '');
+
+          newDecrypted[client.id] = {
+            ...previous,
+            login: decryptedLogin || '',
+            password: decryptedPassword || '',
+            login_2: decryptedLogin2 || '',
+            password_2: decryptedPassword2 || '',
+          };
+        })
+      );
     }
-    
+
     setDecryptedCredentials(newDecrypted);
     setAllCredentialsDecrypted(true);
     setIsDecryptingAll(false);
@@ -367,7 +397,7 @@ export default function Clients() {
 
   // Trigger decryption when user starts searching
   useEffect(() => {
-    if (search.length >= 2 && !allCredentialsDecrypted) {
+    if (search.trim().length >= 2 && !allCredentialsDecrypted) {
       decryptAllCredentials();
     }
   }, [search, allCredentialsDecrypted, decryptAllCredentials]);
@@ -375,11 +405,23 @@ export default function Clients() {
   // Reset decrypted state when clients change (refetch)
   useEffect(() => {
     if (clients.length > 0) {
-      // Check if there are new clients not in decrypted list
-      const hasNewClients = clients.some(c => 
-        (c.login || c.password) && !decryptedCredentials[c.id]
-      );
-      if (hasNewClients && allCredentialsDecrypted) {
+      // Check if there are clients that still need decryption (including server 2 credentials)
+      const hasClientsNeedingDecryption = clients.some((c) => {
+        const hasAnyCredentials = Boolean(c.login || c.password || c.login_2 || c.password_2);
+        if (!hasAnyCredentials) return false;
+
+        const existing = decryptedCredentials[c.id];
+        if (!existing) return true;
+
+        const needsSecondServerCredentials =
+          Boolean(c.login_2 || c.password_2) &&
+          existing.login_2 === undefined &&
+          existing.password_2 === undefined;
+
+        return needsSecondServerCredentials;
+      });
+
+      if (hasClientsNeedingDecryption && allCredentialsDecrypted) {
         setAllCredentialsDecrypted(false);
       }
     }
@@ -966,27 +1008,40 @@ export default function Clients() {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, ''); // Remove diacritics
     };
-    
-    const normalizedSearch = normalizeText(search);
+
+    const rawSearch = search.trim();
+    const searchLower = rawSearch.toLowerCase();
+
+    const normalizedSearch = normalizeText(rawSearch);
     const normalizedName = normalizeText(client.name);
-    
+
     // Check decrypted credentials if available
     const clientCredentials = decryptedCredentials[client.id];
-    const loginMatch = clientCredentials?.login?.toLowerCase().includes(search.toLowerCase()) || false;
-    const passwordMatch = clientCredentials?.password?.toLowerCase().includes(search.toLowerCase()) || false;
-    
+    const loginMatch = clientCredentials?.login?.toLowerCase().includes(searchLower) || false;
+    const passwordMatch = clientCredentials?.password?.toLowerCase().includes(searchLower) || false;
+    const login2Match = clientCredentials?.login_2?.toLowerCase().includes(searchLower) || false;
+    const password2Match = clientCredentials?.password_2?.toLowerCase().includes(searchLower) || false;
+
     // Also check raw login/password for unencrypted data
-    const rawLoginMatch = client.login?.toLowerCase().includes(search.toLowerCase()) || false;
-    const rawPasswordMatch = client.password?.toLowerCase().includes(search.toLowerCase()) || false;
-    
+    const rawLoginMatch = client.login?.toLowerCase().includes(searchLower) || false;
+    const rawPasswordMatch = client.password?.toLowerCase().includes(searchLower) || false;
+    const rawLogin2Match = client.login_2?.toLowerCase().includes(searchLower) || false;
+    const rawPassword2Match = client.password_2?.toLowerCase().includes(searchLower) || false;
+
     const matchesSearch =
       normalizedName.includes(normalizedSearch) ||
-      client.phone?.includes(search) ||
-      client.email?.toLowerCase().includes(search.toLowerCase()) ||
+      client.phone?.includes(rawSearch) ||
+      client.email?.toLowerCase().includes(searchLower) ||
       loginMatch ||
       passwordMatch ||
+      login2Match ||
+      password2Match ||
       rawLoginMatch ||
-      rawPasswordMatch;
+      rawPasswordMatch ||
+      rawLogin2Match ||
+      rawPassword2Match;
+
+    if (!matchesSearch) return false;
 
     if (!matchesSearch) return false;
 
