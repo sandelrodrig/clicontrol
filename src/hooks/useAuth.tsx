@@ -14,6 +14,7 @@ interface Profile {
   is_active: boolean;
   needs_password_update: boolean;
   created_at: string;
+  tutorial_visto: boolean;
 }
 
 interface AuthContextType {
