@@ -897,10 +897,34 @@ export default function Clients() {
   const archivedClients = clients.filter(c => c.is_archived);
 
   const filteredClients = (filter === 'archived' ? archivedClients : activeClients).filter((client) => {
+    // Normalize search text - remove accents and convert to lowercase
+    const normalizeText = (text: string) => {
+      return text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, ''); // Remove diacritics
+    };
+    
+    const normalizedSearch = normalizeText(search);
+    const normalizedName = normalizeText(client.name);
+    
+    // Check decrypted credentials if available
+    const clientCredentials = decryptedCredentials[client.id];
+    const loginMatch = clientCredentials?.login?.toLowerCase().includes(search.toLowerCase()) || false;
+    const passwordMatch = clientCredentials?.password?.toLowerCase().includes(search.toLowerCase()) || false;
+    
+    // Also check raw login/password for unencrypted data
+    const rawLoginMatch = client.login?.toLowerCase().includes(search.toLowerCase()) || false;
+    const rawPasswordMatch = client.password?.toLowerCase().includes(search.toLowerCase()) || false;
+    
     const matchesSearch =
-      client.name.toLowerCase().includes(search.toLowerCase()) ||
+      normalizedName.includes(normalizedSearch) ||
       client.phone?.includes(search) ||
-      client.email?.toLowerCase().includes(search.toLowerCase());
+      client.email?.toLowerCase().includes(search.toLowerCase()) ||
+      loginMatch ||
+      passwordMatch ||
+      rawLoginMatch ||
+      rawPasswordMatch;
 
     if (!matchesSearch) return false;
 
