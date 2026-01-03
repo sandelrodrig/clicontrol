@@ -38,9 +38,12 @@ export interface SharedCreditSelection {
   fullPrice: number;
   remainingDays: number;
   existingClients: string[];
-  // Shared credentials from existing client
+  // Shared credentials from existing client (decrypted for display)
   sharedLogin?: string;
   sharedPassword?: string;
+  // Original encrypted credentials (to use when saving - avoids re-encryption issues)
+  encryptedLogin?: string;
+  encryptedPassword?: string;
   // Expiration date from existing clients
   expirationDate?: string;
 }
@@ -319,6 +322,9 @@ export function SharedCreditPicker({
         existingClients: slot.clientNames,
         sharedLogin: decryptedLogin,
         sharedPassword: decryptedPassword,
+        // Pass original encrypted credentials to use when saving (avoids re-encryption mismatch)
+        encryptedLogin: slot.login,
+        encryptedPassword: slot.password,
         expirationDate: slot.expirationDate,
       });
     } finally {
