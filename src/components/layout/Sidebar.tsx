@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
+import { useMenuStyle } from '@/hooks/useMenuStyle';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -90,6 +91,7 @@ const navGroups: NavGroup[] = [
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { profile, isAdmin, isSeller, signOut } = useAuth();
   const { isPrivacyMode, togglePrivacyMode } = usePrivacyMode();
+  const { menuStyle } = useMenuStyle();
   const location = useLocation();
 
   const filteredGroups = navGroups.map((group) => ({
@@ -101,39 +103,125 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     }),
   })).filter((group) => group.items.length > 0);
 
+  const isCompact = menuStyle === 'compact';
+  const isIconsOnly = menuStyle === 'icons-only';
+
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-sidebar to-sidebar/95">
       {/* Header com Logo */}
-      <div className="flex items-center h-16 px-5 border-b border-sidebar-border/50">
-        <div className="flex items-center gap-3">
+      <div className={cn(
+        "flex items-center border-b border-sidebar-border/50",
+        isIconsOnly ? "h-14 justify-center px-2" : "h-16 px-5"
+      )}>
+        <div className={cn("flex items-center", isIconsOnly ? "gap-0" : "gap-3")}>
           <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
+            <div className={cn(
+              "rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25",
+              isIconsOnly ? "w-9 h-9" : "w-10 h-10"
+            )}>
+              <Sparkles className={cn(isIconsOnly ? "w-4 h-4" : "w-5 h-5", "text-primary-foreground")} />
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-success rounded-full border-2 border-sidebar" />
+            {!isIconsOnly && (
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-success rounded-full border-2 border-sidebar" />
+            )}
           </div>
-          <div>
-            <span className="font-bold text-lg text-sidebar-foreground tracking-tight">PSControl</span>
-            <p className="text-[10px] text-sidebar-foreground/50 -mt-0.5">Gerenciamento Pro</p>
-          </div>
+          {!isIconsOnly && (
+            <div>
+              <span className="font-bold text-lg text-sidebar-foreground tracking-tight">PSControl</span>
+              <p className="text-[10px] text-sidebar-foreground/50 -mt-0.5">Gerenciamento Pro</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Navigation */}
       <ScrollArea className="flex-1 py-4">
-        <nav className="px-3 space-y-6">
+        <nav className={cn(
+          "space-y-6",
+          isIconsOnly ? "px-2" : isCompact ? "px-2" : "px-3"
+        )}>
           {filteredGroups.map((group) => (
             <div key={group.title}>
-              <div className="flex items-center gap-2 px-3 mb-2">
-                <div className="h-px flex-1 bg-gradient-to-r from-sidebar-border/80 to-transparent" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40">
-                  {group.title}
-                </span>
-                <div className="h-px flex-1 bg-gradient-to-l from-sidebar-border/80 to-transparent" />
-              </div>
-              <div className="space-y-1">
+              {/* Group title - hidden in icons-only mode */}
+              {!isIconsOnly && (
+                <div className="flex items-center gap-2 px-3 mb-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-sidebar-border/80 to-transparent" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/40">
+                    {group.title}
+                  </span>
+                  <div className="h-px flex-1 bg-gradient-to-l from-sidebar-border/80 to-transparent" />
+                </div>
+              )}
+              
+              {/* Items grid for compact/icons-only, list for default */}
+              <div className={cn(
+                isCompact || isIconsOnly
+                  ? "grid gap-2"
+                  : "space-y-1",
+                isCompact && "grid-cols-2",
+                isIconsOnly && "grid-cols-1 gap-1"
+              )}>
                 {group.items.map((item) => {
                   const isActive = location.pathname === item.href;
+                  
+                  // Icons-only style
+                  if (isIconsOnly) {
+                    return (
+                      <TooltipProvider key={item.href}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link
+                              to={item.href}
+                              onClick={onNavigate}
+                              className={cn(
+                                'flex items-center justify-center w-full h-10 rounded-lg transition-all duration-200',
+                                isActive
+                                  ? 'bg-primary/20 text-primary'
+                                  : 'text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                              )}
+                            >
+                              <item.icon className="w-5 h-5" />
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p>{item.title}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  }
+                  
+                  // Compact style - big icons with text below
+                  if (isCompact) {
+                    return (
+                      <Link
+                        key={item.href}
+                        to={item.href}
+                        onClick={onNavigate}
+                        className={cn(
+                          'group flex flex-col items-center gap-1.5 p-3 rounded-xl transition-all duration-200',
+                          isActive
+                            ? 'bg-gradient-to-b from-primary/20 to-primary/5 text-primary shadow-sm'
+                            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                        )}
+                      >
+                        <div className={cn(
+                          'w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-200',
+                          isActive 
+                            ? 'bg-primary/20' 
+                            : 'bg-sidebar-accent/30 group-hover:bg-sidebar-accent'
+                        )}>
+                          <item.icon className={cn(
+                            'w-6 h-6 transition-transform duration-200 group-hover:scale-110',
+                            isActive && 'text-primary'
+                          )} />
+                        </div>
+                        <span className="text-[11px] font-medium text-center leading-tight">{item.title}</span>
+                      </Link>
+                    );
+                  }
+                  
+                  // Default style
                   return (
                     <Link
                       key={item.href}
@@ -176,7 +264,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </ScrollArea>
 
       {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border/50 space-y-3 bg-sidebar-accent/20">
+      <div className={cn(
+        "border-t border-sidebar-border/50 bg-sidebar-accent/20",
+        isIconsOnly ? "p-2 space-y-2" : "p-4 space-y-3"
+      )}>
         {/* Privacy Toggle */}
         <TooltipProvider>
           <Tooltip>
@@ -184,25 +275,31 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               <button
                 onClick={togglePrivacyMode}
                 className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300',
+                  'w-full flex items-center rounded-xl transition-all duration-300',
+                  isIconsOnly 
+                    ? 'justify-center p-2' 
+                    : 'gap-3 px-3 py-2.5',
                   isPrivacyMode 
                     ? 'bg-warning/15 text-warning border border-warning/30' 
                     : 'bg-sidebar-accent/50 text-sidebar-foreground/70 hover:bg-sidebar-accent'
                 )}
               >
                 <div className={cn(
-                  'w-9 h-9 rounded-lg flex items-center justify-center',
+                  'rounded-lg flex items-center justify-center',
+                  isIconsOnly ? 'w-8 h-8' : 'w-9 h-9',
                   isPrivacyMode ? 'bg-warning/20' : 'bg-sidebar-accent'
                 )}>
                   {isPrivacyMode ? (
-                    <EyeOff className="w-4.5 h-4.5" />
+                    <EyeOff className={cn(isIconsOnly ? 'w-4 h-4' : 'w-4.5 h-4.5')} />
                   ) : (
-                    <Eye className="w-4.5 h-4.5" />
+                    <Eye className={cn(isIconsOnly ? 'w-4 h-4' : 'w-4.5 h-4.5')} />
                   )}
                 </div>
-                <span className="text-sm font-medium">
-                  {isPrivacyMode ? 'Modo Privado' : 'Ocultar Dados'}
-                </span>
+                {!isIconsOnly && (
+                  <span className="text-sm font-medium">
+                    {isPrivacyMode ? 'Modo Privado' : 'Ocultar Dados'}
+                  </span>
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">
@@ -212,41 +309,63 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </TooltipProvider>
 
         {/* User Info Card */}
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-sidebar-accent/40 border border-sidebar-border/30">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
-            <span className="text-sm font-bold text-primary">
-              {(profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {profile?.full_name || profile?.email?.split('@')[0]}
-            </p>
-            <p className={cn(
-              'text-xs font-medium',
-              isAdmin ? 'text-primary' : 'text-success'
-            )}>
-              {isAdmin ? 'Administrador' : 'Vendedor'}
-            </p>
-          </div>
+        {isIconsOnly ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
+                <button
                   onClick={signOut}
-                  className="h-8 w-8 text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                  className="w-full flex items-center justify-center p-2 rounded-xl bg-sidebar-accent/40 border border-sidebar-border/30 hover:bg-destructive/10 hover:border-destructive/30 transition-colors"
                 >
-                  <LogOut className="w-4 h-4" />
-                </Button>
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
+                    <span className="text-xs font-bold text-primary">
+                      {(profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="right">
-                <p>Sair</p>
+                <p>Sair ({profile?.full_name || profile?.email?.split('@')[0]})</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-sidebar-accent/40 border border-sidebar-border/30">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
+              <span className="text-sm font-bold text-primary">
+                {(profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {profile?.full_name || profile?.email?.split('@')[0]}
+              </p>
+              <p className={cn(
+                'text-xs font-medium',
+                isAdmin ? 'text-primary' : 'text-success'
+              )}>
+                {isAdmin ? 'Administrador' : 'Vendedor'}
+              </p>
+            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={signOut}
+                    className="h-8 w-8 text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Sair</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -254,12 +373,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Sidebar() {
   const isMobile = useIsMobile();
+  const { menuStyle } = useMenuStyle();
   const [open, setOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
     setOpen(false);
   }, [location.pathname]);
+
+  const isIconsOnly = menuStyle === 'icons-only';
+  const sidebarWidth = isIconsOnly ? 'w-16' : 'w-60';
 
   if (isMobile) {
     const handleShare = async () => {
@@ -319,7 +442,10 @@ export function Sidebar() {
         <div className="h-14" />
         
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetContent side="left" className="w-72 p-0 bg-sidebar border-sidebar-border/50">
+          <SheetContent side="left" className={cn(
+            "p-0 bg-sidebar border-sidebar-border/50",
+            isIconsOnly ? "w-20" : "w-72"
+          )}>
             <SidebarContent onNavigate={() => setOpen(false)} />
           </SheetContent>
         </Sheet>
@@ -329,7 +455,10 @@ export function Sidebar() {
 
   // Desktop
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-60 bg-sidebar border-r border-sidebar-border/50 shadow-xl shadow-sidebar/10">
+    <aside className={cn(
+      "fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border/50 shadow-xl shadow-sidebar/10 transition-all duration-300",
+      sidebarWidth
+    )}>
       <SidebarContent />
     </aside>
   );
@@ -338,4 +467,8 @@ export function Sidebar() {
 export function useSidebarSheet() {
   const [open, setOpen] = useState(false);
   return { open, setOpen };
+}
+
+export function getSidebarWidth(menuStyle: 'default' | 'compact' | 'icons-only') {
+  return menuStyle === 'icons-only' ? '4rem' : '15rem';
 }
