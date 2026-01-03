@@ -185,6 +185,17 @@ export function SharedCreditPicker({
         const iptvTotal = server.iptv_per_credit || 0;
         const p2pTotal = server.p2p_per_credit || 0;
         
+        // Calculate total capacity and total used
+        const totalCapacity = iptvTotal + p2pTotal;
+        const totalUsed = iptvUsed + p2pUsed;
+        
+        // Check if the ENTIRE credential has reached its total capacity
+        // This prevents the same login from being used beyond server limits
+        if (totalUsed >= totalCapacity) {
+          // This credential is fully used, don't show it at all
+          return;
+        }
+        
         const iptvAvailable = Math.max(0, iptvTotal - iptvUsed);
         const p2pAvailable = Math.max(0, p2pTotal - p2pUsed);
 
