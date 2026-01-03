@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Bell, Clock, AlertTriangle, MessageCircle, ChevronDown, Calendar, Repeat } from 'lucide-react';
+import { X, Bell, Clock, AlertTriangle, MessageCircle, ChevronDown, Calendar, Repeat, AppWindow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -23,20 +23,36 @@ interface Plan {
   duration_days: number;
 }
 
+interface ExternalAppExpiring {
+  clientName: string;
+  clientPhone: string | null;
+  appName: string;
+  daysRemaining: number;
+  expirationDate: string;
+}
+
 interface AnnualClientReminder {
   client: Client;
   nextBillingDate: Date;
   daysUntilBilling: number;
   isAnnual: true;
+  isExternalApp: false;
 }
 
 interface ExpiringClient {
   client: Client;
   daysRemaining: number;
   isAnnual: false;
+  isExternalApp: false;
 }
 
-type NotificationItem = AnnualClientReminder | ExpiringClient;
+interface ExpiringExternalApp {
+  appInfo: ExternalAppExpiring;
+  isExternalApp: true;
+  isAnnual: false;
+}
+
+type NotificationItem = AnnualClientReminder | ExpiringClient | ExpiringExternalApp;
 
 export function FloatingNotifications() {
   const { user, isSeller } = useAuth();
@@ -71,6 +87,48 @@ export function FloatingNotifications() {
       return data as Plan[] || [];
     },
     enabled: !!user?.id && isSeller,
+  });
+
+  // Fetch external apps expiring soon (0-7 days)
+  const { data: expiringExternalApps = [] } = useQuery({
+    queryKey: ['expiring-external-apps', user?.id],
+    queryFn: async () => {
+      if (!user?.id || !isSeller) return [];
+      const { data, error } = await supabase
+        .from('client_external_apps')
+        .select(`
+          expiration_date,
+          client:clients(name, phone),
+          external_app:external_apps(name)
+        `)
+        .eq('seller_id', user.id)
+        .not('expiration_date', 'is', null);
+      if (error) throw error;
+      
+      const today = startOfToday();
+      const result: ExternalAppExpiring[] = [];
+      
+      for (const item of data || []) {
+        if (!item.expiration_date || !item.client || !item.external_app) continue;
+        const clientData = item.client as unknown as { name: string; phone: string | null };
+        const appData = item.external_app as unknown as { name: string };
+        const daysRemaining = differenceInDays(new Date(item.expiration_date), today);
+        
+        if (daysRemaining >= 0 && daysRemaining <= 7) {
+          result.push({
+            clientName: clientData.name,
+            clientPhone: clientData.phone,
+            appName: appData.name,
+            daysRemaining,
+            expirationDate: item.expiration_date,
+          });
+        }
+      }
+      
+      return result.sort((a, b) => a.daysRemaining - b.daysRemaining);
+    },
+    enabled: !!user?.id && isSeller,
+    refetchInterval: 60000,
   });
 
   const today = startOfToday();
@@ -113,7 +171,8 @@ export function FloatingNotifications() {
     .map(c => ({
       client: c,
       daysRemaining: differenceInDays(new Date(c.expiration_date), today),
-      isAnnual: false as const
+      isAnnual: false as const,
+      isExternalApp: false as const
     }))
     .filter(c => c.daysRemaining >= 0 && c.daysRemaining <= 3)
     .sort((a, b) => a.daysRemaining - b.daysRemaining);
@@ -133,15 +192,24 @@ export function FloatingNotifications() {
           client: c,
           nextBillingDate: nextBilling,
           daysUntilBilling,
-          isAnnual: true as const
+          isAnnual: true as const,
+          isExternalApp: false as const
         };
       }
       return null;
     })
     .filter((item): item is AnnualClientReminder => item !== null);
 
+  // Convert external apps expiring to notification items
+  const externalAppNotifications: ExpiringExternalApp[] = expiringExternalApps.map(app => ({
+    appInfo: app,
+    isExternalApp: true as const,
+    isAnnual: false as const
+  }));
+
   const allNotifications: NotificationItem[] = [
     ...annualClientReminders, // Annual reminders first
+    ...externalAppNotifications, // External apps expiring
     ...urgentClients
   ];
 
@@ -237,61 +305,109 @@ export function FloatingNotifications() {
 
           {/* Notification List */}
           <div className="max-h-72 overflow-y-auto">
-            {allNotifications.slice(0, 10).map((item, index) => (
-              <div
-                key={item.client.id}
-                className={cn(
-                  "px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0",
-                  index === 0 && "bg-destructive/5"
-                )}
-              >
-                {/* Day Badge */}
-                <div className={cn(
-                  "flex-shrink-0 w-14 h-10 rounded-lg flex flex-col items-center justify-center text-xs font-bold",
-                  getDayColor(item.isAnnual ? 1 : (item as ExpiringClient).daysRemaining, item.isAnnual)
-                )}>
-                  {item.isAnnual ? (
-                    <Repeat className="h-4 w-4" />
-                  ) : (item as ExpiringClient).daysRemaining === 0 ? (
-                    <AlertTriangle className="h-4 w-4" />
-                  ) : (
-                    <Clock className="h-3 w-3 mb-0.5" />
-                  )}
-                  <span className="text-[10px]">{getDayLabel(item.isAnnual ? 1 : (item as ExpiringClient).daysRemaining, item.isAnnual)}</span>
-                </div>
-
-                {/* Client Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{item.client.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {item.isAnnual ? (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        Mensal: {format((item as AnnualClientReminder).nextBillingDate, 'dd/MM')}
-                      </span>
-                    ) : (
-                      item.client.plan_name || 'Sem plano'
+            {allNotifications.slice(0, 10).map((item, index) => {
+              // Handle external app notifications differently
+              if (item.isExternalApp) {
+                const appItem = item as ExpiringExternalApp;
+                return (
+                  <div
+                    key={`app-${appItem.appInfo.clientName}-${appItem.appInfo.appName}-${index}`}
+                    className={cn(
+                      "px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0",
+                      appItem.appInfo.daysRemaining <= 3 && "bg-purple-500/5"
                     )}
-                  </p>
-                </div>
-
-                {/* WhatsApp Button */}
-                {item.client.phone && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-500/10 flex-shrink-0"
-                    onClick={() => openWhatsApp(item.client.phone!, item.client.name)}
                   >
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
+                    {/* Day Badge */}
+                    <div className={cn(
+                      "flex-shrink-0 w-14 h-10 rounded-lg flex flex-col items-center justify-center text-xs font-bold",
+                      "text-purple-600 bg-purple-500/20"
+                    )}>
+                      <AppWindow className="h-4 w-4" />
+                      <span className="text-[10px]">{getDayLabel(appItem.appInfo.daysRemaining)}</span>
+                    </div>
+
+                    {/* App Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{appItem.appInfo.clientName}</p>
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        <AppWindow className="h-3 w-3" />
+                        {appItem.appInfo.appName}
+                      </p>
+                    </div>
+
+                    {/* WhatsApp Button */}
+                    {appItem.appInfo.clientPhone && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-500/10 flex-shrink-0"
+                        onClick={() => openWhatsApp(appItem.appInfo.clientPhone!, appItem.appInfo.clientName)}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              }
+
+              // Handle client notifications (annual and regular)
+              const clientItem = item as AnnualClientReminder | ExpiringClient;
+              return (
+                <div
+                  key={clientItem.client.id}
+                  className={cn(
+                    "px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0",
+                    index === 0 && !item.isExternalApp && "bg-destructive/5"
+                  )}
+                >
+                  {/* Day Badge */}
+                  <div className={cn(
+                    "flex-shrink-0 w-14 h-10 rounded-lg flex flex-col items-center justify-center text-xs font-bold",
+                    getDayColor(clientItem.isAnnual ? 1 : (clientItem as ExpiringClient).daysRemaining, clientItem.isAnnual)
+                  )}>
+                    {clientItem.isAnnual ? (
+                      <Repeat className="h-4 w-4" />
+                    ) : (clientItem as ExpiringClient).daysRemaining === 0 ? (
+                      <AlertTriangle className="h-4 w-4" />
+                    ) : (
+                      <Clock className="h-3 w-3 mb-0.5" />
+                    )}
+                    <span className="text-[10px]">{getDayLabel(clientItem.isAnnual ? 1 : (clientItem as ExpiringClient).daysRemaining, clientItem.isAnnual)}</span>
+                  </div>
+
+                  {/* Client Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{clientItem.client.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {clientItem.isAnnual ? (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Mensal: {format((clientItem as AnnualClientReminder).nextBillingDate, 'dd/MM')}
+                        </span>
+                      ) : (
+                        clientItem.client.plan_name || 'Sem plano'
+                      )}
+                    </p>
+                  </div>
+
+                  {/* WhatsApp Button */}
+                  {clientItem.client.phone && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-500/10 flex-shrink-0"
+                      onClick={() => openWhatsApp(clientItem.client.phone!, clientItem.client.name)}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
 
             {allNotifications.length > 10 && (
               <div className="px-4 py-2 text-center text-xs text-muted-foreground bg-muted/30">
-                +{allNotifications.length - 10} outros clientes
+                +{allNotifications.length - 10} outros lembretes
               </div>
             )}
           </div>

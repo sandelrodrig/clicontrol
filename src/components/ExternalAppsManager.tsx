@@ -33,6 +33,8 @@ export interface ExternalApp {
   auth_type: 'mac_key' | 'email_password';
   is_active: boolean;
   seller_id: string;
+  price: number;
+  cost: number;
 }
 
 export function ExternalAppsManager() {
@@ -44,6 +46,8 @@ export function ExternalAppsManager() {
     name: '',
     website_url: '',
     auth_type: 'mac_key' as 'mac_key' | 'email_password',
+    price: 0,
+    cost: 0,
   });
 
   const { data: apps = [], isLoading } = useQuery({
@@ -116,6 +120,8 @@ export function ExternalAppsManager() {
       name: '',
       website_url: '',
       auth_type: 'mac_key',
+      price: 0,
+      cost: 0,
     });
     setEditingApp(null);
   };
@@ -126,6 +132,8 @@ export function ExternalAppsManager() {
       name: app.name,
       website_url: app.website_url || '',
       auth_type: app.auth_type,
+      price: app.price || 0,
+      cost: app.cost || 0,
     });
     setIsDialogOpen(true);
   };
@@ -227,6 +235,48 @@ export function ExternalAppsManager() {
                     : 'O cliente usará E-mail e Senha para login'}
                 </p>
               </div>
+              
+              {/* Price and Cost fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Preço de Venda (R$)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                    placeholder="35,00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Quanto você cobra do cliente
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cost">Custo de Ativação (R$)</Label>
+                  <Input
+                    id="cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.cost}
+                    onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+                    placeholder="15,00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Quanto você paga pela ativação
+                  </p>
+                </div>
+              </div>
+              {formData.price > 0 && formData.cost >= 0 && (
+                <div className="p-2 rounded bg-green-500/10 border border-green-500/20 text-center">
+                  <p className="text-xs text-muted-foreground">Lucro por venda</p>
+                  <p className="text-lg font-bold text-green-600">
+                    R$ {(formData.price - formData.cost).toFixed(2)}
+                  </p>
+                </div>
+              )}
               <DialogFooter>
                 <Button
                   type="button"
@@ -274,7 +324,7 @@ export function ExternalAppsManager() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1 min-w-0">
                     <h4 className="font-medium truncate">{app.name}</h4>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline" className="text-xs">
                         {app.auth_type === 'mac_key' ? (
                           <><Monitor className="h-3 w-3 mr-1" /> MAC + Key</>
@@ -282,7 +332,17 @@ export function ExternalAppsManager() {
                           <><Mail className="h-3 w-3 mr-1" /> E-mail</>
                         )}
                       </Badge>
+                      {(app.price > 0 || app.cost > 0) && (
+                        <Badge variant="secondary" className="text-xs">
+                          Lucro: R$ {((app.price || 0) - (app.cost || 0)).toFixed(2)}
+                        </Badge>
+                      )}
                     </div>
+                    {(app.price > 0 || app.cost > 0) && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Venda: R$ {(app.price || 0).toFixed(2)} | Custo: R$ {(app.cost || 0).toFixed(2)}
+                      </p>
+                    )}
                     {app.website_url && (
                       <a
                         href={app.website_url}

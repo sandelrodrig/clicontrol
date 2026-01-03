@@ -236,14 +236,28 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
                                   <Monitor className="h-4 w-4" />
                                 ) : (
                                   <Mail className="h-4 w-4" />
-                                )
-                                }
-                                {availableApp.name}
+                                )}
+                                <span>{availableApp.name}</span>
+                                {(availableApp.price ?? 0) > 0 && (
+                                  <span className="text-xs text-muted-foreground ml-auto">
+                                    R$ {(availableApp.price ?? 0).toFixed(2)}
+                                  </span>
+                                )}
                               </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      {appDetails && ((appDetails.price ?? 0) > 0 || (appDetails.cost ?? 0) > 0) && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            Venda: R$ {(appDetails.price ?? 0).toFixed(2)}
+                          </span>
+                          <span className="text-xs text-green-600 font-medium">
+                            Lucro: R$ {((appDetails.price ?? 0) - (appDetails.cost ?? 0)).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -304,15 +318,15 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
                               {app.devices.map((device, deviceIndex) => (
                                 <div key={deviceIndex} className="flex gap-2 items-start p-2 rounded bg-muted/50 border">
                                   <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                    <div className="space-y-1">
-                                      <Label className="text-xs text-muted-foreground">Nome</Label>
-                                      <Input
-                                        value={device.name}
-                                        onChange={(e) => updateDevice(appIndex, deviceIndex, { name: e.target.value })}
-                                        placeholder="TV Sala..."
-                                        className="h-8 text-sm"
-                                      />
-                                    </div>
+                                                <div className="space-y-1">
+                                                  <Label className="text-xs text-muted-foreground">Nome/Aparelho</Label>
+                                                  <Input
+                                                    value={device.name}
+                                                    onChange={(e) => updateDevice(appIndex, deviceIndex, { name: e.target.value })}
+                                                    placeholder="TV Sala, Quarto, Celular..."
+                                                    className="h-8 text-sm"
+                                                  />
+                                                </div>
                                     <div className="space-y-1">
                                       <Label className="text-xs text-muted-foreground">MAC</Label>
                                       <Input
