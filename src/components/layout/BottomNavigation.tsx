@@ -15,11 +15,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const bottomNavItems: NavItem[] = [
-  { title: 'Início', href: '/dashboard', icon: LayoutDashboard },
-  { title: 'Clientes', href: '/clients', icon: Users },
-  { title: 'Servidores', href: '/servers', icon: Server },
-];
+const bottomNavItems: NavItem[] = [];
 
 interface BottomNavigationProps {
   onMenuClick: () => void;
