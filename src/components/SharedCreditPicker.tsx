@@ -1,14 +1,25 @@
 import { useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Users, Monitor, Wifi, Calendar, Sparkles, Check, X, Loader2 } from 'lucide-react';
+import { Users, Monitor, Wifi, Calendar, Sparkles, Check, X, Loader2, Trash2 } from 'lucide-react';
 import { differenceInDays, endOfMonth } from 'date-fns';
 import { useCrypto } from '@/hooks/useCrypto';
-
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 interface SharedCreditPickerProps {
   sellerId: string;
   category: string;
@@ -91,7 +102,9 @@ export function SharedCreditPicker({
   selectedCredit,
 }: SharedCreditPickerProps) {
   const { decrypt } = useCrypto();
+  const queryClient = useQueryClient();
   const [decrypting, setDecrypting] = useState(false);
+  const [deletingSlot, setDeletingSlot] = useState<string | null>(null);
   // Fetch ALL active servers (not just credit-based)
   const { data: servers = [] } = useQuery({
     queryKey: ['servers-all-for-shared', sellerId],
@@ -317,6 +330,43 @@ export function SharedCreditPicker({
     onSelect(null);
   };
 
+  // Delete all clients that share a specific credit (login+password on a server)
+  const handleDeleteSlot = async (slot: typeof availableSlots[0]) => {
+    const slotKey = `${slot.server.id}-${slot.login}`;
+    setDeletingSlot(slotKey);
+
+    try {
+      // Get all client IDs sharing this credential on this server
+      const clientIds = clientsOnServers
+        .filter(c => c.server_id === slot.server.id && c.login === slot.login)
+        .map(c => c.id);
+
+      if (clientIds.length === 0) {
+        toast.error('Nenhum cliente encontrado para excluir');
+        return;
+      }
+
+      // Delete the clients
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .in('id', clientIds);
+
+      if (error) throw error;
+
+      toast.success(`${clientIds.length} cliente(s) excluído(s) com sucesso`);
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['clients-on-credit-servers'] });
+    } catch (error) {
+      console.error('Error deleting clients:', error);
+      toast.error('Erro ao excluir clientes');
+    } finally {
+      setDeletingSlot(null);
+    }
+  };
+
   // If no servers or no available slots, don't render
   if (servers.length === 0 || availableSlots.length === 0) {
     return null;
@@ -374,7 +424,9 @@ export function SharedCreditPicker({
     const proRataCalc = calculateProRataPrice(slot.server.credit_price);
     const totalUsed = slot.iptvUsed + slot.p2pUsed;
     const totalSlots = slot.iptvTotal + slot.p2pTotal;
-    
+    const slotKey = `${slot.server.id}-${slot.login}`;
+    const isDeleting = deletingSlot === slotKey;
+
     return (
       <Card 
         key={`${slot.server.id}-${slot.login}-${index}`} 
@@ -384,20 +436,60 @@ export function SharedCreditPicker({
           {/* Header with server name and expiration badge */}
           <div className="flex items-center justify-between mb-2">
             <p className="font-bold text-lg">{slot.server.name}</p>
-            {slot.expirationDate && (
-              <Badge 
-                variant="outline" 
-                className={cn(
-                  "text-xs",
-                  getRemainingDaysFromExpiration(slot.expirationDate) <= 7 
-                    ? "border-destructive text-destructive" 
-                    : "border-amber-500 text-amber-600"
-                )}
-              >
-                <Calendar className="h-3 w-3 mr-1" />
-                Vence: {new Date(slot.expirationDate).toLocaleDateString('pt-BR')}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {slot.expirationDate && (
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-xs",
+                    getRemainingDaysFromExpiration(slot.expirationDate) <= 7 
+                      ? "border-destructive text-destructive" 
+                      : "border-amber-500 text-amber-600"
+                  )}
+                >
+                  <Calendar className="h-3 w-3 mr-1" />
+                  Vence: {new Date(slot.expirationDate).toLocaleDateString('pt-BR')}
+                </Badge>
+              )}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir Crédito Compartilhado</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Isso irá excluir <strong>{slot.clientNames.length} cliente(s)</strong> que compartilham este crédito:
+                      <br /><br />
+                      <span className="font-medium">{slot.clientNames.join(', ')}</span>
+                      <br /><br />
+                      Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => handleDeleteSlot(slot)}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Excluir {slot.clientNames.length} cliente(s)
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
           
           {/* Clients sharing this credit */}
