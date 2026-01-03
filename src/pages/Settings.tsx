@@ -28,7 +28,6 @@ import {
   DollarSign,
   Monitor,
   ExternalLink,
-  AppWindow
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -36,7 +35,6 @@ import { ThemeSelector } from '@/components/ThemeSelector';
 import { InstallPWA } from '@/components/InstallPWA';
 import { usePWA } from '@/hooks/usePWA';
 import { NotificationSettings } from '@/components/NotificationSettings';
-import { ExternalAppsManager } from '@/components/ExternalAppsManager';
 import { cn } from '@/lib/utils';
 
 // Setting item component for mobile-like appearance
@@ -106,7 +104,6 @@ export default function Settings() {
   const [showProfile, setShowProfile] = useState(false);
   const [showPriceSettings, setShowPriceSettings] = useState(false);
   const [showGerenciaAppSettings, setShowGerenciaAppSettings] = useState(false);
-  const [showExternalApps, setShowExternalApps] = useState(false);
   const [appPrice, setAppPrice] = useState('25');
   const [gerenciaAppPanelUrl, setGerenciaAppPanelUrl] = useState('https://gerenciapp.top');
   const [gerenciaAppRegisterUrl, setGerenciaAppRegisterUrl] = useState('');
@@ -411,22 +408,6 @@ export default function Settings() {
     );
   }
 
-  // External Apps settings view (for sellers)
-  if (showExternalApps) {
-    return (
-      <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => setShowExternalApps(false)}>
-            ← Voltar
-          </Button>
-          <h1 className="text-xl font-bold">Apps Externos</h1>
-        </div>
-
-        <ExternalAppsManager />
-      </div>
-    );
-  }
-
   // Profile edit view
   if (showProfile) {
     return (
@@ -559,16 +540,6 @@ export default function Settings() {
           description={profile?.created_at
             ? format(new Date(profile.created_at), "dd/MM/yyyy", { locale: ptBR })
             : 'Não disponível'}
-        />
-      </SettingSection>
-
-      {/* External Apps Section - for sellers */}
-      <SettingSection title="Gerenciamento">
-        <SettingItem
-          icon={AppWindow}
-          title="Apps Externos"
-          description="Cadastrar IBO PRO, Bob Player, etc."
-          onClick={() => setShowExternalApps(true)}
         />
       </SettingSection>
 
