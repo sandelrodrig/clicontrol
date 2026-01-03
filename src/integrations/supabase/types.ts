@@ -125,6 +125,7 @@ export type Database = {
           is_archived: boolean | null
           is_paid: boolean | null
           login: string | null
+          login_2: string | null
           name: string
           notes: string | null
           paid_apps_duration: string | null
@@ -132,6 +133,7 @@ export type Database = {
           paid_apps_expiration: string | null
           paid_apps_password: string | null
           password: string | null
+          password_2: string | null
           phone: string | null
           plan_id: string | null
           plan_name: string | null
@@ -141,7 +143,9 @@ export type Database = {
           renewed_at: string | null
           seller_id: string
           server_id: string | null
+          server_id_2: string | null
           server_name: string | null
+          server_name_2: string | null
           telegram: string | null
           updated_at: string | null
         }
@@ -159,6 +163,7 @@ export type Database = {
           is_archived?: boolean | null
           is_paid?: boolean | null
           login?: string | null
+          login_2?: string | null
           name: string
           notes?: string | null
           paid_apps_duration?: string | null
@@ -166,6 +171,7 @@ export type Database = {
           paid_apps_expiration?: string | null
           paid_apps_password?: string | null
           password?: string | null
+          password_2?: string | null
           phone?: string | null
           plan_id?: string | null
           plan_name?: string | null
@@ -175,7 +181,9 @@ export type Database = {
           renewed_at?: string | null
           seller_id: string
           server_id?: string | null
+          server_id_2?: string | null
           server_name?: string | null
+          server_name_2?: string | null
           telegram?: string | null
           updated_at?: string | null
         }
@@ -193,6 +201,7 @@ export type Database = {
           is_archived?: boolean | null
           is_paid?: boolean | null
           login?: string | null
+          login_2?: string | null
           name?: string
           notes?: string | null
           paid_apps_duration?: string | null
@@ -200,6 +209,7 @@ export type Database = {
           paid_apps_expiration?: string | null
           paid_apps_password?: string | null
           password?: string | null
+          password_2?: string | null
           phone?: string | null
           plan_id?: string | null
           plan_name?: string | null
@@ -209,7 +219,9 @@ export type Database = {
           renewed_at?: string | null
           seller_id?: string
           server_id?: string | null
+          server_id_2?: string | null
           server_name?: string | null
+          server_name_2?: string | null
           telegram?: string | null
           updated_at?: string | null
         }
