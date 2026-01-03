@@ -73,13 +73,13 @@ serve(async (req) => {
       console.error('AI gateway error:', response.status, errorText);
       
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
+        return new Response(JSON.stringify({ error: "Limite de requisições excedido, tente novamente mais tarde." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add funds." }), {
+        return new Response(JSON.stringify({ error: "Créditos insuficientes, adicione fundos." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -89,21 +89,39 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log('AI response received');
+    console.log('AI response structure:', JSON.stringify(data, null, 2));
     
-    // Extract image from response
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Extract image from response - check multiple possible locations
+    let imageUrl = null;
+    
+    // Try the images array format first
+    if (data.choices?.[0]?.message?.images?.[0]?.image_url?.url) {
+      imageUrl = data.choices[0].message.images[0].image_url.url;
+    }
+    // Try inline_data format (base64)
+    else if (data.choices?.[0]?.message?.content) {
+      const content = data.choices[0].message.content;
+      // Check if content is an array with image parts
+      if (Array.isArray(content)) {
+        for (const part of content) {
+          if (part.type === 'image_url' && part.image_url?.url) {
+            imageUrl = part.image_url.url;
+            break;
+          }
+        }
+      }
+    }
     
     if (!imageUrl) {
-      console.error('No image in response:', JSON.stringify(data));
-      throw new Error('No image generated');
+      console.error('No image in response. Full response:', JSON.stringify(data));
+      throw new Error('Não foi possível gerar o ícone. Tente novamente.');
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         imageUrl,
-        message: data.choices?.[0]?.message?.content || 'Icon generated successfully'
+        message: 'Ícone gerado com sucesso!'
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
