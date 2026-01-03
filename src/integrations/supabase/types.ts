@@ -119,6 +119,7 @@ export type Database = {
           device: string | null
           email: string | null
           expiration_date: string
+          gerencia_app_devices: Json | null
           gerencia_app_mac: string | null
           has_paid_apps: boolean | null
           id: string
@@ -157,6 +158,7 @@ export type Database = {
           device?: string | null
           email?: string | null
           expiration_date: string
+          gerencia_app_devices?: Json | null
           gerencia_app_mac?: string | null
           has_paid_apps?: boolean | null
           id?: string
@@ -195,6 +197,7 @@ export type Database = {
           device?: string | null
           email?: string | null
           expiration_date?: string
+          gerencia_app_devices?: Json | null
           gerencia_app_mac?: string | null
           has_paid_apps?: boolean | null
           id?: string
