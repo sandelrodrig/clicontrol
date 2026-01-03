@@ -252,6 +252,17 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     if (!durationDays) return true;
     const name = templateName.toLowerCase();
     
+    // Check for duration keywords in template name - return true if found OR if no duration keyword exists
+    const hasDurationKeyword = name.includes('mensal') || name.includes('trimestral') || 
+                               name.includes('semestral') || name.includes('anual') ||
+                               name.includes('30 dias') || name.includes('90 dias') || 
+                               name.includes('180 dias') || name.includes('365 dias') ||
+                               name.includes('1 mês') || name.includes('3 meses') ||
+                               name.includes('6 meses') || name.includes('1 ano') || name.includes('12 meses');
+    
+    // If template has no duration keyword, show it for all durations
+    if (!hasDurationKeyword) return true;
+    
     // Check for duration keywords in template name
     if (durationDays <= 30) {
       return name.includes('mensal') || name.includes('30 dias') || name.includes('1 mês');
@@ -272,6 +283,11 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     const name = templateName.toLowerCase();
     const type = templateType.toLowerCase();
     
+    // Check if template has any type keyword
+    const hasTypeKeyword = type.includes('renov') || name.includes('renov') || name.includes('renovação') ||
+                           type.includes('cobran') || name.includes('cobran') || name.includes('cobrança') || name.includes('lembrete') ||
+                           type.includes('boas') || name.includes('boas') || name.includes('bem-vindo') || name.includes('bemvindo');
+    
     switch (filterType) {
       case 'renewal':
         return type.includes('renov') || name.includes('renov') || name.includes('renovação');
@@ -280,10 +296,8 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
       case 'welcome':
         return type.includes('boas') || name.includes('boas') || name.includes('bem-vindo') || name.includes('bemvindo');
       case 'other':
-        const isRenewal = type.includes('renov') || name.includes('renov');
-        const isCollection = type.includes('cobran') || name.includes('cobran') || name.includes('lembrete');
-        const isWelcome = type.includes('boas') || name.includes('boas') || name.includes('bem-vindo');
-        return !isRenewal && !isCollection && !isWelcome;
+        // Show templates without type keywords
+        return !hasTypeKeyword;
       default:
         return true;
     }
@@ -398,13 +412,15 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
   };
 
   const handleDurationChange = (newDuration: string) => {
-    setDurationFilter(newDuration);
+    // Toggle: if same value clicked, reset to 'all'
+    setDurationFilter(prev => prev === newDuration ? 'all' : newDuration);
     setSelectedTemplate('');
     setMessage('');
   };
 
   const handleTypeChange = (newType: string) => {
-    setTypeFilter(newType);
+    // Toggle: if same value clicked, reset to 'all'
+    setTypeFilter(prev => prev === newType ? 'all' : newType);
     setSelectedTemplate('');
     setMessage('');
   };

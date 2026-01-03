@@ -1984,12 +1984,15 @@ export default function Clients() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 text-xs gap-1 text-muted-foreground hover:text-warning"
-                          onClick={() => archiveMutation.mutate(client.id)}
-                          title="Mover para lixeira"
+                          className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
+                          onClick={() => {
+                            if (confirm('Tem certeza que deseja excluir este cliente?')) {
+                              deleteMutation.mutate(client.id);
+                            }
+                          }}
+                          title="Excluir cliente"
                         >
-                          <Archive className="h-3 w-3" />
-                          Arquivar
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </>
                     )}
