@@ -6,19 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
-import { format, startOfToday, isBefore } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { 
   Calendar, 
   TrendingUp, 
   TrendingDown, 
-  DollarSign, 
   Trash2, 
   Save,
   ChevronDown,
   ChevronUp,
-  History
+  History,
+  AlertCircle
 } from 'lucide-react';
 
 interface MonthlyProfit {
@@ -62,19 +62,13 @@ export function MonthlyProfitHistory({
   maskData,
 }: MonthlyProfitHistoryProps) {
   const queryClient = useQueryClient();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [yearToDelete, setYearToDelete] = useState<number | null>(null);
   
-  const today = startOfToday();
+  const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
-  const currentDay = today.getDate();
-
-  // Check if we can show delete button (January 1st to January 31st)
-  const canDeleteYearHistory = currentMonth === 1;
-  
-  // Check if it's the first day of the month (reminder to save last month)
-  const isFirstDayOfMonth = currentDay === 1;
 
   // Fetch profit history
   const { data: profitHistory = [], isLoading } = useQuery({
@@ -97,28 +91,22 @@ export function MonthlyProfitHistory({
   const currentMonthData = profitHistory.find(
     p => p.month === currentMonth && p.year === currentYear
   );
-  
-  // Get last month info
-  const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-  const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
-  const lastMonthData = profitHistory.find(
-    p => p.month === lastMonth && p.year === lastMonthYear
-  );
-  
-  // Check if last month was saved
-  const lastMonthSaved = !!lastMonthData;
 
-  // Get previous months for current year
-  const currentYearProfits = profitHistory.filter(p => p.year === currentYear);
-  
-  // Get previous years
-  const previousYears = [...new Set(profitHistory.map(p => p.year))]
-    .filter(y => y < currentYear)
-    .sort((a, b) => b - a);
+  // Group profits by year
+  const profitsByYear = profitHistory.reduce((acc, profit) => {
+    if (!acc[profit.year]) {
+      acc[profit.year] = [];
+    }
+    acc[profit.year].push(profit);
+    return acc;
+  }, {} as Record<number, MonthlyProfit[]>);
+
+  // Get sorted years
+  const years = Object.keys(profitsByYear).map(Number).sort((a, b) => b - a);
 
   // Calculate annual totals
   const getYearTotal = (year: number) => {
-    const yearProfits = profitHistory.filter(p => p.year === year);
+    const yearProfits = profitsByYear[year] || [];
     return {
       revenue: yearProfits.reduce((sum, p) => sum + Number(p.revenue), 0),
       serverCosts: yearProfits.reduce((sum, p) => sum + Number(p.server_costs), 0),
@@ -127,8 +115,6 @@ export function MonthlyProfitHistory({
       monthCount: yearProfits.length,
     };
   };
-
-  const currentYearTotal = getYearTotal(currentYear);
 
   // Save current month mutation
   const saveCurrentMonth = useMutation({
@@ -167,7 +153,27 @@ export function MonthlyProfitHistory({
     },
   });
 
-  // Delete year history mutation
+  // Delete all history mutation
+  const deleteAllHistory = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('monthly_profits')
+        .delete()
+        .eq('seller_id', sellerId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthly-profits', sellerId] });
+      toast.success('Todo o histórico foi excluído!');
+      setShowDeleteConfirm(false);
+      setYearToDelete(null);
+    },
+    onError: () => {
+      toast.error('Erro ao excluir histórico');
+    },
+  });
+
+  // Delete specific year mutation
   const deleteYearHistory = useMutation({
     mutationFn: async (year: number) => {
       const { error } = await supabase
@@ -179,17 +185,27 @@ export function MonthlyProfitHistory({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['monthly-profits', sellerId] });
-      toast.success('Histórico do ano excluído com sucesso!');
+      toast.success('Histórico do ano excluído!');
       setShowDeleteConfirm(false);
+      setYearToDelete(null);
     },
     onError: () => {
       toast.error('Erro ao excluir histórico');
     },
   });
 
-  // Get last year for deletion
-  const lastYear = currentYear - 1;
-  const lastYearExists = profitHistory.some(p => p.year === lastYear);
+  const handleDeleteClick = (year: number | null) => {
+    setYearToDelete(year);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (yearToDelete === null) {
+      deleteAllHistory.mutate();
+    } else {
+      deleteYearHistory.mutate(yearToDelete);
+    }
+  };
 
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -224,19 +240,6 @@ export function MonthlyProfitHistory({
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Reminder to save last month if it's the first day */}
-        {isFirstDayOfMonth && !lastMonthSaved && (
-          <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
-            <p className="text-sm font-medium text-warning flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Novo mês! Lembre-se de salvar o lucro de {MONTH_NAMES[lastMonth - 1]} {lastMonthYear}.
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              O lucro do mês anterior não foi salvo ainda. Verifique os dados e salve antes de continuar.
-            </p>
-          </div>
-        )}
-
         {/* Current Month Info */}
         <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
           <div>
@@ -244,11 +247,11 @@ export function MonthlyProfitHistory({
               {MONTH_NAMES[currentMonth - 1]} {currentYear}
             </p>
             <p className="text-sm text-muted-foreground">
-              Lucro do mês atual: {maskData(`R$ ${currentNetProfit.toFixed(2)}`, 'money')}
+              Lucro atual: {maskData(`R$ ${currentNetProfit.toFixed(2)}`, 'money')}
             </p>
             {currentMonthData && (
               <p className="text-xs text-success mt-1">
-                Último salvamento: {format(new Date(currentMonthData.closed_at!), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                Salvo em: {format(new Date(currentMonthData.closed_at!), "dd/MM 'às' HH:mm", { locale: ptBR })}
               </p>
             )}
           </div>
@@ -259,157 +262,132 @@ export function MonthlyProfitHistory({
             size="sm"
           >
             <Save className="h-4 w-4" />
-            {currentMonthData ? 'Atualizar' : 'Salvar'}
+            {currentMonthData ? 'Atualizar' : 'Salvar Mês'}
           </Button>
         </div>
 
-        {/* Current Year Summary */}
-        {currentYearProfits.length > 0 && (
-          <div className="p-4 rounded-lg bg-success/10 border border-success/20">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="font-semibold flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                {currentYear} - Acumulado
-              </h4>
-              <Badge variant="outline" className="bg-success/10 text-success border-success/30">
-                {currentYearProfits.length} mês(es)
-              </Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-muted-foreground">Receita Total:</p>
-                <p className="font-semibold text-success">
-                  {maskData(`R$ ${currentYearTotal.revenue.toFixed(2)}`, 'money')}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Custos Totais:</p>
-                <p className="font-semibold text-destructive">
-                  {maskData(`R$ ${(currentYearTotal.serverCosts + currentYearTotal.billsCosts).toFixed(2)}`, 'money')}
-                </p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-muted-foreground">Lucro Anual:</p>
-                <p className={cn(
-                  "text-2xl font-bold",
-                  currentYearTotal.netProfit >= 0 ? "text-success" : "text-destructive"
-                )}>
-                  {maskData(`R$ ${currentYearTotal.netProfit.toFixed(2)}`, 'money')}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Expanded Monthly Details */}
+        {/* Expanded History */}
         {isExpanded && (
           <div className="space-y-4">
-            {/* Current Year Months */}
-            {currentYearProfits.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-muted-foreground">
-                  Meses de {currentYear}
-                </h4>
-                <div className="grid gap-2">
-                  {currentYearProfits.map(profit => (
-                    <div
-                      key={profit.id}
-                      className={cn(
-                        "flex items-center justify-between p-3 rounded-lg border",
-                        Number(profit.net_profit) >= 0 
-                          ? "bg-success/5 border-success/20" 
-                          : "bg-destructive/5 border-destructive/20"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        {Number(profit.net_profit) >= 0 ? (
-                          <TrendingUp className="h-4 w-4 text-success" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-destructive" />
-                        )}
+            {years.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Nenhum histórico salvo ainda.</p>
+                <p className="text-sm">Salve o lucro do mês atual para começar a construir seu histórico.</p>
+              </div>
+            ) : (
+              years.map(year => {
+                const yearTotal = getYearTotal(year);
+                const yearProfits = profitsByYear[year] || [];
+                const isCurrentYear = year === currentYear;
+                
+                return (
+                  <div key={year} className="space-y-3">
+                    {/* Year Header */}
+                    <div className={cn(
+                      "p-4 rounded-lg border",
+                      isCurrentYear 
+                        ? "bg-success/10 border-success/20" 
+                        : "bg-muted/30 border-border"
+                    )}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-bold text-lg flex items-center gap-2">
+                          <Calendar className="h-5 w-5" />
+                          {year}
+                          {isCurrentYear && (
+                            <Badge variant="default" className="text-xs">Atual</Badge>
+                          )}
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{yearTotal.monthCount} mês(es)</Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteClick(year)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Year Summary */}
+                      <div className="grid grid-cols-3 gap-3 text-sm mb-3">
                         <div>
-                          <p className="font-medium">{MONTH_NAMES[profit.month - 1]}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {profit.active_clients} clientes ativos
+                          <p className="text-muted-foreground text-xs">Receita</p>
+                          <p className="font-semibold text-success">
+                            {maskData(`R$ ${yearTotal.revenue.toFixed(2)}`, 'money')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">Custos</p>
+                          <p className="font-semibold text-destructive">
+                            {maskData(`R$ ${(yearTotal.serverCosts + yearTotal.billsCosts).toFixed(2)}`, 'money')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground text-xs">Lucro Anual</p>
+                          <p className={cn(
+                            "font-bold text-lg",
+                            yearTotal.netProfit >= 0 ? "text-success" : "text-destructive"
+                          )}>
+                            {maskData(`R$ ${yearTotal.netProfit.toFixed(2)}`, 'money')}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">
-                          Receita: {maskData(`R$ ${Number(profit.revenue).toFixed(2)}`, 'money')}
-                        </p>
-                        <p className={cn(
-                          "font-bold",
-                          Number(profit.net_profit) >= 0 ? "text-success" : "text-destructive"
-                        )}>
-                          {maskData(`R$ ${Number(profit.net_profit).toFixed(2)}`, 'money')}
-                        </p>
+                      
+                      {/* Monthly Breakdown */}
+                      <div className="grid gap-2">
+                        {yearProfits.map(profit => (
+                          <div
+                            key={profit.id}
+                            className={cn(
+                              "flex items-center justify-between p-2 rounded-lg border text-sm",
+                              Number(profit.net_profit) >= 0 
+                                ? "bg-success/5 border-success/20" 
+                                : "bg-destructive/5 border-destructive/20"
+                            )}
+                          >
+                            <div className="flex items-center gap-2">
+                              {Number(profit.net_profit) >= 0 ? (
+                                <TrendingUp className="h-4 w-4 text-success" />
+                              ) : (
+                                <TrendingDown className="h-4 w-4 text-destructive" />
+                              )}
+                              <span className="font-medium">{MONTH_NAMES[profit.month - 1]}</span>
+                              <span className="text-xs text-muted-foreground">
+                                ({profit.active_clients} clientes)
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className={cn(
+                                "font-bold",
+                                Number(profit.net_profit) >= 0 ? "text-success" : "text-destructive"
+                              )}>
+                                {maskData(`R$ ${Number(profit.net_profit).toFixed(2)}`, 'money')}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                );
+              })
             )}
 
-            {/* Previous Years */}
-            {previousYears.map(year => {
-              const yearTotal = getYearTotal(year);
-              const yearProfits = profitHistory.filter(p => p.year === year);
-              
-              return (
-                <div key={year} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm text-muted-foreground">
-                      {year} - Total: {maskData(`R$ ${yearTotal.netProfit.toFixed(2)}`, 'money')}
-                    </h4>
-                    <Badge variant="outline">{yearTotal.monthCount} meses</Badge>
-                  </div>
-                  <div className="grid gap-2">
-                    {yearProfits.map(profit => (
-                      <div
-                        key={profit.id}
-                        className={cn(
-                          "flex items-center justify-between p-2 rounded-lg border text-sm",
-                          Number(profit.net_profit) >= 0 
-                            ? "bg-success/5 border-success/20" 
-                            : "bg-destructive/5 border-destructive/20"
-                        )}
-                      >
-                        <span>{MONTH_NAMES[profit.month - 1]}</span>
-                        <span className={cn(
-                          "font-medium",
-                          Number(profit.net_profit) >= 0 ? "text-success" : "text-destructive"
-                        )}>
-                          {maskData(`R$ ${Number(profit.net_profit).toFixed(2)}`, 'money')}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Delete Year History Button - Only in January */}
-            {canDeleteYearHistory && lastYearExists && (
+            {/* Delete All Button */}
+            {profitHistory.length > 0 && (
               <div className="pt-4 border-t border-border">
                 <Button
-                  variant="destructive"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="w-full gap-2"
+                  variant="outline"
+                  onClick={() => handleDeleteClick(null)}
+                  className="w-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Excluir Histórico de {lastYear}
+                  Excluir Todo Histórico
                 </Button>
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Disponível apenas em Janeiro. Após conferir o total anual, você pode excluir o histórico.
-                </p>
               </div>
-            )}
-
-            {profitHistory.length === 0 && (
-              <p className="text-center text-muted-foreground py-4">
-                Nenhum histórico salvo ainda. Salve o lucro do mês atual para começar.
-              </p>
             )}
           </div>
         )}
@@ -419,10 +397,14 @@ export function MonthlyProfitHistory({
       <ConfirmDialog
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
-        title={`Excluir histórico de ${lastYear}?`}
-        description={`Esta ação irá excluir permanentemente todos os registros de lucro de ${lastYear}. Certifique-se de ter conferido o total anual antes de excluir.`}
+        title={yearToDelete === null 
+          ? "Excluir todo o histórico?" 
+          : `Excluir histórico de ${yearToDelete}?`}
+        description={yearToDelete === null
+          ? "Esta ação irá excluir permanentemente TODOS os registros de lucro. Esta ação não pode ser desfeita."
+          : `Esta ação irá excluir permanentemente todos os registros de lucro de ${yearToDelete}. Esta ação não pode ser desfeita.`}
         confirmText="Excluir"
-        onConfirm={() => deleteYearHistory.mutate(lastYear)}
+        onConfirm={handleConfirmDelete}
         variant="destructive"
       />
     </Card>
