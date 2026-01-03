@@ -444,20 +444,11 @@ export default function Clients() {
       }]).select('id').single();
       if (error) throw error;
       
-      // If a shared credit is selected (using existing slot), link the client
-      if (selectedSharedCredit && insertedData?.id) {
-        const { error: panelError } = await supabase.from('panel_clients').insert([{
-          panel_id: selectedSharedCredit.serverId,
-          client_id: insertedData.id,
-          seller_id: user!.id,
-          slot_type: selectedSharedCredit.slotType,
-        }]);
-        if (panelError) {
-          console.error('Error linking to shared credit:', panelError);
-        }
-      } 
+      // Shared credits are tracked by counting clients with the same login/password on the server
+      // No need to insert into panel_clients - the SharedCreditPicker counts directly from clients table
+      
       // If it's a credit-based server and NOT using shared credit, register the screens used
-      else if (data.server_id && insertedData?.id) {
+      if (!selectedSharedCredit && data.server_id && insertedData?.id) {
         const server = servers.find(s => s.id === data.server_id);
         if (server?.is_credit_based) {
           const screensUsed = parseInt(screens || '1');
