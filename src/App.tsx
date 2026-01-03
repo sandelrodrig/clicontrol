@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { PrivacyModeProvider } from "@/hooks/usePrivacyMode";
+import { MenuStyleProvider } from "@/hooks/useMenuStyle";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ExpirationNotificationProvider } from "@/components/ExpirationNotificationProvider";
 import Landing from "./pages/Landing";
@@ -95,13 +96,15 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <PrivacyModeProvider>
-          <ExpirationNotificationProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <AppRoutes />
-            </TooltipProvider>
-          </ExpirationNotificationProvider>
+          <MenuStyleProvider>
+            <ExpirationNotificationProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <AppRoutes />
+              </TooltipProvider>
+            </ExpirationNotificationProvider>
+          </MenuStyleProvider>
         </PrivacyModeProvider>
       </AuthProvider>
     </ThemeProvider>

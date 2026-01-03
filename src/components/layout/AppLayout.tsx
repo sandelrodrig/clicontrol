@@ -1,9 +1,10 @@
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Sidebar } from './Sidebar';
+import { Sidebar, getSidebarWidth } from './Sidebar';
 import { BottomNavigation } from './BottomNavigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
+import { useMenuStyle } from '@/hooks/useMenuStyle';
 import { FloatingNotifications } from '@/components/FloatingNotifications';
 import { PendingQueueIndicator } from '@/components/PendingQueueIndicator';
 import { useState } from 'react';
@@ -143,7 +144,11 @@ function MobileMenuContent({ onNavigate }: { onNavigate?: () => void }) {
 export function AppLayout() {
   const { user, loading } = useAuth();
   const isMobile = useIsMobile();
+  const { menuStyle } = useMenuStyle();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const sidebarWidth = getSidebarWidth(menuStyle);
+  const isIconsOnly = menuStyle === 'icons-only';
 
   if (loading) {
     return (
@@ -189,7 +194,10 @@ export function AppLayout() {
     <div className="min-h-screen bg-background">
       {/* Top Action Bar - Desktop only */}
       {!isMobile && (
-        <div className="fixed top-0 right-0 left-56 z-50 p-2 bg-background/80 backdrop-blur-sm">
+        <div 
+          className="fixed top-0 right-0 z-50 p-2 bg-background/80 backdrop-blur-sm transition-all duration-300"
+          style={{ left: sidebarWidth }}
+        >
           <div className="flex justify-end gap-1">
             <PendingQueueIndicator />
             <Button
@@ -200,7 +208,7 @@ export function AppLayout() {
               title="Atualizar"
             >
               <RefreshCw className="h-4 w-4" />
-              <span>Atualizar</span>
+              {!isIconsOnly && <span>Atualizar</span>}
             </Button>
             <Button
               variant="outline"
@@ -210,7 +218,7 @@ export function AppLayout() {
               title="Compartilhar"
             >
               <Share2 className="h-4 w-4" />
-              <span>Compartilhar</span>
+              {!isIconsOnly && <span>Compartilhar</span>}
             </Button>
           </div>
         </div>
@@ -226,7 +234,13 @@ export function AppLayout() {
       )}
       
       <Sidebar />
-      <main className={isMobile ? 'min-h-screen pb-20 pt-12' : 'pl-56 min-h-screen pt-12'}>
+      <main 
+        className={cn(
+          "min-h-screen pt-12 transition-all duration-300",
+          isMobile ? "pb-20" : ""
+        )}
+        style={!isMobile ? { paddingLeft: sidebarWidth } : undefined}
+      >
         <div className={isMobile ? 'p-3' : 'p-6'}>
           <Outlet />
         </div>

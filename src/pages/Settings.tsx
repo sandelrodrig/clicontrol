@@ -29,9 +29,11 @@ import {
   Monitor,
   ExternalLink,
 } from 'lucide-react';
+import { LayoutGrid } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/ThemeSelector';
+import { MenuStyleSelector } from '@/components/MenuStyleSelector';
 import { InstallPWA } from '@/components/InstallPWA';
 import { usePWA } from '@/hooks/usePWA';
 import { NotificationSettings } from '@/components/NotificationSettings';
@@ -580,6 +582,22 @@ export default function Settings() {
           description="Enviar link do aplicativo"
           onClick={handleShare}
         />
+      </SettingSection>
+
+      {/* Menu Style Section - For all users */}
+      <SettingSection title="Personalização">
+        <div className="p-4">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+              <LayoutGrid className="h-5 w-5 text-foreground" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Estilo do Menu</p>
+              <p className="text-sm text-muted-foreground">Escolha como exibir o menu</p>
+            </div>
+          </div>
+          <MenuStyleSelector />
+        </div>
       </SettingSection>
 
       {/* Appearance Section - Admin Only */}
