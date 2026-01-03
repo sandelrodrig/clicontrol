@@ -33,12 +33,14 @@ import {
   PlayCircle,
   Share2,
   RefreshCw,
+  AppWindow,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const navItems = [
   { title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { title: 'Clientes', href: '/clients', icon: Users, sellerOnly: true },
+  { title: 'Apps Pagos', href: '/external-apps', icon: AppWindow, sellerOnly: true },
   { title: 'Servidores', href: '/servers', icon: Server, sellerOnly: true },
   { title: 'Planos', href: '/plans', icon: Package, sellerOnly: true },
   { title: 'Contas a Pagar', href: '/bills', icon: CreditCard, sellerOnly: true },
@@ -61,7 +63,7 @@ function MobileMenuContent({ onNavigate }: { onNavigate?: () => void }) {
 
   const filteredNavItems = navItems.filter((item: any) => {
     if (item.adminOnly && !isAdmin) return false;
-    if (item.sellerOnly && !isSeller) return false;
+    if (item.sellerOnly && !isSeller && !isAdmin) return false;
     return true;
   });
 
