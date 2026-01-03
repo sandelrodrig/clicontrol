@@ -337,24 +337,54 @@ export function SharedCreditPicker({
 
     try {
       // Get all client IDs sharing this credential on this server
+      // Use the encrypted login directly from the slot for matching
       const clientIds = clientsOnServers
-        .filter(c => c.server_id === slot.server.id && c.login === slot.login)
+        .filter(c => {
+          // Match by server_id AND the exact encrypted login
+          if (c.server_id !== slot.server.id) return false;
+          if (c.login !== slot.login) return false;
+          // Also match password if available
+          if (slot.password && c.password !== slot.password) return false;
+          return true;
+        })
         .map(c => c.id);
 
       if (clientIds.length === 0) {
-        toast.error('Nenhum cliente encontrado para excluir');
-        return;
+        // Try fetching directly from database as fallback
+        const { data: dbClients, error: fetchError } = await supabase
+          .from('clients')
+          .select('id')
+          .eq('server_id', slot.server.id)
+          .eq('login', slot.login)
+          .eq('is_archived', false);
+        
+        if (fetchError) throw fetchError;
+        
+        if (!dbClients || dbClients.length === 0) {
+          toast.error('Nenhum cliente encontrado para excluir');
+          return;
+        }
+        
+        // Delete using the IDs from database
+        const { error: deleteError } = await supabase
+          .from('clients')
+          .delete()
+          .in('id', dbClients.map(c => c.id));
+
+        if (deleteError) throw deleteError;
+
+        toast.success(`${dbClients.length} cliente(s) excluído(s) com sucesso`);
+      } else {
+        // Delete the clients
+        const { error } = await supabase
+          .from('clients')
+          .delete()
+          .in('id', clientIds);
+
+        if (error) throw error;
+
+        toast.success(`${clientIds.length} cliente(s) excluído(s) com sucesso`);
       }
-
-      // Delete the clients
-      const { error } = await supabase
-        .from('clients')
-        .delete()
-        .in('id', clientIds);
-
-      if (error) throw error;
-
-      toast.success(`${clientIds.length} cliente(s) excluído(s) com sucesso`);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['clients'] });
