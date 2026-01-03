@@ -98,7 +98,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     ...group,
     items: group.items.filter((item) => {
       if (item.adminOnly && !isAdmin) return false;
-      if (item.sellerOnly && !isSeller) return false;
+      if (item.sellerOnly && !isSeller && !isAdmin) return false;
       return true;
     }),
   })).filter((group) => group.items.length > 0);
