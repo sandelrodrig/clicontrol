@@ -353,30 +353,36 @@ export type Database = {
       external_apps: {
         Row: {
           auth_type: string
+          cost: number | null
           created_at: string | null
           id: string
           is_active: boolean | null
           name: string
+          price: number | null
           seller_id: string
           updated_at: string | null
           website_url: string | null
         }
         Insert: {
           auth_type?: string
+          cost?: number | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
           name: string
+          price?: number | null
           seller_id: string
           updated_at?: string | null
           website_url?: string | null
         }
         Update: {
           auth_type?: string
+          cost?: number | null
           created_at?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
+          price?: number | null
           seller_id?: string
           updated_at?: string | null
           website_url?: string | null
