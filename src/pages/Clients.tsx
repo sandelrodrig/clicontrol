@@ -1690,11 +1690,11 @@ export default function Clients() {
               </div>
 
               {/* Shared Credit Picker - Show for IPTV/P2P/SSH */}
-              {!editingClient && (formData.category === 'IPTV' || formData.category === 'P2P' || formData.category === 'SSH') && user && (
+              {!editingClient && formData.server_id && (formData.category === 'IPTV' || formData.category === 'P2P' || formData.category === 'SSH') && user && (
                 <SharedCreditPicker
                   sellerId={user.id}
                   category={formData.category}
-                  serverId={formData.server_id || undefined}
+                  serverId={formData.server_id}
                   planDurationDays={formData.plan_id ? plans.find(p => p.id === formData.plan_id)?.duration_days : undefined}
                   selectedCredit={selectedSharedCredit}
                   onSelect={handleSharedCreditSelect}
