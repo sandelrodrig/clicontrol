@@ -133,6 +133,14 @@ export function SharedCreditPicker({
 
   const categorySlotType = getCategorySlotType();
 
+  // GLOBAL LIMIT: Maximum 3 clients can share the same login across the entire system
+  const MAX_CLIENTS_PER_LOGIN = 3;
+
+  // Count how many times each login is used GLOBALLY (across all sellers/servers)
+  const getGlobalLoginUsage = (login: string): number => {
+    return clientsOnServers.filter(c => c.login === login).length;
+  };
+
   // Group clients by server and credentials to find available slots
   const getAvailableSlots = () => {
     const slots: {
@@ -177,7 +185,16 @@ export function SharedCreditPicker({
       credentialGroups.forEach((clients, key) => {
         const [login, password] = key.split('|||');
         
-        // Count used slots by type
+        // GLOBAL CHECK: Count ALL clients using this login (not just on this server)
+        const globalUsage = getGlobalLoginUsage(login);
+        
+        // If this login is already used by MAX_CLIENTS_PER_LOGIN or more, skip it entirely
+        if (globalUsage >= MAX_CLIENTS_PER_LOGIN) {
+          // This credential has reached the GLOBAL limit, don't show it
+          return;
+        }
+        
+        // Count used slots by type on this server
         const iptvUsed = clients.filter(c => c.category !== 'P2P').length;
         const p2pUsed = clients.filter(c => c.category === 'P2P').length;
         
@@ -185,19 +202,30 @@ export function SharedCreditPicker({
         const iptvTotal = server.iptv_per_credit || 0;
         const p2pTotal = server.p2p_per_credit || 0;
         
-        // Calculate total capacity and total used
+        // Calculate total capacity and total used on this server
         const totalCapacity = iptvTotal + p2pTotal;
         const totalUsed = iptvUsed + p2pUsed;
         
-        // Check if the ENTIRE credential has reached its total capacity
-        // This prevents the same login from being used beyond server limits
+        // Also check server-specific limit
         if (totalUsed >= totalCapacity) {
-          // This credential is fully used, don't show it at all
+          // This credential is fully used on this server
           return;
         }
         
-        const iptvAvailable = Math.max(0, iptvTotal - iptvUsed);
-        const p2pAvailable = Math.max(0, p2pTotal - p2pUsed);
+        // Calculate remaining slots considering BOTH server limit and global limit
+        const globalRemaining = MAX_CLIENTS_PER_LOGIN - globalUsage;
+        
+        let iptvAvailable = Math.max(0, iptvTotal - iptvUsed);
+        let p2pAvailable = Math.max(0, p2pTotal - p2pUsed);
+        
+        // Limit available slots to not exceed global remaining
+        const totalAvailable = iptvAvailable + p2pAvailable;
+        if (totalAvailable > globalRemaining) {
+          // Proportionally reduce available slots
+          const ratio = globalRemaining / totalAvailable;
+          iptvAvailable = Math.floor(iptvAvailable * ratio);
+          p2pAvailable = Math.max(0, globalRemaining - iptvAvailable);
+        }
 
         // Get expiration date from first client to match
         const expirationDate = clients[0]?.expiration_date;
