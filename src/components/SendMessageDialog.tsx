@@ -21,7 +21,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Send, Copy, MessageCircle, CreditCard, Tv, Wifi, Crown, Tag, Loader2, WifiOff, Calendar, RefreshCw, Bell, MoreHorizontal } from 'lucide-react';
+import { Send, Copy, MessageCircle, CreditCard, Tv, Wifi, Crown, Tag, Loader2, WifiOff, Calendar, RefreshCw, Bell, MoreHorizontal, CheckCircle } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,6 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCrypto } from '@/hooks/useCrypto';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
+import { useSentMessages } from '@/hooks/useSentMessages';
 
 interface Client {
   id: string;
@@ -88,6 +89,7 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
   const { decrypt } = useCrypto();
   const { isPrivacyMode } = usePrivacyMode();
   const { addToQueue } = useOfflineQueue();
+  const { markAsSent, isSent, getSentInfo } = useSentMessages();
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [message, setMessage] = useState('');
   const [platform, setPlatform] = useState<'whatsapp' | 'telegram'>('whatsapp');
@@ -101,6 +103,8 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     premium_password: string;
   } | null>(null);
   const [isDecrypting, setIsDecrypting] = useState(false);
+  
+  const clientSentInfo = getSentInfo(client.id);
 
   // Monitor online/offline status
   useEffect(() => {
@@ -429,6 +433,7 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     if (!message.trim()) return;
 
     const messageType = selectedTemplate ? templates.find(t => t.id === selectedTemplate)?.type || 'custom' : 'custom';
+    const templateName = selectedTemplate ? templates.find(t => t.id === selectedTemplate)?.name : undefined;
     const phone = platform === 'telegram' ? (client.telegram || '') : (client.phone || '');
 
     // If offline, add to queue and open messaging app
@@ -449,6 +454,9 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
         template_id: selectedTemplate || null,
       });
     }
+
+    // Mark as sent (works offline too - stored in localStorage)
+    markAsSent(client.id, templateName, platform);
 
     if (platform === 'whatsapp' && client.phone) {
       // Open WhatsApp
@@ -490,9 +498,23 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Enviar Mensagem</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            Enviar Mensagem
+            {clientSentInfo && (
+              <Badge variant="secondary" className="text-xs gap-1 text-success">
+                <CheckCircle className="h-3 w-3" />
+                Enviado
+              </Badge>
+            )}
+          </DialogTitle>
           <DialogDescription>
             Enviar mensagem para {client.name}
+            {clientSentInfo && (
+              <span className="block text-xs text-success mt-1">
+                Última mensagem: {format(new Date(clientSentInfo.sentAt), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                {clientSentInfo.templateName && ` - ${clientSentInfo.templateName}`}
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 

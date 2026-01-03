@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCrypto } from '@/hooks/useCrypto';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { useOfflineClients } from '@/hooks/useOfflineClients';
+import { useSentMessages } from '@/hooks/useSentMessages';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff, CheckCircle, X } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -121,6 +122,7 @@ export default function Clients() {
   const { encrypt, decrypt } = useCrypto();
   const { isPrivacyMode, maskData } = usePrivacyMode();
   const { isOffline, lastSync, syncClients: syncOfflineClients, loading: offlineLoading } = useOfflineClients();
+  const { isSent, getSentInfo, clearSentMark, sentCount, clearAllSentMarks } = useSentMessages();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -1659,19 +1661,44 @@ export default function Clients() {
         )}
 
         {/* Status Filter Tabs */}
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterType)} className="w-full">
-          <TabsList className="flex-wrap h-auto gap-1">
-            <TabsTrigger value="all">Todos ({activeClients.length})</TabsTrigger>
-            <TabsTrigger value="active">Ativos</TabsTrigger>
-            <TabsTrigger value="expiring">Vencendo</TabsTrigger>
-            <TabsTrigger value="expired">Vencidos</TabsTrigger>
-            <TabsTrigger value="unpaid">Não Pagos</TabsTrigger>
-            <TabsTrigger value="archived" className="gap-1">
-              <Archive className="h-3 w-3" />
-              Lixeira ({archivedClients.length})
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterType)} className="flex-1">
+            <TabsList className="flex-wrap h-auto gap-1">
+              <TabsTrigger value="all">Todos ({activeClients.length})</TabsTrigger>
+              <TabsTrigger value="active">Ativos</TabsTrigger>
+              <TabsTrigger value="expiring">Vencendo</TabsTrigger>
+              <TabsTrigger value="expired">Vencidos</TabsTrigger>
+              <TabsTrigger value="unpaid">Não Pagos</TabsTrigger>
+              <TabsTrigger value="archived" className="gap-1">
+                <Archive className="h-3 w-3" />
+                Lixeira ({archivedClients.length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          {/* Sent Messages Counter */}
+          {sentCount > 0 && (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="gap-1 text-success">
+                <CheckCircle className="h-3 w-3" />
+                {sentCount} enviado{sentCount > 1 ? 's' : ''}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                onClick={() => {
+                  if (confirm('Limpar todas as marcações de mensagens enviadas?')) {
+                    clearAllSentMarks();
+                    toast.success('Marcações limpas');
+                  }
+                }}
+              >
+                Limpar
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Clients Grid */}
@@ -1934,16 +1961,41 @@ export default function Clients() {
                       Renovar
                     </Button>
                     {(client.phone || client.telegram) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs gap-1"
-                        onClick={() => setMessageClient(client)}
-                      >
-                        <MessageCircle className="h-3.5 w-3.5 text-green-500" />
-                        <Send className="h-3.5 w-3.5 text-blue-500" />
-                        Mensagem
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "h-7 text-xs gap-1",
+                            isSent(client.id) && "border-success/50 bg-success/10"
+                          )}
+                          onClick={() => setMessageClient(client)}
+                        >
+                          {isSent(client.id) ? (
+                            <>
+                              <CheckCircle className="h-3.5 w-3.5 text-success" />
+                              <span className="text-success">Enviado</span>
+                            </>
+                          ) : (
+                            <>
+                              <MessageCircle className="h-3.5 w-3.5 text-green-500" />
+                              <Send className="h-3.5 w-3.5 text-blue-500" />
+                              Mensagem
+                            </>
+                          )}
+                        </Button>
+                        {isSent(client.id) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => clearSentMark(client.id)}
+                            title="Limpar marcação de enviado"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     )}
                     {/* Show different buttons based on archived status */}
                     {client.is_archived ? (
