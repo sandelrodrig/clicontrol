@@ -43,6 +43,7 @@ import { PlanSelector } from '@/components/PlanSelector';
 import { SharedCreditPicker, SharedCreditSelection } from '@/components/SharedCreditPicker';
 import { Badge } from '@/components/ui/badge';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { ClientExternalApps, ClientExternalAppsDisplay } from '@/components/ClientExternalApps';
 
 // Interface for MAC devices
 interface MacDevice {
@@ -152,7 +153,7 @@ export default function Clients() {
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [selectedSharedCredit, setSelectedSharedCredit] = useState<SharedCreditSelection | null>(null);
-
+  const [externalApps, setExternalApps] = useState<{ appId: string; devices: { name: string; mac: string; device_key?: string }[]; email: string; password: string }[]>([]);
   // State for popovers inside the dialog
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [expirationPopoverOpen, setExpirationPopoverOpen] = useState(false);
@@ -404,6 +405,36 @@ export default function Clients() {
         }
       }
       
+      // Save external apps for this client
+      if (externalApps.length > 0 && insertedData?.id) {
+        for (const app of externalApps) {
+          if (!app.appId) continue;
+          
+          // Encrypt password if present
+          let encryptedPassword = app.password || null;
+          if (encryptedPassword) {
+            try {
+              encryptedPassword = await encrypt(encryptedPassword);
+            } catch (e) {
+              console.error('Error encrypting app password:', e);
+            }
+          }
+          
+          const { error: appError } = await supabase.from('client_external_apps').insert([{
+            client_id: insertedData.id,
+            external_app_id: app.appId,
+            seller_id: user!.id,
+            devices: app.devices.filter(d => d.mac.trim() !== ''),
+            email: app.email || null,
+            password: encryptedPassword,
+          }]);
+          
+          if (appError) {
+            console.error('Error saving external app:', appError);
+          }
+        }
+      }
+      
       return insertedData;
     },
     onSuccess: () => {
@@ -585,6 +616,7 @@ export default function Clients() {
       app_name: '',
     });
     setSelectedSharedCredit(null);
+    setExternalApps([]);
   };
 
   const handlePlanChange = (planId: string) => {
@@ -1668,12 +1700,24 @@ export default function Clients() {
                 />
               )}
 
-              {/* Paid Apps Section */}
+              {/* Apps Externos Section */}
+              {user && (
+                <div className="space-y-4 p-4 rounded-lg bg-violet-500/5 border border-violet-500/20">
+                  <ClientExternalApps
+                    clientId={editingClient?.id}
+                    sellerId={user.id}
+                    onChange={setExternalApps}
+                    initialApps={externalApps}
+                  />
+                </div>
+              )}
+
+              {/* Legacy Paid Apps Section (for backward compatibility) */}
               <div className="space-y-4 p-4 rounded-lg bg-muted/50 border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AppWindow className="h-4 w-4 text-muted-foreground" />
-                    <Label htmlFor="has_paid_apps" className="cursor-pointer">Apps Pagos</Label>
+                    <Label htmlFor="has_paid_apps" className="cursor-pointer">Apps Pagos (legado)</Label>
                   </div>
                   <Switch
                     id="has_paid_apps"
@@ -1681,6 +1725,9 @@ export default function Clients() {
                     onCheckedChange={(checked) => setFormData({ ...formData, has_paid_apps: checked, paid_apps_duration: '', paid_apps_expiration: '' })}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Para novos cadastros, use a seção "Apps Externos" acima que possui mais recursos.
+                </p>
                 
                 {formData.has_paid_apps && (
                   <div className="space-y-4 pt-2">
@@ -2219,6 +2266,11 @@ export default function Clients() {
                           </div>
                         )}
                       </div>
+                    )}
+
+                    {/* External Apps Display */}
+                    {user && (
+                      <ClientExternalAppsDisplay clientId={client.id} sellerId={user.id} />
                     )}
 
                     {hasCredentials && !isPrivacyMode && (
