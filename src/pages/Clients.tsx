@@ -44,6 +44,12 @@ import { SharedCreditPicker, SharedCreditSelection } from '@/components/SharedCr
 import { Badge } from '@/components/ui/badge';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 
+// Interface for MAC devices
+interface MacDevice {
+  name: string;
+  mac: string;
+}
+
 interface Client {
   id: string;
   name: string;
@@ -75,6 +81,7 @@ interface Client {
   archived_at: string | null;
   created_at: string | null;
   gerencia_app_mac: string | null;
+  gerencia_app_devices: MacDevice[] | null;
 }
 
 interface ClientCategory {
@@ -181,7 +188,8 @@ export default function Clients() {
     paid_apps_email: '', // Email ou MAC do app pago
     paid_apps_password: '', // Senha ou código do app pago
     screens: '1', // Número de telas selecionadas
-    gerencia_app_mac: '', // MAC do GerenciaApp
+    gerencia_app_mac: '', // MAC do GerenciaApp (campo legado)
+    gerencia_app_devices: [] as MacDevice[], // Múltiplos dispositivos MAC
     app_name: '', // Nome do aplicativo usado pelo cliente
   });
 
@@ -195,7 +203,11 @@ export default function Clients() {
         .eq('seller_id', user!.id)
         .order('expiration_date', { ascending: true });
       if (error) throw error;
-      return data as Client[];
+      // Cast gerencia_app_devices from JSON to MacDevice[]
+      return (data || []).map(client => ({
+        ...client,
+        gerencia_app_devices: (client.gerencia_app_devices as unknown as MacDevice[]) || []
+      })) as Client[];
     },
     enabled: !!user?.id,
   });
@@ -569,6 +581,7 @@ export default function Clients() {
       paid_apps_password: '',
       screens: '1',
       gerencia_app_mac: '',
+      gerencia_app_devices: [],
       app_name: '',
     });
     setSelectedSharedCredit(null);
@@ -686,7 +699,8 @@ export default function Clients() {
       paid_apps_expiration: formData.paid_apps_expiration || null,
       paid_apps_email: formData.paid_apps_email || null,
       paid_apps_password: formData.paid_apps_password || null,
-      gerencia_app_mac: formData.gerencia_app_mac || null,
+      gerencia_app_mac: formData.gerencia_app_devices.length > 0 ? formData.gerencia_app_devices[0].mac : (formData.gerencia_app_mac || null),
+      gerencia_app_devices: formData.gerencia_app_devices.filter(d => d.mac.trim() !== ''),
       app_name: formData.app_name || null,
     };
 
@@ -763,6 +777,7 @@ export default function Clients() {
       paid_apps_password: (client as any).paid_apps_password || '',
       screens: '1',
       gerencia_app_mac: client.gerencia_app_mac || '',
+      gerencia_app_devices: client.gerencia_app_devices || [],
       app_name: (client as any).app_name || '',
     });
     setIsDialogOpen(true);
@@ -1535,22 +1550,91 @@ export default function Clients() {
                       </div>
                     </div>
                     
-                    {/* MAC GerenciaApp - Opcional */}
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="gerencia_app_mac" className="flex items-center gap-1">
-                        <Monitor className="h-3 w-3 text-muted-foreground" />
-                        MAC GerenciaApp (opcional)
-                      </Label>
-                      <Input
-                        id="gerencia_app_mac"
-                        value={formData.gerencia_app_mac}
-                        onChange={(e) => setFormData({ ...formData, gerencia_app_mac: e.target.value.toUpperCase() })}
-                        placeholder="00:1A:2B:3C:4D:5E"
-                        className="font-mono"
-                      />
+                    {/* MAC GerenciaApp - Múltiplos Dispositivos */}
+                    <div className="space-y-3 md:col-span-2 p-4 rounded-lg border border-dashed border-border bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-1">
+                          <Monitor className="h-4 w-4 text-muted-foreground" />
+                          Gerenciar MAC (opcional)
+                        </Label>
+                        {formData.gerencia_app_devices.length < 5 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                gerencia_app_devices: [
+                                  ...formData.gerencia_app_devices,
+                                  { name: '', mac: '' }
+                                ]
+                              });
+                            }}
+                            className="h-7 text-xs gap-1"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Adicionar
+                          </Button>
+                        )}
+                      </div>
+                      
                       <p className="text-xs text-muted-foreground">
-                        Usado para gerenciar o cliente no painel gerenciapp.top
+                        Cadastre até 5 dispositivos do cliente (TV Sala, TV Quarto, Celular, TV Box...)
                       </p>
+                      
+                      {formData.gerencia_app_devices.length === 0 ? (
+                        <div className="text-center py-4 text-sm text-muted-foreground border border-dashed rounded-lg">
+                          Nenhum dispositivo cadastrado. Clique em "Adicionar" para começar.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {formData.gerencia_app_devices.map((device, index) => (
+                            <div key={index} className="flex gap-2 items-start p-3 rounded-lg bg-background border">
+                              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Nome/Apelido</Label>
+                                  <Input
+                                    value={device.name}
+                                    onChange={(e) => {
+                                      const newDevices = [...formData.gerencia_app_devices];
+                                      newDevices[index] = { ...newDevices[index], name: e.target.value };
+                                      setFormData({ ...formData, gerencia_app_devices: newDevices });
+                                    }}
+                                    placeholder="Ex: TV Sala, Celular..."
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs text-muted-foreground">Endereço MAC</Label>
+                                  <Input
+                                    value={device.mac}
+                                    onChange={(e) => {
+                                      const newDevices = [...formData.gerencia_app_devices];
+                                      newDevices[index] = { ...newDevices[index], mac: e.target.value.toUpperCase() };
+                                      setFormData({ ...formData, gerencia_app_devices: newDevices });
+                                    }}
+                                    placeholder="00:1A:2B:3C:4D:5E"
+                                    className="h-9 font-mono"
+                                  />
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const newDevices = formData.gerencia_app_devices.filter((_, i) => i !== index);
+                                  setFormData({ ...formData, gerencia_app_devices: newDevices });
+                                }}
+                                className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10 mt-5"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
@@ -2035,50 +2119,105 @@ export default function Clients() {
                       ) : null;
                     })()}
 
-                    {/* GerenciaApp Panel Quick Access */}
-                    {client.gerencia_app_mac && gerenciaAppSettings?.panelUrl && (
-                      <div className="flex gap-1.5 mt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 h-8 text-xs gap-1.5 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30 text-green-600 dark:text-green-400 hover:bg-green-500/20"
-                          onClick={() => window.open(gerenciaAppSettings.panelUrl, '_blank')}
-                        >
-                          <Monitor className="h-3.5 w-3.5" />
-                          GerenciaApp
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2.5 text-xs gap-1 border-border hover:bg-muted"
-                          onClick={() => {
-                            navigator.clipboard.writeText(client.gerencia_app_mac || '');
-                            toast.success(`MAC copiado: ${client.gerencia_app_mac}`);
-                          }}
-                          title="Copiar MAC do cliente"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          MAC
-                        </Button>
+                    {/* GerenciaApp Panel Quick Access - Multiple Devices */}
+                    {((client.gerencia_app_devices && client.gerencia_app_devices.length > 0) || client.gerencia_app_mac) && gerenciaAppSettings?.panelUrl && (
+                      <div className="space-y-2 mt-2">
+                        <div className="flex gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 h-8 text-xs gap-1.5 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/30 text-green-600 dark:text-green-400 hover:bg-green-500/20"
+                            onClick={() => window.open(gerenciaAppSettings.panelUrl, '_blank')}
+                          >
+                            <Monitor className="h-3.5 w-3.5" />
+                            GerenciaApp
+                          </Button>
+                        </div>
+                        {/* Display multiple MAC devices */}
+                        <div className="space-y-1">
+                          {client.gerencia_app_devices && client.gerencia_app_devices.length > 0 ? (
+                            client.gerencia_app_devices.map((device, idx) => (
+                              <div key={idx} className="flex items-center justify-between gap-2 p-1.5 rounded bg-muted/50 text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Monitor className="h-3 w-3 text-green-500 flex-shrink-0" />
+                                  <span className="font-medium truncate">{device.name || `Dispositivo ${idx + 1}`}</span>
+                                  <span className="font-mono text-muted-foreground truncate">{device.mac}</span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 flex-shrink-0"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(device.mac);
+                                    toast.success(`MAC copiado: ${device.mac}`);
+                                  }}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))
+                          ) : client.gerencia_app_mac && (
+                            <div className="flex items-center justify-between gap-2 p-1.5 rounded bg-muted/50 text-xs">
+                              <div className="flex items-center gap-2">
+                                <Monitor className="h-3 w-3 text-green-500" />
+                                <span className="font-mono text-muted-foreground">{client.gerencia_app_mac}</span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(client.gerencia_app_mac || '');
+                                  toast.success(`MAC copiado: ${client.gerencia_app_mac}`);
+                                }}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
 
                     {/* Show MAC info if exists but no panel URL configured */}
-                    {client.gerencia_app_mac && !gerenciaAppSettings?.panelUrl && (
-                      <div className="flex items-center gap-2 text-muted-foreground mt-2">
-                        <Monitor className="h-3.5 w-3.5 text-green-500" />
-                        <span className="text-xs font-mono">{client.gerencia_app_mac}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => {
-                            navigator.clipboard.writeText(client.gerencia_app_mac || '');
-                            toast.success(`MAC copiado: ${client.gerencia_app_mac}`);
-                          }}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
+                    {((client.gerencia_app_devices && client.gerencia_app_devices.length > 0) || client.gerencia_app_mac) && !gerenciaAppSettings?.panelUrl && (
+                      <div className="space-y-1 mt-2">
+                        {client.gerencia_app_devices && client.gerencia_app_devices.length > 0 ? (
+                          client.gerencia_app_devices.map((device, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-muted-foreground">
+                              <Monitor className="h-3.5 w-3.5 text-green-500" />
+                              <span className="text-xs font-medium">{device.name || `Dispositivo ${idx + 1}`}:</span>
+                              <span className="text-xs font-mono">{device.mac}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(device.mac);
+                                  toast.success(`MAC copiado: ${device.mac}`);
+                                }}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))
+                        ) : client.gerencia_app_mac && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Monitor className="h-3.5 w-3.5 text-green-500" />
+                            <span className="text-xs font-mono">{client.gerencia_app_mac}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => {
+                                navigator.clipboard.writeText(client.gerencia_app_mac || '');
+                                toast.success(`MAC copiado: ${client.gerencia_app_mac}`);
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
 
