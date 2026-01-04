@@ -83,63 +83,104 @@ export function NotificationSettings() {
         return;
       }
       
-      // Simulate client expiration notifications like WhatsApp messages
-      const testClients = [
-        { name: 'Maria Santos', days: 0, plan: 'IPTV Mensal' },
-        { name: 'João Silva', days: 1, plan: 'P2P Trimestral' },
-        { name: 'Carlos Oliveira', days: 2, plan: 'IPTV Anual' },
-      ];
-      
-      // Pick random client
-      const client = testClients[Math.floor(Math.random() * testClients.length)];
+      // Fetch real clients expiring in the next 3 days
       const today = new Date();
-      const expirationDate = new Date(today);
-      expirationDate.setDate(today.getDate() + client.days);
+      const threeDaysFromNow = new Date(today);
+      threeDaysFromNow.setDate(today.getDate() + 3);
+      
+      const { data: expiringClients, error: clientError } = await supabase
+        .from('clients')
+        .select('id, name, expiration_date, plan_name')
+        .eq('seller_id', user.id)
+        .eq('is_archived', false)
+        .gte('expiration_date', today.toISOString().split('T')[0])
+        .lte('expiration_date', threeDaysFromNow.toISOString().split('T')[0])
+        .order('expiration_date', { ascending: true })
+        .limit(5);
+      
+      if (clientError) {
+        console.error('Error fetching clients:', clientError);
+        toast.error('Erro ao buscar clientes');
+        return;
+      }
+      
+      if (!expiringClients || expiringClients.length === 0) {
+        toast.info('Nenhum cliente vencendo nos próximos 3 dias', {
+          description: 'Enviando notificação de exemplo...'
+        });
+        
+        // Send example notification
+        const { data, error } = await supabase.functions.invoke('send-push-notification', {
+          body: {
+            userId: user.id,
+            title: '✅ Teste de Notificação',
+            body: 'Suas notificações estão funcionando! Você receberá alertas de clientes vencendo.',
+            tag: `test-${Date.now()}`,
+            data: { type: 'test' }
+          }
+        });
+        
+        if (error) {
+          console.error('Error sending push:', error);
+          toast.error('Erro ao enviar notificação');
+          return;
+        }
+        
+        if (data?.sent > 0) {
+          toast.success('Notificação de teste enviada!');
+        } else {
+          toast.warning('Nenhum dispositivo recebeu a notificação');
+        }
+        return;
+      }
+      
+      // Pick first expiring client
+      const client = expiringClients[0];
+      const expirationDate = new Date(client.expiration_date + 'T12:00:00');
+      const daysLeft = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       const formattedDate = expirationDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
       
       // Format like WhatsApp message
       let emoji = '🟢';
-      let urgencyText = `Vence em ${client.days} dias`;
-      if (client.days === 0) {
+      let urgencyText = `Vence em ${daysLeft} dias`;
+      if (daysLeft <= 0) {
         emoji = '🔴';
         urgencyText = 'Vence HOJE!';
-      } else if (client.days === 1) {
+      } else if (daysLeft === 1) {
         emoji = '🟠';
         urgencyText = 'Vence amanhã!';
       }
       
-      // Call the edge function to send a real push notification
+      // Send real notification
       const { data, error } = await supabase.functions.invoke('send-push-notification', {
         body: {
           userId: user.id,
           title: `${emoji} ${client.name}`,
-          body: `${urgencyText} • ${client.plan} • ${formattedDate}`,
-          tag: `test-client-${Date.now()}`,
-          data: { type: 'client-expiration-test' }
+          body: `${urgencyText} • ${client.plan_name || 'Plano'} • ${formattedDate}`,
+          tag: `client-${client.id}`,
+          data: { type: 'client-expiration', clientId: client.id }
         }
       });
       
       if (error) {
-        console.error('Error sending push notification:', error);
-        toast.error('Erro ao enviar notificação', {
-          description: error.message
-        });
+        console.error('Error sending push:', error);
+        toast.error('Erro ao enviar notificação', { description: error.message });
         return;
       }
       
-      console.log('Push notification response:', data);
+      console.log('Push response:', data);
       
       if (data?.sent > 0) {
         toast.success('Notificação enviada!', {
-          description: `Notificação de "${client.name}" enviada.`
+          description: `Cliente "${client.name}" - ${urgencyText}`
         });
       } else {
-        toast.warning('Nenhum dispositivo encontrado', {
-          description: 'Nenhuma inscrição ativa foi encontrada.'
+        toast.warning('Notificação não foi recebida', {
+          description: 'Verifique as permissões do navegador'
         });
       }
     } catch (error) {
-      console.error('Error sending test notification:', error);
+      console.error('Error:', error);
       toast.error('Erro ao enviar notificação de teste');
     } finally {
       setIsSendingTest(false);
