@@ -144,49 +144,58 @@ const Panels = () => {
               </p>
             </div>
 
-            {/* Access Panel - Primary for existing users */}
-            {gerenciaAppSettings?.panelUrl && (
+            {/* Buttons - Both always visible */}
+            <div className="flex flex-col gap-3">
+              {/* Enter Panel Button - Primary CTA */}
               <div className="flex gap-2">
                 <Button 
                   size="lg"
                   className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 font-bold shadow-lg transition-all hover:scale-[1.02]"
-                  onClick={() => handleOpenPanel(gerenciaAppSettings.panelUrl)}
+                  onClick={() => {
+                    if (gerenciaAppSettings?.panelUrl) {
+                      handleOpenPanel(gerenciaAppSettings.panelUrl);
+                    } else {
+                      toast.info('URL do painel não configurada. Contate o administrador.');
+                    }
+                  }}
                 >
                   <ExternalLink className="w-5 h-5 mr-2" />
                   ENTRAR NO PAINEL
                 </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="border-primary/30 hover:bg-primary/10"
-                  onClick={() => handleCopyUrl('gerencia-app', gerenciaAppSettings.panelUrl)}
-                >
-                  {copiedId === 'gerencia-app' ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <Copy className="w-5 h-5" />
-                  )}
-                </Button>
+                {gerenciaAppSettings?.panelUrl && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="border-primary/30 hover:bg-primary/10"
+                    onClick={() => handleCopyUrl('gerencia-app', gerenciaAppSettings.panelUrl)}
+                  >
+                    {copiedId === 'gerencia-app' ? (
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    ) : (
+                      <Copy className="w-5 h-5" />
+                    )}
+                  </Button>
+                )}
               </div>
-            )}
 
-            {/* Divider with text */}
-            <div className="text-center py-1">
-              <p className="text-sm text-muted-foreground">
-                Se você não tem conta, cadastre aqui 👇
-              </p>
+              {/* Divider */}
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">
+                  Não tem conta ainda?
+                </p>
+              </div>
+
+              {/* Register Button - Secondary CTA */}
+              <Button 
+                size="lg"
+                variant="outline"
+                className="w-full border-2 border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-bold text-base transition-all hover:scale-[1.02]"
+                onClick={() => handleOpenPanel(gerenciaAppSettings!.registerUrl)}
+              >
+                <UserPlus className="w-5 h-5 mr-2" />
+                CADASTRAR AGORA
+              </Button>
             </div>
-
-            {/* Register Button - Secondary CTA */}
-            <Button 
-              size="lg"
-              variant="outline"
-              className="w-full border-2 border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-bold text-base transition-all hover:scale-[1.02]"
-              onClick={() => handleOpenPanel(gerenciaAppSettings!.registerUrl)}
-            >
-              <UserPlus className="w-5 h-5 mr-2" />
-              CRIAR MINHA CONTA
-            </Button>
           </CardContent>
         </Card>
       )}
