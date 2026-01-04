@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Collapsible,
   CollapsibleContent,
@@ -74,25 +75,45 @@ export function NotificationSettings() {
     setIsSendingTest(true);
     
     try {
-      // Simulate a fake seller expiration notification
-      const fakeSellerName = 'João Silva (Teste)';
-      const fakeDaysLeft = Math.floor(Math.random() * 3) + 1; // 1-3 days
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
       
-      // Show local notification for testing
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('🔔 Revendedor Vencendo!', {
+      if (!user) {
+        toast.error('Usuário não autenticado');
+        return;
+      }
+      
+      const fakeSellerName = 'João Silva (Teste)';
+      const fakeDaysLeft = Math.floor(Math.random() * 3) + 1;
+      
+      // Call the edge function to send a real push notification
+      const { data, error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          userId: user.id,
+          title: '🔔 Revendedor Vencendo!',
           body: `${fakeSellerName} vence em ${fakeDaysLeft} dia${fakeDaysLeft > 1 ? 's' : ''}. Entre em contato para renovação.`,
-          icon: '/icon-192.png',
-          badge: '/icon-192.png',
           tag: 'test-seller-expiration',
+          data: { type: 'seller-expiration-test' }
+        }
+      });
+      
+      if (error) {
+        console.error('Error sending push notification:', error);
+        toast.error('Erro ao enviar notificação', {
+          description: error.message
         });
-        
-        toast.success('Notificação de teste enviada!', {
-          description: 'Verifique a notificação do sistema.'
+        return;
+      }
+      
+      console.log('Push notification response:', data);
+      
+      if (data?.sent > 0) {
+        toast.success('Notificação enviada!', {
+          description: `Enviada para ${data.sent} dispositivo(s).`
         });
       } else {
-        toast.info('Notificação de teste', {
-          description: `${fakeSellerName} vence em ${fakeDaysLeft} dia${fakeDaysLeft > 1 ? 's' : ''}.`
+        toast.warning('Nenhum dispositivo encontrado', {
+          description: 'Nenhuma inscrição ativa foi encontrada.'
         });
       }
     } catch (error) {
