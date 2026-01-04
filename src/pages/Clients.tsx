@@ -161,6 +161,10 @@ export default function Clients() {
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [expirationPopoverOpen, setExpirationPopoverOpen] = useState(false);
   const [paidAppsExpirationPopoverOpen, setPaidAppsExpirationPopoverOpen] = useState(false);
+  // Bulk message queue for expired not called clients
+  const [bulkMessageQueue, setBulkMessageQueue] = useState<Client[]>([]);
+  const [bulkMessageIndex, setBulkMessageIndex] = useState(0);
+  const isBulkMessaging = bulkMessageQueue.length > 0;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -2214,6 +2218,53 @@ export default function Clients() {
               Arquivar Vencidos Chamados ({expiredCalledClients.length})
             </Button>
           )}
+          
+          {/* Bulk message for expired not called */}
+          {expiredNotCalledCount > 0 && !isBulkMessaging && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-8 border-primary/50 text-primary hover:bg-primary/10"
+              onClick={() => {
+                const expiredNotCalled = activeClients.filter(c => {
+                  const status = getClientStatus(c);
+                  return status === 'expired' && !isSent(c.id) && (c.phone || c.telegram);
+                });
+                if (expiredNotCalled.length === 0) {
+                  toast.error('Nenhum cliente vencido não chamado com contato disponível');
+                  return;
+                }
+                setBulkMessageQueue(expiredNotCalled);
+                setBulkMessageIndex(0);
+                setMessageClient(expiredNotCalled[0]);
+                toast.info(`Iniciando envio para ${expiredNotCalled.length} cliente${expiredNotCalled.length > 1 ? 's' : ''}...`);
+              }}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Enviar para Não Chamados ({expiredNotCalledCount})
+            </Button>
+          )}
+          
+          {/* Bulk messaging progress indicator */}
+          {isBulkMessaging && (
+            <Badge variant="secondary" className="gap-1.5 text-primary animate-pulse">
+              <MessageCircle className="h-3.5 w-3.5" />
+              Enviando {bulkMessageIndex + 1}/{bulkMessageQueue.length}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-1 ml-1 text-destructive hover:text-destructive"
+                onClick={() => {
+                  setBulkMessageQueue([]);
+                  setBulkMessageIndex(0);
+                  setMessageClient(null);
+                  toast.info('Envio em massa cancelado');
+                }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -2686,7 +2737,46 @@ export default function Clients() {
         <SendMessageDialog
           client={messageClient}
           open={!!messageClient}
-          onOpenChange={(open) => !open && setMessageClient(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              // If bulk messaging, move to next client
+              if (isBulkMessaging) {
+                const nextIndex = bulkMessageIndex + 1;
+                if (nextIndex < bulkMessageQueue.length) {
+                  setBulkMessageIndex(nextIndex);
+                  setMessageClient(bulkMessageQueue[nextIndex]);
+                } else {
+                  // Bulk messaging complete
+                  setBulkMessageQueue([]);
+                  setBulkMessageIndex(0);
+                  setMessageClient(null);
+                  toast.success('Envio em massa concluído!');
+                }
+              } else {
+                setMessageClient(null);
+              }
+            }
+          }}
+          onMessageSent={() => {
+            // If bulk messaging, automatically open next after small delay
+            if (isBulkMessaging) {
+              const nextIndex = bulkMessageIndex + 1;
+              if (nextIndex < bulkMessageQueue.length) {
+                setTimeout(() => {
+                  setBulkMessageIndex(nextIndex);
+                  setMessageClient(bulkMessageQueue[nextIndex]);
+                }, 500);
+              } else {
+                // Bulk messaging complete
+                setTimeout(() => {
+                  setBulkMessageQueue([]);
+                  setBulkMessageIndex(0);
+                  setMessageClient(null);
+                  toast.success('Envio em massa concluído!');
+                }, 500);
+              }
+            }
+          }}
         />
       )}
 
