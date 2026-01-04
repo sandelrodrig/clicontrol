@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -96,6 +96,12 @@ const getRemainingDaysFromExpiration = (expirationDate: string): number => {
   return Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
+// Extended interface to include decrypted credentials
+interface ClientOnServerWithDecrypted extends ClientOnServer {
+  decryptedLogin?: string;
+  decryptedPassword?: string;
+}
+
 export function SharedCreditPicker({
   sellerId,
   category,
@@ -106,8 +112,8 @@ export function SharedCreditPicker({
 }: SharedCreditPickerProps) {
   const { decrypt } = useCrypto();
   const queryClient = useQueryClient();
-  const [decrypting, setDecrypting] = useState(false);
   const [deletingSlot, setDeletingSlot] = useState<string | null>(null);
+  
   // Fetch ALL active servers (not just credit-based)
   const { data: servers = [] } = useQuery({
     queryKey: ['servers-all-for-shared', sellerId],
@@ -123,9 +129,9 @@ export function SharedCreditPicker({
     enabled: !!sellerId,
   });
 
-  // Fetch clients that are on credit-based servers to find shared credentials
+  // Fetch clients and decrypt their credentials for proper grouping
   const { data: clientsOnServers = [] } = useQuery({
-    queryKey: ['clients-on-credit-servers', sellerId],
+    queryKey: ['clients-on-credit-servers-decrypted', sellerId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clients')
@@ -135,9 +141,37 @@ export function SharedCreditPicker({
         .not('server_id', 'is', null)
         .not('login', 'is', null);
       if (error) throw error;
-      return data as ClientOnServer[];
+      
+      // Decrypt all credentials in batch for proper grouping
+      const clientsWithDecrypted: ClientOnServerWithDecrypted[] = await Promise.all(
+        (data || []).map(async (client) => {
+          let decryptedLogin = client.login || '';
+          let decryptedPassword = client.password || '';
+          
+          try {
+            if (client.login) {
+              decryptedLogin = await decrypt(client.login);
+            }
+            if (client.password) {
+              decryptedPassword = await decrypt(client.password);
+            }
+          } catch (err) {
+            // If decryption fails, use original (might be plain text)
+            console.warn('Decryption failed for client:', client.id, err);
+          }
+          
+          return {
+            ...client,
+            decryptedLogin,
+            decryptedPassword,
+          } as ClientOnServerWithDecrypted;
+        })
+      );
+      
+      return clientsWithDecrypted;
     },
     enabled: !!sellerId,
+    staleTime: 30000, // Cache for 30 seconds to avoid repeated decryption
   });
 
   // Check if category matches slot type for highlighting the recommended option
@@ -152,17 +186,19 @@ export function SharedCreditPicker({
   // GLOBAL LIMIT: Maximum 3 clients can share the same login across the entire system
   const MAX_CLIENTS_PER_LOGIN = 3;
 
-  // Count how many times each login is used GLOBALLY (across all sellers/servers)
-  const getGlobalLoginUsage = (login: string): number => {
-    return clientsOnServers.filter(c => c.login === login).length;
+  // Count how many times each DECRYPTED login is used GLOBALLY (across all sellers/servers)
+  const getGlobalLoginUsage = (decryptedLogin: string): number => {
+    return clientsOnServers.filter(c => c.decryptedLogin === decryptedLogin).length;
   };
 
-  // Group clients by server and credentials to find available slots
+  // Group clients by server and DECRYPTED credentials to find available slots
   const getAvailableSlots = () => {
     const slots: {
       server: ServerWithCredits & { total_screens_per_credit: number | null };
-      login: string;
-      password: string;
+      login: string; // Keep encrypted for saving
+      password: string; // Keep encrypted for saving
+      decryptedLogin: string; // For display
+      decryptedPassword: string; // For display
       clientNames: string[];
       iptvTotal: number;
       iptvUsed: number;
@@ -185,12 +221,13 @@ export function SharedCreditPicker({
       // Filter clients on this server
       const serverClients = clientsOnServers.filter(c => c.server_id === server.id);
       
-      // Group by login+password (each unique combo is a "credit")
-      const credentialGroups = new Map<string, ClientOnServer[]>();
+      // Group by DECRYPTED login+password (each unique combo is a "credit")
+      const credentialGroups = new Map<string, ClientOnServerWithDecrypted[]>();
       
       serverClients.forEach(client => {
-        if (client.login) {
-          const key = `${client.login}|||${client.password || ''}`;
+        if (client.decryptedLogin) {
+          // Use DECRYPTED credentials for grouping
+          const key = `${client.decryptedLogin}|||${client.decryptedPassword || ''}`;
           const existing = credentialGroups.get(key) || [];
           existing.push(client);
           credentialGroups.set(key, existing);
@@ -199,10 +236,10 @@ export function SharedCreditPicker({
 
       // Check each credential group for available slots
       credentialGroups.forEach((clients, key) => {
-        const [login, password] = key.split('|||');
+        const [decryptedLogin, decryptedPassword] = key.split('|||');
         
-        // GLOBAL CHECK: Count ALL clients using this login (not just on this server)
-        const globalUsage = getGlobalLoginUsage(login);
+        // GLOBAL CHECK: Count ALL clients using this DECRYPTED login (not just on this server)
+        const globalUsage = getGlobalLoginUsage(decryptedLogin);
         
         // If this login is already used by MAX_CLIENTS_PER_LOGIN or more, skip it entirely
         if (globalUsage >= MAX_CLIENTS_PER_LOGIN) {
@@ -245,13 +282,18 @@ export function SharedCreditPicker({
 
         // Get expiration date from first client to match
         const expirationDate = clients[0]?.expiration_date;
+        
+        // Use the first client's ENCRYPTED credentials for saving (to maintain consistency)
+        const firstClient = clients[0];
 
         // Only add if there are available slots of any type
         if (iptvAvailable > 0 || p2pAvailable > 0) {
           slots.push({
             server,
-            login,
-            password,
+            login: firstClient.login || '', // Encrypted for saving
+            password: firstClient.password || '', // Encrypted for saving
+            decryptedLogin, // For display
+            decryptedPassword, // For display
             clientNames: clients.map(c => c.name),
             iptvTotal,
             iptvUsed,
@@ -291,110 +333,67 @@ export function SharedCreditPicker({
     : allAvailableSlots;
 
   const handleSelect = useCallback(async (slot: typeof availableSlots[0], slotType: 'iptv' | 'p2p') => {
-    setDecrypting(true);
-    try {
-      // Decrypt credentials before passing to form
-      let decryptedLogin = slot.login;
-      let decryptedPassword = slot.password;
-      
-      try {
-        if (slot.login) {
-          decryptedLogin = await decrypt(slot.login);
-        }
-        if (slot.password) {
-          decryptedPassword = await decrypt(slot.password);
-        }
-      } catch (err) {
-        // If decryption fails, credentials might be plain text (old data)
-        console.warn('Decryption failed, using original values:', err);
-      }
-      
-      const proRataCalc = calculateProRataPrice(slot.server.credit_price || 0);
-      
-      onSelect({
-        serverId: slot.server.id,
-        serverName: slot.server.name,
-        panelUrl: slot.server.panel_url || undefined,
-        slotType,
-        proRataPrice: proRataCalc.price,
-        fullPrice: slot.server.credit_price || 0,
-        remainingDays: proRataCalc.remainingDays,
-        existingClients: slot.clientNames,
-        sharedLogin: decryptedLogin,
-        sharedPassword: decryptedPassword,
-        // Pass original encrypted credentials to use when saving (avoids re-encryption mismatch)
-        encryptedLogin: slot.login,
-        encryptedPassword: slot.password,
-        expirationDate: slot.expirationDate,
-      });
-    } finally {
-      setDecrypting(false);
-    }
-  }, [decrypt, onSelect]);
+    // Credentials are already decrypted, no need to decrypt again
+    const proRataCalc = calculateProRataPrice(slot.server.credit_price || 0);
+    
+    onSelect({
+      serverId: slot.server.id,
+      serverName: slot.server.name,
+      panelUrl: slot.server.panel_url || undefined,
+      slotType,
+      proRataPrice: proRataCalc.price,
+      fullPrice: slot.server.credit_price || 0,
+      remainingDays: proRataCalc.remainingDays,
+      existingClients: slot.clientNames,
+      sharedLogin: slot.decryptedLogin,
+      sharedPassword: slot.decryptedPassword,
+      // Pass original encrypted credentials to use when saving (avoids re-encryption mismatch)
+      encryptedLogin: slot.login,
+      encryptedPassword: slot.password,
+      expirationDate: slot.expirationDate,
+    });
+  }, [onSelect]);
 
   const handleDeselect = () => {
     onSelect(null);
   };
 
-  // Delete all clients that share a specific credit (login+password on a server)
+  // Delete all clients that share a specific credit (by DECRYPTED login on a server)
   const handleDeleteSlot = async (slot: typeof availableSlots[0]) => {
-    const slotKey = `${slot.server.id}-${slot.login}`;
+    const slotKey = `${slot.server.id}-${slot.decryptedLogin}`;
     setDeletingSlot(slotKey);
 
     try {
-      // Get all client IDs sharing this credential on this server
-      // Use the encrypted login directly from the slot for matching
+      // Get all client IDs sharing this DECRYPTED credential on this server
       const clientIds = clientsOnServers
         .filter(c => {
-          // Match by server_id AND the exact encrypted login
+          // Match by server_id AND the DECRYPTED login
           if (c.server_id !== slot.server.id) return false;
-          if (c.login !== slot.login) return false;
+          if (c.decryptedLogin !== slot.decryptedLogin) return false;
           // Also match password if available
-          if (slot.password && c.password !== slot.password) return false;
+          if (slot.decryptedPassword && c.decryptedPassword !== slot.decryptedPassword) return false;
           return true;
         })
         .map(c => c.id);
 
       if (clientIds.length === 0) {
-        // Try fetching directly from database as fallback
-        const { data: dbClients, error: fetchError } = await supabase
-          .from('clients')
-          .select('id')
-          .eq('server_id', slot.server.id)
-          .eq('login', slot.login)
-          .eq('is_archived', false);
-        
-        if (fetchError) throw fetchError;
-        
-        if (!dbClients || dbClients.length === 0) {
-          toast.error('Nenhum cliente encontrado para excluir');
-          return;
-        }
-        
-        // Delete using the IDs from database
-        const { error: deleteError } = await supabase
-          .from('clients')
-          .delete()
-          .in('id', dbClients.map(c => c.id));
-
-        if (deleteError) throw deleteError;
-
-        toast.success(`${dbClients.length} cliente(s) excluído(s) com sucesso`);
-      } else {
-        // Delete the clients
-        const { error } = await supabase
-          .from('clients')
-          .delete()
-          .in('id', clientIds);
-
-        if (error) throw error;
-
-        toast.success(`${clientIds.length} cliente(s) excluído(s) com sucesso`);
+        toast.error('Nenhum cliente encontrado para excluir');
+        return;
       }
+      
+      // Delete the clients
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .in('id', clientIds);
+
+      if (error) throw error;
+
+      toast.success(`${clientIds.length} cliente(s) excluído(s) com sucesso`);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['clients-on-credit-servers'] });
+      queryClient.invalidateQueries({ queryKey: ['clients-on-credit-servers-decrypted'] });
     } catch (error) {
       console.error('Error deleting clients:', error);
       toast.error('Erro ao excluir clientes');
@@ -460,12 +459,12 @@ export function SharedCreditPicker({
     const proRataCalc = calculateProRataPrice(slot.server.credit_price);
     const totalUsed = slot.iptvUsed + slot.p2pUsed;
     const totalSlots = slot.iptvTotal + slot.p2pTotal;
-    const slotKey = `${slot.server.id}-${slot.login}`;
+    const slotKey = `${slot.server.id}-${slot.decryptedLogin}`;
     const isDeleting = deletingSlot === slotKey;
 
     return (
       <Card 
-        key={`${slot.server.id}-${slot.login}-${index}`} 
+        key={`${slot.server.id}-${slot.decryptedLogin}-${index}`} 
         className="border-2 border-dashed border-amber-500/30 hover:border-amber-500/50 transition-colors"
       >
         <CardContent className="p-4">
@@ -588,16 +587,12 @@ export function SharedCreditPicker({
               <Button
                 type="button"
                 size="sm"
-                disabled={decrypting || slot.iptvAvailable <= 0}
+                disabled={slot.iptvAvailable <= 0}
                 className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50"
                 onClick={() => handleSelect(slot, 'iptv')}
               >
-                {decrypting ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <Monitor className="h-4 w-4 mr-1" />
-                )}
-                {decrypting ? 'Carregando...' : slot.iptvAvailable > 0 ? 'Usar vaga IPTV' : 'Sem vagas'}
+                <Monitor className="h-4 w-4 mr-1" />
+                {slot.iptvAvailable > 0 ? 'Usar vaga IPTV' : 'Sem vagas'}
               </Button>
             </div>
           )}
@@ -636,16 +631,12 @@ export function SharedCreditPicker({
               <Button
                 type="button"
                 size="sm"
-                disabled={decrypting || slot.p2pAvailable <= 0}
+                disabled={slot.p2pAvailable <= 0}
                 className="w-full bg-green-500 hover:bg-green-600 disabled:opacity-50"
                 onClick={() => handleSelect(slot, 'p2p')}
               >
-                {decrypting ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <Wifi className="h-4 w-4 mr-1" />
-                )}
-                {decrypting ? 'Carregando...' : slot.p2pAvailable > 0 ? 'Usar vaga P2P' : 'Sem vagas'}
+                <Wifi className="h-4 w-4 mr-1" />
+                {slot.p2pAvailable > 0 ? 'Usar vaga P2P' : 'Sem vagas'}
               </Button>
             </div>
           )}
