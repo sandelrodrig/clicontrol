@@ -83,17 +83,39 @@ export function NotificationSettings() {
         return;
       }
       
-      const fakeSellerName = 'João Silva (Teste)';
-      const fakeDaysLeft = Math.floor(Math.random() * 3) + 1;
+      // Simulate client expiration notifications like WhatsApp messages
+      const testClients = [
+        { name: 'Maria Santos', days: 0, plan: 'IPTV Mensal' },
+        { name: 'João Silva', days: 1, plan: 'P2P Trimestral' },
+        { name: 'Carlos Oliveira', days: 2, plan: 'IPTV Anual' },
+      ];
+      
+      // Pick random client
+      const client = testClients[Math.floor(Math.random() * testClients.length)];
+      const today = new Date();
+      const expirationDate = new Date(today);
+      expirationDate.setDate(today.getDate() + client.days);
+      const formattedDate = expirationDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      
+      // Format like WhatsApp message
+      let emoji = '🟢';
+      let urgencyText = `Vence em ${client.days} dias`;
+      if (client.days === 0) {
+        emoji = '🔴';
+        urgencyText = 'Vence HOJE!';
+      } else if (client.days === 1) {
+        emoji = '🟠';
+        urgencyText = 'Vence amanhã!';
+      }
       
       // Call the edge function to send a real push notification
       const { data, error } = await supabase.functions.invoke('send-push-notification', {
         body: {
           userId: user.id,
-          title: '🔔 Revendedor Vencendo!',
-          body: `${fakeSellerName} vence em ${fakeDaysLeft} dia${fakeDaysLeft > 1 ? 's' : ''}. Entre em contato para renovação.`,
-          tag: 'test-seller-expiration',
-          data: { type: 'seller-expiration-test' }
+          title: `${emoji} ${client.name}`,
+          body: `${urgencyText} • ${client.plan} • ${formattedDate}`,
+          tag: `test-client-${Date.now()}`,
+          data: { type: 'client-expiration-test' }
         }
       });
       
@@ -109,7 +131,7 @@ export function NotificationSettings() {
       
       if (data?.sent > 0) {
         toast.success('Notificação enviada!', {
-          description: `Enviada para ${data.sent} dispositivo(s).`
+          description: `Notificação de "${client.name}" enviada.`
         });
       } else {
         toast.warning('Nenhum dispositivo encontrado', {
@@ -196,8 +218,8 @@ export function NotificationSettings() {
         )}
       </div>
       
-      {/* Admin Test Button */}
-      {isAdmin && isSubscribed && (
+      {/* Test Button - Available for everyone */}
+      {isSubscribed && (
         <Button
           variant="outline"
           size="sm"
@@ -210,7 +232,7 @@ export function NotificationSettings() {
           ) : (
             <Send className="h-4 w-4 mr-2" />
           )}
-          Testar Notificação (Revendedor Vencendo)
+          Testar Notificação (Cliente Vencendo)
         </Button>
       )}
       
