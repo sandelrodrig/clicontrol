@@ -191,7 +191,7 @@ export function useOfflineQueue() {
   // Auto-sync when coming back online
   useEffect(() => {
     const handleOnline = () => {
-      toast.info('Conexão restaurada, sincronizando cobranças...');
+      // Sync silently when back online
       syncQueue();
     };
 
