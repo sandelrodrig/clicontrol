@@ -2378,52 +2378,60 @@ export default function Clients() {
                         )}
                         {client.server_name && (() => {
                           const server1 = getClientServer(client);
+                          const hasPanel = server1?.panel_url;
                           return (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                            <span 
+                              className={cn(
+                                "inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20",
+                                hasPanel && "cursor-pointer hover:bg-primary/20 transition-colors"
+                              )}
+                              onClick={() => hasPanel && window.open(server1.panel_url!, '_blank')}
+                              title={hasPanel ? `Abrir painel ${client.server_name}` : client.server_name}
+                            >
                               {server1?.icon_url ? (
                                 <img src={server1.icon_url} alt={client.server_name} className="h-4 w-4 rounded-sm object-cover" />
                               ) : (
                                 <Server className="h-3 w-3" />
                               )}
                               {client.server_name}
+                              {hasPanel && <ExternalLink className="h-3 w-3 opacity-60" />}
                             </span>
                           );
                         })()}
                         {client.server_name_2 && (() => {
                           const server2 = servers.find(s => s.id === client.server_id_2);
+                          const hasPanel = server2?.panel_url;
                           return (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            <span 
+                              className={cn(
+                                "inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20",
+                                hasPanel && "cursor-pointer hover:bg-amber-500/20 transition-colors"
+                              )}
+                              onClick={() => hasPanel && window.open(server2.panel_url!, '_blank')}
+                              title={hasPanel ? `Abrir painel ${client.server_name_2}` : client.server_name_2}
+                            >
                               {server2?.icon_url ? (
                                 <img src={server2.icon_url} alt={client.server_name_2} className="h-4 w-4 rounded-sm object-cover" />
                               ) : (
                                 <Server className="h-3 w-3" />
                               )}
                               {client.server_name_2}
+                              {hasPanel && <ExternalLink className="h-3 w-3 opacity-60" />}
                             </span>
                           );
                         })()}
                       </div>
                     )}
 
-                    {/* Panel Quick Access Buttons - Server 1 */}
-                    {client.server_id && getClientServer(client)?.panel_url && (
+                    {/* Login Copy Buttons */}
+                    {(client.login || client.login_2) && (
                       <div className="flex gap-1.5 mt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 h-8 text-xs gap-1.5 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 text-primary hover:bg-primary/20 hover:text-primary"
-                          onClick={() => handleOpenPanel(client)}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          Painel 1
-                        </Button>
                         {client.login && (
                           <Button
                             variant="outline"
                             size="sm"
                             className="h-8 px-2.5 text-xs gap-1 border-border hover:bg-muted"
                             onClick={async () => {
-                              // Decrypt if needed and copy
                               let loginToCopy = decryptedCredentials[client.id]?.login;
                               if (!loginToCopy && client.login) {
                                 try {
@@ -2441,54 +2449,35 @@ export default function Clients() {
                             title="Copiar login do servidor 1"
                           >
                             <Copy className="h-3.5 w-3.5" />
-                            Login
+                            Login 1
+                          </Button>
+                        )}
+                        {client.login_2 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2.5 text-xs gap-1 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                            onClick={async () => {
+                              let loginToCopy = client.login_2;
+                              if (loginToCopy) {
+                                try {
+                                  const decrypted = await decrypt(loginToCopy);
+                                  loginToCopy = decrypted;
+                                } catch {
+                                  // Use as is if decryption fails
+                                }
+                                navigator.clipboard.writeText(loginToCopy);
+                                toast.success(`Login 2 copiado: ${loginToCopy}`);
+                              }
+                            }}
+                            title="Copiar login do servidor 2"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            Login 2
                           </Button>
                         )}
                       </div>
                     )}
-
-                    {/* Panel Quick Access Buttons - Server 2 */}
-                    {client.server_id_2 && (() => {
-                      const server2 = servers.find(s => s.id === client.server_id_2);
-                      return server2?.panel_url ? (
-                        <div className="flex gap-1.5 mt-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 h-8 text-xs gap-1.5 bg-gradient-to-r from-amber-500/5 to-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
-                            onClick={() => window.open(server2.panel_url!, '_blank')}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Painel 2
-                          </Button>
-                          {client.login_2 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-2.5 text-xs gap-1 border-border hover:bg-muted"
-                              onClick={async () => {
-                                // Decrypt and copy login 2
-                                let loginToCopy = client.login_2;
-                                if (loginToCopy) {
-                                  try {
-                                    const decrypted = await decrypt(loginToCopy);
-                                    loginToCopy = decrypted;
-                                  } catch {
-                                    // Use as is if decryption fails
-                                  }
-                                  navigator.clipboard.writeText(loginToCopy);
-                                  toast.success(`Login 2 copiado: ${loginToCopy}`);
-                                }
-                              }}
-                              title="Copiar login do servidor 2"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                              Login
-                            </Button>
-                          )}
-                        </div>
-                      ) : null;
-                    })()}
 
                     {/* GerenciaApp Panel Quick Access - Multiple Devices */}
                     {((client.gerencia_app_devices && client.gerencia_app_devices.length > 0) || client.gerencia_app_mac) && gerenciaAppSettings?.panelUrl && (
