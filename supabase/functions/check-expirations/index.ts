@@ -11,6 +11,48 @@ interface ExpiringClient {
   name: string;
   expiration_date: string;
   seller_id: string;
+  phone: string | null;
+  plan_name: string | null;
+}
+
+function formatExpirationMessage(client: ExpiringClient, today: Date): { title: string; body: string; urgency: string } {
+  const expDate = new Date(client.expiration_date + 'T00:00:00');
+  const todayStart = new Date(today);
+  todayStart.setHours(0, 0, 0, 0);
+  
+  const diffTime = expDate.getTime() - todayStart.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  const expDateFormatted = expDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const planInfo = client.plan_name ? ` • ${client.plan_name}` : '';
+  
+  let urgency: string;
+  let emoji: string;
+  let timeText: string;
+  
+  if (diffDays <= 0) {
+    urgency = 'expired';
+    emoji = '🔴';
+    timeText = 'Venceu hoje!';
+  } else if (diffDays === 1) {
+    urgency = 'critical';
+    emoji = '🟠';
+    timeText = 'Vence amanhã!';
+  } else if (diffDays === 2) {
+    urgency = 'warning';
+    emoji = '🟡';
+    timeText = 'Vence em 2 dias';
+  } else {
+    urgency = 'info';
+    emoji = '🔵';
+    timeText = `Vence em ${diffDays} dias`;
+  }
+  
+  return {
+    title: `${emoji} ${client.name}`,
+    body: `${timeText}${planInfo} • ${expDateFormatted}`,
+    urgency
+  };
 }
 
 serve(async (req) => {
@@ -38,10 +80,10 @@ serve(async (req) => {
 
     console.log('[check-expirations] Checking from', todayStr, 'to', threeDaysStr);
 
-    // Get all expiring clients grouped by seller
+    // Get all expiring clients
     const { data: expiringClients, error: clientsError } = await supabase
       .from('clients')
-      .select('id, name, expiration_date, seller_id')
+      .select('id, name, expiration_date, seller_id, phone, plan_name')
       .gte('expiration_date', todayStr)
       .lte('expiration_date', threeDaysStr)
       .eq('is_archived', false)
@@ -87,51 +129,36 @@ serve(async (req) => {
     console.log('[check-expirations] Found subscriptions:', subscriptions?.length || 0);
 
     let notificationsSent = 0;
-    const results: { sellerId: string; clientCount: number; notified: boolean }[] = [];
+    const results: { sellerId: string; clientsNotified: number; totalClients: number }[] = [];
 
-    // Send notifications to each seller
+    // Send individual notifications for each client (WhatsApp style)
     for (const [sellerId, clients] of Object.entries(clientsBySeller)) {
       const hasSubscription = subscriptions?.some(s => s.user_id === sellerId);
       
-      // Group by days until expiration
-      const expiringToday = clients.filter(c => c.expiration_date === todayStr);
-      const expiringTomorrow = clients.filter(c => {
-        const expDate = new Date(c.expiration_date);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return expDate.toISOString().split('T')[0] === tomorrow.toISOString().split('T')[0];
-      });
-      const expiringIn2Days = clients.filter(c => {
-        const expDate = new Date(c.expiration_date);
-        const in2Days = new Date(today);
-        in2Days.setDate(in2Days.getDate() + 2);
-        return expDate.toISOString().split('T')[0] === in2Days.toISOString().split('T')[0];
-      });
-      const expiringIn3Days = clients.filter(c => {
-        const expDate = new Date(c.expiration_date);
-        const in3Days = new Date(today);
-        in3Days.setDate(in3Days.getDate() + 3);
-        return expDate.toISOString().split('T')[0] === in3Days.toISOString().split('T')[0];
-      });
-
-      // Build notification message
-      let body = '';
-      if (expiringToday.length > 0) {
-        body += `⚠️ HOJE: ${expiringToday.length} cliente(s)\n`;
-      }
-      if (expiringTomorrow.length > 0) {
-        body += `📅 Amanhã: ${expiringTomorrow.length} cliente(s)\n`;
-      }
-      if (expiringIn2Days.length > 0) {
-        body += `📆 Em 2 dias: ${expiringIn2Days.length} cliente(s)\n`;
-      }
-      if (expiringIn3Days.length > 0) {
-        body += `🗓️ Em 3 dias: ${expiringIn3Days.length} cliente(s)`;
+      if (!hasSubscription) {
+        results.push({ sellerId, clientsNotified: 0, totalClients: clients.length });
+        continue;
       }
 
-      if (hasSubscription && body) {
+      let clientsNotified = 0;
+
+      // Sort by urgency (expired first, then tomorrow, etc.)
+      const sortedClients = clients.sort((a, b) => {
+        const dateA = new Date(a.expiration_date);
+        const dateB = new Date(b.expiration_date);
+        return dateA.getTime() - dateB.getTime();
+      });
+
+      // Send individual notification for each client
+      for (const client of sortedClients) {
+        const { title, body, urgency } = formatExpirationMessage(client, today);
+        
         try {
-          // Call send-push-notification function
+          // Add small delay between notifications to avoid rate limiting
+          if (clientsNotified > 0) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+
           const response = await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
             method: 'POST',
             headers: {
@@ -140,31 +167,35 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               userId: sellerId,
-              title: `🔔 ${clients.length} Cliente(s) Vencendo!`,
-              body: body.trim(),
-              tag: 'client-expiration',
-              data: { type: 'expiration-alert', count: clients.length }
+              title,
+              body,
+              tag: `client-${client.id}`, // Unique tag per client for individual notifications
+              data: { 
+                type: 'client-expiration', 
+                clientId: client.id,
+                clientName: client.name,
+                expirationDate: client.expiration_date,
+                urgency
+              }
             }),
           });
 
           const result = await response.json();
-          console.log('[check-expirations] Notification result for seller', sellerId, ':', result);
           
           if (result.sent > 0) {
+            clientsNotified++;
             notificationsSent++;
+            console.log(`[check-expirations] ✓ Notified: ${client.name} (${urgency})`);
           }
-          
-          results.push({ sellerId, clientCount: clients.length, notified: result.sent > 0 });
         } catch (error) {
-          console.error('[check-expirations] Error sending notification to seller', sellerId, ':', error);
-          results.push({ sellerId, clientCount: clients.length, notified: false });
+          console.error(`[check-expirations] Error notifying about ${client.name}:`, error);
         }
-      } else {
-        results.push({ sellerId, clientCount: clients.length, notified: false });
       }
+
+      results.push({ sellerId, clientsNotified, totalClients: clients.length });
     }
 
-    console.log('[check-expirations] Completed. Notifications sent:', notificationsSent);
+    console.log('[check-expirations] Completed. Total notifications sent:', notificationsSent);
 
     return new Response(JSON.stringify({ 
       message: 'Expiration check completed',
