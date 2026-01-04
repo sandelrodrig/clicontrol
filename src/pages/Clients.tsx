@@ -116,7 +116,7 @@ interface ServerData {
   total_screens_per_credit: number;
 }
 
-type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'unpaid' | 'archived';
+type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'expired_not_called' | 'unpaid' | 'archived';
 type CategoryFilterType = 'all' | 'IPTV' | 'P2P' | 'Contas Premium' | 'SSH' | 'custom';
 
 const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH'] as const;
@@ -1037,6 +1037,12 @@ export default function Clients() {
     return status === 'expired' && isSent(c.id);
   });
 
+  // Count expired clients NOT contacted yet
+  const expiredNotCalledCount = activeClients.filter(c => {
+    const status = getClientStatus(c);
+    return status === 'expired' && !isSent(c.id);
+  }).length;
+
   const filteredClients = (filter === 'archived' ? archivedClients : activeClients).filter((client) => {
     // Normalize search text - remove accents and convert to lowercase
     const normalizeText = (text: string) => {
@@ -1103,6 +1109,8 @@ export default function Clients() {
         return status === 'expiring';
       case 'expired':
         return status === 'expired';
+      case 'expired_not_called':
+        return status === 'expired' && !isSent(client.id);
       case 'unpaid':
         return !client.is_paid;
       default:
@@ -1664,8 +1672,10 @@ export default function Clients() {
                       size="sm"
                       onClick={() => {
                         const currentDate = formData.expiration_date ? new Date(formData.expiration_date + 'T12:00:00') : new Date();
+                        currentDate.setHours(12, 0, 0, 0);
                         if (!isNaN(currentDate.getTime())) {
-                          setFormData({ ...formData, expiration_date: format(addDays(currentDate, -1), 'yyyy-MM-dd') });
+                          const newDate = addDays(currentDate, -1);
+                          setFormData({ ...formData, expiration_date: format(newDate, 'yyyy-MM-dd') });
                         }
                       }}
                     >
@@ -1677,8 +1687,10 @@ export default function Clients() {
                       size="sm"
                       onClick={() => {
                         const currentDate = formData.expiration_date ? new Date(formData.expiration_date + 'T12:00:00') : new Date();
+                        currentDate.setHours(12, 0, 0, 0);
                         if (!isNaN(currentDate.getTime())) {
-                          setFormData({ ...formData, expiration_date: format(addDays(currentDate, 1), 'yyyy-MM-dd') });
+                          const newDate = addDays(currentDate, 1);
+                          setFormData({ ...formData, expiration_date: format(newDate, 'yyyy-MM-dd') });
                         }
                       }}
                     >
@@ -2146,6 +2158,10 @@ export default function Clients() {
               <TabsTrigger value="active">Ativos</TabsTrigger>
               <TabsTrigger value="expiring">Vencendo</TabsTrigger>
               <TabsTrigger value="expired">Vencidos</TabsTrigger>
+              <TabsTrigger value="expired_not_called" className="gap-1 text-destructive">
+                <Phone className="h-3 w-3" />
+                Não Chamados ({expiredNotCalledCount})
+              </TabsTrigger>
               <TabsTrigger value="unpaid">Não Pagos</TabsTrigger>
               <TabsTrigger value="archived" className="gap-1">
                 <Archive className="h-3 w-3" />
