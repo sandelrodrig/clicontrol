@@ -111,6 +111,7 @@ interface ServerData {
   is_active: boolean;
   is_credit_based: boolean;
   panel_url: string | null;
+  icon_url: string | null;
   iptv_per_credit: number;
   p2p_per_credit: number;
   total_screens_per_credit: number;
@@ -241,7 +242,7 @@ export default function Clients() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('servers')
-        .select('id, name, is_active, is_credit_based, panel_url, iptv_per_credit, p2p_per_credit, total_screens_per_credit')
+        .select('id, name, is_active, is_credit_based, panel_url, icon_url, iptv_per_credit, p2p_per_credit, total_screens_per_credit')
         .eq('seller_id', user!.id)
         .order('name');
       if (error) throw error;
@@ -2375,18 +2376,32 @@ export default function Clients() {
                             )}
                           </span>
                         )}
-                        {client.server_name && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                            <Server className="h-3 w-3" />
-                            {client.server_name}
-                          </span>
-                        )}
-                        {client.server_name_2 && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                            <Server className="h-3 w-3" />
-                            {client.server_name_2}
-                          </span>
-                        )}
+                        {client.server_name && (() => {
+                          const server1 = getClientServer(client);
+                          return (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                              {server1?.icon_url ? (
+                                <img src={server1.icon_url} alt={client.server_name} className="h-4 w-4 rounded-sm object-cover" />
+                              ) : (
+                                <Server className="h-3 w-3" />
+                              )}
+                              {client.server_name}
+                            </span>
+                          );
+                        })()}
+                        {client.server_name_2 && (() => {
+                          const server2 = servers.find(s => s.id === client.server_id_2);
+                          return (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              {server2?.icon_url ? (
+                                <img src={server2.icon_url} alt={client.server_name_2} className="h-4 w-4 rounded-sm object-cover" />
+                              ) : (
+                                <Server className="h-3 w-3" />
+                              )}
+                              {client.server_name_2}
+                            </span>
+                          );
+                        })()}
                       </div>
                     )}
 
