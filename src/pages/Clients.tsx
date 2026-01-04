@@ -647,6 +647,28 @@ export default function Clients() {
     },
   });
 
+  // Archive expired clients that have been contacted
+  const archiveCalledExpiredMutation = useMutation({
+    mutationFn: async (clientIds: string[]) => {
+      const { error } = await supabase
+        .from('clients')
+        .update({ is_archived: true, archived_at: new Date().toISOString() })
+        .in('id', clientIds);
+      if (error) throw error;
+      return clientIds.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['archived-clients-count'] });
+      clearAllSentMarks();
+      toast.success(`${count} cliente${count > 1 ? 's' : ''} vencido${count > 1 ? 's' : ''} arquivado${count > 1 ? 's' : ''}!`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+
   const restoreMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -1008,6 +1030,12 @@ export default function Clients() {
   // Separate archived and active clients
   const activeClients = clients.filter(c => !c.is_archived);
   const archivedClients = clients.filter(c => c.is_archived);
+
+  // Get expired clients that have been contacted (sent message)
+  const expiredCalledClients = activeClients.filter(c => {
+    const status = getClientStatus(c);
+    return status === 'expired' && isSent(c.id);
+  });
 
   const filteredClients = (filter === 'archived' ? archivedClients : activeClients).filter((client) => {
     // Normalize search text - remove accents and convert to lowercase
@@ -2147,6 +2175,28 @@ export default function Clients() {
                 Limpar
               </Button>
             </div>
+          )}
+          
+          {/* Archive expired called clients */}
+          {expiredCalledClients.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-8 border-warning/50 text-warning hover:bg-warning/10"
+              onClick={() => {
+                if (confirm(`Arquivar ${expiredCalledClients.length} cliente${expiredCalledClients.length > 1 ? 's' : ''} vencido${expiredCalledClients.length > 1 ? 's' : ''} já chamado${expiredCalledClients.length > 1 ? 's' : ''}?`)) {
+                  archiveCalledExpiredMutation.mutate(expiredCalledClients.map(c => c.id));
+                }
+              }}
+              disabled={archiveCalledExpiredMutation.isPending}
+            >
+              {archiveCalledExpiredMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Archive className="h-3.5 w-3.5" />
+              )}
+              Arquivar Vencidos Chamados ({expiredCalledClients.length})
+            </Button>
           )}
         </div>
       </div>
