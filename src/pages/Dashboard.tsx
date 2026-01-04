@@ -30,6 +30,7 @@ interface Client {
   plan_id: string | null;
   plan_name: string | null;
   plan_price: number | null;
+  premium_price: number | null;
   is_paid: boolean | null;
   category: string | null;
   login: string | null;
@@ -170,8 +171,8 @@ export default function Dashboard() {
     return !isBefore(renewedDate, monthStart) && !isBefore(new Date(c.expiration_date), today);
   });
 
-  // Monthly revenue: only clients renewed this month
-  const monthlyRevenue = clientsRenewedThisMonth.reduce((sum, c) => sum + (c.plan_price || 0), 0);
+  // Monthly revenue: only clients renewed this month (plan_price + premium_price)
+  const monthlyRevenue = clientsRenewedThisMonth.reduce((sum, c) => sum + (c.plan_price || 0) + (c.premium_price || 0), 0);
 
   const totalRevenue = monthlyRevenue;
 
@@ -191,7 +192,7 @@ export default function Dashboard() {
       const renewedDate = new Date(c.renewed_at);
       return !isBefore(renewedDate, monthStart) && !isBefore(new Date(c.expiration_date), today);
     });
-    const serverRevenue = serverClients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
+    const serverRevenue = serverClients.reduce((sum, c) => sum + (c.plan_price || 0) + (c.premium_price || 0), 0);
     const serverCost = server.monthly_cost || 0;
     const serverProfit = serverRevenue - serverCost;
     
@@ -214,7 +215,7 @@ export default function Dashboard() {
       const renewedDate = new Date(c.renewed_at);
       return !isBefore(renewedDate, monthStart) && !isBefore(new Date(c.expiration_date), today);
     });
-    const categoryRevenue = categoryClients.reduce((sum, c) => sum + (c.plan_price || 0), 0);
+    const categoryRevenue = categoryClients.reduce((sum, c) => sum + (c.plan_price || 0) + (c.premium_price || 0), 0);
     const totalCategoryClients = clients.filter(c => (c.category || 'Sem categoria') === category).length;
     
     return {

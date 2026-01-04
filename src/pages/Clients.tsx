@@ -61,6 +61,7 @@ interface Client {
   plan_id: string | null;
   plan_name: string | null;
   plan_price: number | null;
+  premium_price: number | null;
   server_id: string | null;
   server_name: string | null;
   login: string | null;
@@ -172,6 +173,7 @@ export default function Clients() {
     plan_id: '',
     plan_name: '',
     plan_price: '',
+    premium_price: '',
     server_id: '',
     server_name: '',
     login: '',
@@ -702,6 +704,7 @@ export default function Clients() {
       plan_id: '',
       plan_name: '',
       plan_price: '',
+      premium_price: '',
       server_id: '',
       server_name: '',
       login: '',
@@ -822,6 +825,7 @@ export default function Clients() {
       plan_id: formData.plan_id || null,
       plan_name: formData.plan_name || null,
       plan_price: formData.plan_price ? parseFloat(formData.plan_price) : null,
+      premium_price: formData.premium_price ? parseFloat(formData.premium_price) : null,
       server_id: formData.server_id || null,
       server_name: formData.server_name || null,
       login: formData.login || null,
@@ -899,6 +903,7 @@ export default function Clients() {
       plan_id: client.plan_id || '',
       plan_name: client.plan_name || '',
       plan_price: client.plan_price?.toString() || '',
+      premium_price: (client as any).premium_price?.toString() || '',
       server_id: client.server_id || '',
       server_name: client.server_name || '',
       login: decryptedLogin,
@@ -1443,7 +1448,7 @@ export default function Clients() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="plan_price">Valor (R$)</Label>
+                      <Label htmlFor="plan_price">Valor IPTV (R$)</Label>
                       <Input
                         id="plan_price"
                         type="number"
@@ -1457,6 +1462,31 @@ export default function Clients() {
                         {formData.plan_id ? 'Preenchido pelo plano. Edite para promoções.' : 'Defina o valor manualmente ou selecione um plano.'}
                       </p>
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="premium_price">Valor Premium (R$)</Label>
+                      <Input
+                        id="premium_price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.premium_price}
+                        onChange={(e) => setFormData({ ...formData, premium_price: e.target.value })}
+                        placeholder="Ex: 10.00"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Adicione o valor da conta Premium se o cliente compra os 2 juntos.
+                      </p>
+                    </div>
+                    {(formData.plan_price || formData.premium_price) && (
+                      <div className="md:col-span-2 p-3 rounded-lg bg-primary/10 border border-primary/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Valor Total:</span>
+                          <span className="text-lg font-bold text-primary">
+                            R$ {((parseFloat(formData.plan_price) || 0) + (parseFloat(formData.premium_price) || 0)).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
 
