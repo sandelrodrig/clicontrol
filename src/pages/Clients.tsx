@@ -1195,13 +1195,29 @@ export default function Clients() {
                   </p>
                 </div>
               </div>
-              <Button 
-                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02] flex-shrink-0"
-                onClick={() => window.open(gerenciaAppSettings?.registerUrl, '_blank')}
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                CADASTRAR AGORA
-              </Button>
+              <div className="flex gap-2 flex-shrink-0">
+                <Button 
+                  className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 font-bold shadow-lg transition-all hover:scale-[1.02]"
+                  onClick={() => {
+                    if (gerenciaAppSettings?.panelUrl) {
+                      window.open(gerenciaAppSettings.panelUrl, '_blank');
+                    } else {
+                      toast.info('URL do painel não configurada. Contate o administrador.');
+                    }
+                  }}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  ENTRAR NO PAINEL
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="border-green-500/50 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 font-bold transition-all hover:scale-[1.02]"
+                  onClick={() => window.open(gerenciaAppSettings?.registerUrl, '_blank')}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  CADASTRAR
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
