@@ -22,7 +22,7 @@ export interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
-  sellerOnly?: boolean;
+  sellerOnly?: boolean; // Apenas sellers veem este item (admin NÃO vê)
 }
 
 export interface NavGroup {
@@ -33,6 +33,9 @@ export interface NavGroup {
 /**
  * Configuração centralizada de navegação
  * Usado tanto no Sidebar (Desktop) quanto no Menu Mobile
+ * 
+ * adminOnly: Apenas admins veem
+ * sellerOnly: Apenas sellers veem (admin NÃO vê - são itens específicos de revenda)
  */
 export const navGroups: NavGroup[] = [
   {
@@ -80,11 +83,19 @@ export const navItems: NavItem[] = navGroups.flatMap((group) => group.items);
 
 /**
  * Filtra itens de navegação baseado nas permissões do usuário
+ * 
+ * Lógica:
+ * - adminOnly: Apenas admins veem
+ * - sellerOnly: Apenas sellers veem (admins NÃO veem - são itens de gestão de clientes)
+ * - Sem flag: Todos veem
  */
 export function filterNavItems(items: NavItem[], isAdmin: boolean, isSeller: boolean): NavItem[] {
   return items.filter((item) => {
-    if (item.adminOnly && !isAdmin) return false;
-    if (item.sellerOnly && !isSeller && !isAdmin) return false;
+    // Item só para admins
+    if (item.adminOnly) return isAdmin;
+    // Item só para sellers (admin NÃO vê itens de gestão de clientes)
+    if (item.sellerOnly) return isSeller && !isAdmin;
+    // Sem restrição, todos veem
     return true;
   });
 }
