@@ -36,8 +36,7 @@ export function useOfflineClients() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOffline(false);
-      toast.success('Conexão restaurada');
-      // Sync when back online
+      // Sync silently when back online
       syncClients();
     };
 
@@ -117,7 +116,7 @@ export function useOfflineClients() {
       if (data) {
         setClients(data);
         saveToCache(data);
-        toast.success(`${data.length} clientes sincronizados`);
+        // Sync silently - no toast notification
       }
     } catch (error) {
       console.error('Error syncing clients:', error);
