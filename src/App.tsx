@@ -25,6 +25,7 @@ import Reports from "./pages/Reports";
 import Backup from "./pages/Backup";
 import Settings from "./pages/Settings";
 import ExternalApps from "./pages/ExternalApps";
+import ServerIcons from "./pages/ServerIcons";
 
 import MessageHistory from "./pages/MessageHistory";
 import Tutorials from "./pages/Tutorials";
@@ -84,6 +85,7 @@ const AppRoutes = () => {
           <Route path="/settings" element={<Settings />} />
           <Route path="/tutorials" element={<Tutorials />} />
           <Route path="/external-apps" element={<ExternalApps />} />
+          <Route path="/server-icons" element={<ServerIcons />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -353,6 +353,33 @@ export type Database = {
         }
         Relationships: []
       }
+      default_server_icons: {
+        Row: {
+          created_at: string
+          icon_url: string
+          id: string
+          name: string
+          name_normalized: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          icon_url: string
+          id?: string
+          name: string
+          name_normalized: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          icon_url?: string
+          id?: string
+          name?: string
+          name_normalized?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       external_apps: {
         Row: {
           auth_type: string
@@ -959,6 +986,7 @@ export type Database = {
         Args: { seller_uuid: string }
         Returns: undefined
       }
+      find_server_icon: { Args: { server_name: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -967,6 +995,7 @@ export type Database = {
         Returns: boolean
       }
       is_user_blocked: { Args: { user_email: string }; Returns: boolean }
+      normalize_server_name: { Args: { name: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "seller"
