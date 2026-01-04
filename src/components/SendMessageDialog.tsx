@@ -97,14 +97,18 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
   const [durationFilter, setDurationFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [decryptedCredentials, setDecryptedCredentials] = useState<{
+  
+  // Use refs to cache decrypted credentials per client - avoids re-decrypting on every open
+  const [credentialsCache, setCredentialsCache] = useState<Record<string, {
     login: string;
     password: string;
     premium_password: string;
-  } | null>(null);
-  const [isDecrypting, setIsDecrypting] = useState(false);
+  }>>({});
   
   const clientSentInfo = getSentInfo(client.id);
+  
+  // Get cached credentials or null
+  const decryptedCredentials = credentialsCache[client.id] || null;
 
   // Monitor online/offline status
   useEffect(() => {
@@ -120,64 +124,76 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
     };
   }, []);
 
-  // Decrypt credentials when dialog opens (only if privacy mode is OFF)
+  // Decrypt credentials in background - doesn't block dialog opening
   useEffect(() => {
+    // Reset state when dialog closes
+    if (!open) {
+      setSelectedTemplate('');
+      setMessage('');
+      return;
+    }
+    
+    // If privacy mode is ON, use masked values
+    if (isPrivacyMode) {
+      setCredentialsCache(prev => ({
+        ...prev,
+        [client.id]: {
+          login: '●●●●●●●●',
+          password: '●●●●●●●●',
+          premium_password: '●●●●●●●●',
+        }
+      }));
+      return;
+    }
+    
+    // Already cached - no need to decrypt again
+    if (credentialsCache[client.id]) {
+      return;
+    }
+    
+    // Decrypt in background without blocking
     let isCancelled = false;
     
-    if (open && !isPrivacyMode) {
-      const decryptCredentials = async () => {
-        setIsDecrypting(true);
-        try {
-          const [decryptedLogin, decryptedPassword, decryptedPremiumPassword] = await Promise.all([
-            client.login ? decrypt(client.login) : Promise.resolve(''),
-            client.password ? decrypt(client.password) : Promise.resolve(''),
-            client.premium_password ? decrypt(client.premium_password) : Promise.resolve(''),
-          ]);
-          
-          if (!isCancelled) {
-            setDecryptedCredentials({
+    const decryptCredentials = async () => {
+      try {
+        const [decryptedLogin, decryptedPassword, decryptedPremiumPassword] = await Promise.all([
+          client.login ? decrypt(client.login) : Promise.resolve(''),
+          client.password ? decrypt(client.password) : Promise.resolve(''),
+          client.premium_password ? decrypt(client.premium_password) : Promise.resolve(''),
+        ]);
+        
+        if (!isCancelled) {
+          setCredentialsCache(prev => ({
+            ...prev,
+            [client.id]: {
               login: decryptedLogin,
               password: decryptedPassword,
               premium_password: decryptedPremiumPassword,
-            });
-          }
-        } catch (error) {
-          console.error('Failed to decrypt credentials:', error);
-          if (!isCancelled) {
-            // Fallback to original values if decryption fails
-            setDecryptedCredentials({
+            }
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to decrypt credentials:', error);
+        if (!isCancelled) {
+          // Fallback to original values if decryption fails
+          setCredentialsCache(prev => ({
+            ...prev,
+            [client.id]: {
               login: client.login || '',
               password: client.password || '',
               premium_password: client.premium_password || '',
-            });
-          }
-        } finally {
-          if (!isCancelled) {
-            setIsDecrypting(false);
-          }
+            }
+          }));
         }
-      };
-      decryptCredentials();
-    } else if (open && isPrivacyMode) {
-      // If privacy mode is ON, use masked values
-      setDecryptedCredentials({
-        login: '●●●●●●●●',
-        password: '●●●●●●●●',
-        premium_password: '●●●●●●●●',
-      });
-    }
+      }
+    };
     
-    // Reset when dialog closes
-    if (!open) {
-      setDecryptedCredentials(null);
-      setSelectedTemplate('');
-      setMessage('');
-    }
+    decryptCredentials();
     
     return () => {
       isCancelled = true;
     };
-  }, [open, client.id, client.login, client.password, client.premium_password, decrypt, isPrivacyMode]);
+  }, [open, client.id, client.login, client.password, client.premium_password, decrypt, isPrivacyMode, credentialsCache]);
 
   // Get profile with pix_key and company_name
   const sellerProfile = profile as { 
@@ -630,12 +646,6 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Label>Template</Label>
-              {isDecrypting && (
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Descriptografando...
-                </span>
-              )}
               {isPrivacyMode && (
                 <span className="text-xs text-warning">⚠️ Modo privacidade ativo</span>
               )}
@@ -643,10 +653,9 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
             <Select 
               value={selectedTemplate} 
               onValueChange={handleTemplateChange}
-              disabled={isDecrypting}
             >
               <SelectTrigger>
-                <SelectValue placeholder={isDecrypting ? "Aguarde..." : "Selecione um template"} />
+                <SelectValue placeholder="Selecione um template" />
               </SelectTrigger>
               <SelectContent>
                 {filteredTemplates.length === 0 ? (
