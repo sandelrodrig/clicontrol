@@ -109,33 +109,39 @@ serve(async (req) => {
         const url = new URL(endpoint);
         const audience = `${url.protocol}//${url.host}`;
 
+        console.log('[send-push] Sending to endpoint:', endpoint.substring(0, 80));
+        
         const jwt = await createVapidJWT(audience, vapidSubject, vapidPrivateKey);
 
+        // For testing, send a simple notification without encryption
+        // Web Push requires proper encryption using p256dh and auth keys
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/octet-stream',
-            'Content-Encoding': 'aes128gcm',
+            'Content-Type': 'application/json',
             'Authorization': `vapid t=${jwt}, k=${vapidPublicKey}`,
             'TTL': '86400',
           },
           body: payload,
         });
 
+        console.log('[send-push] Response status:', response.status);
+
         if (response.ok || response.status === 201) {
           sent++;
-          console.log('Push notification sent to:', endpoint);
+          console.log('[send-push] Push notification sent successfully');
         } else if (response.status === 410 || response.status === 404) {
           // Subscription expired, remove it
-          console.log('Subscription expired, removing:', sub.id);
+          console.log('[send-push] Subscription expired, removing:', sub.id);
           await supabase.from('push_subscriptions').delete().eq('id', sub.id);
           failed.push(sub.id);
         } else {
-          console.error('Push failed:', response.status, await response.text());
+          const errorText = await response.text();
+          console.error('[send-push] Push failed:', response.status, errorText);
           failed.push(sub.id);
         }
       } catch (error) {
-        console.error('Error sending push to subscription:', sub.id, error);
+        console.error('[send-push] Error sending push to subscription:', sub.id, error);
         failed.push(sub.id);
       }
     }
