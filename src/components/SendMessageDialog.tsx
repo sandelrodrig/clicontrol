@@ -60,6 +60,7 @@ interface SendMessageDialogProps {
   client: Client;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onMessageSent?: () => void; // Callback when message is sent (for bulk messaging)
 }
 
 // Default categories
@@ -83,7 +84,7 @@ const TYPE_FILTERS = [
   { value: 'other', label: 'Outros' },
 ];
 
-export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDialogProps) {
+export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }: SendMessageDialogProps) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const { decrypt } = useCrypto();
@@ -493,6 +494,7 @@ export function SendMessageDialog({ client, open, onOpenChange }: SendMessageDia
       return;
     }
 
+    onMessageSent?.();
     onOpenChange(false);
   };
 
