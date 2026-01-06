@@ -118,7 +118,7 @@ interface ServerData {
   total_screens_per_credit: number;
 }
 
-type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'expired_not_called' | 'unpaid' | 'archived';
+type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'expired_not_called' | 'unpaid' | 'with_paid_apps' | 'archived';
 type CategoryFilterType = 'all' | 'IPTV' | 'P2P' | 'Contas Premium' | 'SSH' | 'custom';
 
 const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH'] as const;
@@ -223,6 +223,23 @@ export default function Clients() {
     },
     enabled: !!user?.id,
   });
+
+  // Fetch client IDs that have external apps (paid apps)
+  const { data: clientsWithExternalApps = [] } = useQuery({
+    queryKey: ['clients-with-external-apps', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('client_external_apps')
+        .select('client_id')
+        .eq('seller_id', user!.id);
+      if (error) throw error;
+      // Return unique client IDs
+      return [...new Set(data?.map(item => item.client_id) || [])];
+    },
+    enabled: !!user?.id,
+  });
+
+  const clientsWithPaidAppsSet = new Set(clientsWithExternalApps);
 
   const { data: plans = [] } = useQuery({
     queryKey: ['plans', user?.id],
@@ -1181,6 +1198,8 @@ export default function Clients() {
         return status === 'expired' && !isSent(client.id);
       case 'unpaid':
         return !client.is_paid;
+      case 'with_paid_apps':
+        return clientsWithPaidAppsSet.has(client.id);
       default:
         return true;
     }
@@ -2276,6 +2295,10 @@ export default function Clients() {
                 Não Chamados ({expiredNotCalledCount})
               </TabsTrigger>
               <TabsTrigger value="unpaid">Não Pagos</TabsTrigger>
+              <TabsTrigger value="with_paid_apps" className="gap-1">
+                <AppWindow className="h-3 w-3" />
+                Apps Pagos ({clientsWithExternalApps.length > 0 ? activeClients.filter(c => clientsWithPaidAppsSet.has(c.id)).length : 0})
+              </TabsTrigger>
               <TabsTrigger value="archived" className="gap-1">
                 <Archive className="h-3 w-3" />
                 Lixeira ({archivedClients.length})
