@@ -71,6 +71,7 @@ const clientVariables = [
   { name: '{empresa}', description: 'Nome da empresa/revendedor' },
   { name: '{login}', description: 'Login do cliente' },
   { name: '{senha}', description: 'Senha do cliente' },
+  { name: '{conta_premium}', description: 'Nome da conta Premium (Netflix, Spotify...)' },
   { name: '{email_premium}', description: 'Email da conta Premium' },
   { name: '{senha_premium}', description: 'Senha da conta Premium' },
   { name: '{vencimento}', description: 'Data de vencimento (DD/MM/YYYY)' },

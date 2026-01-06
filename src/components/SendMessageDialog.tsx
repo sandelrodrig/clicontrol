@@ -393,10 +393,14 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
     const password = decryptedCredentials?.password || '';
     const premiumPassword = decryptedCredentials?.premium_password || '';
 
+    // Get premium account name from plan_name when it's a premium category
+    const contaPremium = client.plan_name || '';
+
     return text
       .replace(/{nome}/gi, client.name)
       .replace(/{login}/gi, login)
       .replace(/{senha}/gi, password)
+      .replace(/{conta_premium}/gi, contaPremium)
       .replace(/{email_premium}/gi, client.email || '')
       .replace(/{senha_premium}/gi, premiumPassword)
       .replace(/{vencimento}/gi, format(expDate, 'dd/MM/yyyy'))
