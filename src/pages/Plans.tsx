@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Package, DollarSign, Clock, Edit, Trash2, Monitor, RefreshCw } from 'lucide-react';
+import { Plus, Package, DollarSign, Clock, Edit, Trash2, Monitor, RefreshCw, Crown, PlusCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Plan {
@@ -39,15 +39,20 @@ interface Plan {
   screens: number;
 }
 
-type CategoryFilter = 'all' | 'IPTV' | 'SSH' | 'P2P';
+// Default categories - Premium is special for monthly subscription accounts
+const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Premium'];
+
 type DurationFilter = 'all' | 30 | 90 | 180 | 365;
+
 export default function Plans() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [durationFilter, setDurationFilter] = useState<DurationFilter>('all');
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -73,6 +78,12 @@ export default function Plans() {
     },
     enabled: !!user?.id,
   });
+
+  // Get all unique categories (default + from plans)
+  const allCategories = [...new Set([
+    ...DEFAULT_CATEGORIES,
+    ...plans.map(p => p.category).filter(Boolean)
+  ])];
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string | null; price: number; duration_days: number; is_active: boolean; category: string; screens: number }) => {
@@ -304,7 +315,7 @@ export default function Plans() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Planos</h1>
-          <p className="text-muted-foreground">Gerencie os planos de assinatura IPTV e SSH</p>
+          <p className="text-muted-foreground">Gerencie planos de IPTV, SSH e Contas Premium (Netflix, Spotify...)</p>
         </div>
 
         <div className="flex gap-2">
@@ -374,54 +385,122 @@ export default function Plans() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+<div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Categoria</Label>
-                    <Select
-                      value={formData.category}
-                      onValueChange={(value) => setFormData({ ...formData, category: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="IPTV">IPTV</SelectItem>
-                        <SelectItem value="P2P">P2P</SelectItem>
-                        <SelectItem value="SSH">SSH</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {showNewCategoryInput ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value.toUpperCase())}
+                          placeholder="Nome da categoria"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            if (newCategoryName.trim()) {
+                              setFormData({ ...formData, category: newCategoryName.trim() });
+                              setShowNewCategoryInput(false);
+                              setNewCategoryName('');
+                            }
+                          }}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            setShowNewCategoryInput(false);
+                            setNewCategoryName('');
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Select
+                        value={formData.category}
+                        onValueChange={(value) => {
+                          if (value === '__new__') {
+                            setShowNewCategoryInput(true);
+                          } else {
+                            setFormData({ ...formData, category: value });
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allCategories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              <span className="flex items-center gap-2">
+                                {cat === 'Premium' && <Crown className="h-3 w-3 text-amber-500" />}
+                                {cat}
+                                {cat === 'Premium' && <span className="text-xs text-muted-foreground">(Netflix, Spotify...)</span>}
+                              </span>
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="__new__">
+                            <span className="flex items-center gap-2 text-primary">
+                              <PlusCircle className="h-3 w-3" />
+                              Nova Categoria
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label>{formData.category === 'SSH' ? 'Número de Conexões' : 'Número de Telas'}</Label>
-                    <Select
-                      value={formData.screens}
-                      onValueChange={(value) => setFormData({ ...formData, screens: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {formData.category === 'SSH' ? (
-                          <>
-                            <SelectItem value="1">1 Conexão</SelectItem>
-                            <SelectItem value="2">2 Conexões</SelectItem>
-                            <SelectItem value="3">3 Conexões</SelectItem>
-                            <SelectItem value="4">4 Conexões</SelectItem>
-                            <SelectItem value="5">5 Conexões</SelectItem>
-                          </>
-                        ) : (
-                          <>
-                            <SelectItem value="1">1 Tela</SelectItem>
-                            <SelectItem value="2">2 Telas</SelectItem>
-                            <SelectItem value="3">3 Telas</SelectItem>
-                            <SelectItem value="4">4 Telas</SelectItem>
-                            <SelectItem value="5">5 Telas</SelectItem>
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {formData.category !== 'Premium' && (
+                    <div className="space-y-2">
+                      <Label>{formData.category === 'SSH' ? 'Número de Conexões' : 'Número de Telas'}</Label>
+                      <Select
+                        value={formData.screens}
+                        onValueChange={(value) => setFormData({ ...formData, screens: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {formData.category === 'SSH' ? (
+                            <>
+                              <SelectItem value="1">1 Conexão</SelectItem>
+                              <SelectItem value="2">2 Conexões</SelectItem>
+                              <SelectItem value="3">3 Conexões</SelectItem>
+                              <SelectItem value="4">4 Conexões</SelectItem>
+                              <SelectItem value="5">5 Conexões</SelectItem>
+                            </>
+                          ) : (
+                            <>
+                              <SelectItem value="1">1 Tela</SelectItem>
+                              <SelectItem value="2">2 Telas</SelectItem>
+                              <SelectItem value="3">3 Telas</SelectItem>
+                              <SelectItem value="4">4 Telas</SelectItem>
+                              <SelectItem value="5">5 Telas</SelectItem>
+                            </>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
+
+                {formData.category === 'Premium' && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                      <Crown className="h-4 w-4" />
+                      <span className="text-sm font-medium">Conta Premium</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Ideal para contas mensais como Netflix, Spotify, YouTube Premium, Disney+, etc.
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -481,12 +560,19 @@ export default function Plans() {
       {plans.length > 0 && (
         <div className="space-y-3">
           {/* Category Filter */}
-          <Tabs value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as CategoryFilter)}>
-            <TabsList>
+          <Tabs value={categoryFilter} onValueChange={(v) => setCategoryFilter(v)}>
+            <TabsList className="flex-wrap h-auto gap-1">
               <TabsTrigger value="all">Todos ({plans.length})</TabsTrigger>
-              <TabsTrigger value="IPTV">IPTV ({plans.filter(p => p.category === 'IPTV').length})</TabsTrigger>
-              <TabsTrigger value="P2P">P2P ({plans.filter(p => p.category === 'P2P').length})</TabsTrigger>
-              <TabsTrigger value="SSH">SSH ({plans.filter(p => p.category === 'SSH').length})</TabsTrigger>
+              {allCategories.map((cat) => {
+                const count = plans.filter(p => p.category === cat).length;
+                if (count === 0 && !DEFAULT_CATEGORIES.includes(cat)) return null;
+                return (
+                  <TabsTrigger key={cat} value={cat} className="gap-1">
+                    {cat === 'Premium' && <Crown className="h-3 w-3 text-amber-500" />}
+                    {cat} ({count})
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           </Tabs>
 
@@ -549,11 +635,13 @@ export default function Plans() {
                   <div>
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className={cn(
-                        'text-xs px-2 py-0.5 rounded-full font-medium',
+                        'text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1',
                         plan.category === 'IPTV' ? 'bg-primary/10 text-primary' : 
                         plan.category === 'P2P' ? 'bg-primary/10 text-primary' : 
+                        plan.category === 'Premium' ? 'bg-amber-500/10 text-amber-600' :
                         'bg-secondary text-secondary-foreground'
                       )}>
+                        {plan.category === 'Premium' && <Crown className="h-3 w-3" />}
                         {plan.category}
                       </span>
                       <span className={cn(
@@ -562,10 +650,12 @@ export default function Plans() {
                       )}>
                         {getDurationLabel(plan.duration_days)}
                       </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
-                        <Monitor className="h-3 w-3" />
-                        {plan.screens || 1} {plan.category === 'SSH' ? (plan.screens === 1 ? 'Conexão' : 'Conexões') : (plan.screens === 1 ? 'Tela' : 'Telas')}
-                      </span>
+                      {plan.category !== 'Premium' && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
+                          <Monitor className="h-3 w-3" />
+                          {plan.screens || 1} {plan.category === 'SSH' ? (plan.screens === 1 ? 'Conexão' : 'Conexões') : (plan.screens === 1 ? 'Tela' : 'Telas')}
+                        </span>
+                      )}
                     </div>
                     <CardTitle className="text-base">{plan.name}</CardTitle>
                     {plan.description && (

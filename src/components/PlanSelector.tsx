@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { Crown } from 'lucide-react';
 
 export interface Plan {
   id: string;
@@ -30,7 +31,7 @@ interface PlanSelectorProps {
 }
 
 type DurationFilter = 'all' | '30' | '90' | '180' | '365';
-type CategoryFilter = 'all' | 'IPTV' | 'P2P' | 'SSH';
+type CategoryFilter = 'all' | 'IPTV' | 'P2P' | 'SSH' | 'Premium' | string;
 type ScreensFilter = 'all' | '1' | '2' | '3';
 
 const getDurationLabel = (days: number) => {
@@ -73,12 +74,19 @@ export function PlanSelector({
 
   // Update category filter when defaultCategory changes
   useEffect(() => {
-    if (defaultCategory && ['IPTV', 'P2P', 'SSH'].includes(defaultCategory)) {
+    if (defaultCategory && ['IPTV', 'P2P', 'SSH', 'Premium'].includes(defaultCategory)) {
       setCategoryFilter(defaultCategory as CategoryFilter);
     } else {
       setCategoryFilter('all');
     }
   }, [defaultCategory]);
+
+  // Get all unique categories
+  const allCategories = useMemo(() => {
+    const defaultCats = ['IPTV', 'P2P', 'SSH', 'Premium'];
+    const planCats = plans.map(p => p.category).filter(Boolean) as string[];
+    return [...new Set([...defaultCats, ...planCats])];
+  }, [plans]);
 
   // Group and sort plans
   const sortedPlans = useMemo(() => {
@@ -184,9 +192,14 @@ export function PlanSelector({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="IPTV">IPTV</SelectItem>
-                <SelectItem value="P2P">P2P</SelectItem>
-                <SelectItem value="SSH">SSH</SelectItem>
+                {allCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    <span className="flex items-center gap-1">
+                      {cat === 'Premium' && <Crown className="h-3 w-3 text-amber-500" />}
+                      {cat}
+                    </span>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
