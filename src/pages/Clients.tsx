@@ -1416,25 +1416,55 @@ export default function Clients() {
                 {/* Premium Account Fields - Only show for Contas Premium category */}
                 {formData.category === 'Contas Premium' && (
                   <>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email (Conta Premium)</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="email@premium.com"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="premium_password">Senha da Conta Premium</Label>
-                      <Input
-                        id="premium_password"
-                        type="password"
-                        value={formData.premium_password}
-                        onChange={(e) => setFormData({ ...formData, premium_password: e.target.value })}
-                        placeholder="Senha da conta premium"
-                      />
+                    <div className="md:col-span-2 p-4 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Sparkles className="h-5 w-5 text-amber-500" />
+                        <h4 className="font-semibold text-amber-600 dark:text-amber-400">Dados da Conta Premium</h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Plano Premium</Label>
+                          <PlanSelector
+                            plans={plans}
+                            value={formData.plan_id || ''}
+                            onValueChange={handlePlanChange}
+                            placeholder="Selecione a conta (Netflix, Spotify...)"
+                            showFilters={true}
+                            defaultCategory="Premium"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="plan_price">Valor (R$)</Label>
+                          <Input
+                            id="plan_price"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.plan_price}
+                            onChange={(e) => setFormData({ ...formData, plan_price: e.target.value })}
+                            placeholder="Ex: 15.00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email da Conta</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="email@premium.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="premium_password">Senha da Conta</Label>
+                          <Input
+                            id="premium_password"
+                            value={formData.premium_password}
+                            onChange={(e) => setFormData({ ...formData, premium_password: e.target.value })}
+                            placeholder="Senha da conta"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}
