@@ -604,6 +604,43 @@ export default function Clients() {
       const { error } = await supabase.from('clients').update(updateData).eq('id', id);
       if (error) throw error;
 
+      // Save/update external apps for this client
+      if (user) {
+        // Delete existing apps for this client
+        await supabase.from('client_external_apps').delete().eq('client_id', id);
+        
+        // Insert updated apps
+        if (externalApps.length > 0) {
+          for (const app of externalApps) {
+            if (!app.appId) continue;
+            
+            // Encrypt password if present
+            let encryptedPassword = app.password || null;
+            if (encryptedPassword) {
+              try {
+                encryptedPassword = await encrypt(encryptedPassword);
+              } catch (e) {
+                console.error('Error encrypting app password:', e);
+              }
+            }
+            
+            const { error: appError } = await supabase.from('client_external_apps').insert([{
+              client_id: id,
+              external_app_id: app.appId,
+              seller_id: user.id,
+              devices: app.devices.filter(d => d.mac.trim() !== ''),
+              email: app.email || null,
+              password: encryptedPassword,
+              expiration_date: app.expirationDate || null,
+            }]);
+            
+            if (appError) {
+              console.error('Error saving external app:', appError);
+            }
+          }
+        }
+      }
+
       // Clear cached decrypted credentials for this client
       setDecryptedCredentials(prev => {
         const newState = { ...prev };
@@ -613,6 +650,7 @@ export default function Clients() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
+      queryClient.invalidateQueries({ queryKey: ['client-external-apps'] });
       toast.success('Cliente atualizado!');
       resetForm();
       setIsDialogOpen(false);
