@@ -4,6 +4,25 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export type ThemeColor = 'netflix' | 'neon-blue' | 'emerald' | 'purple' | 'orange';
 
+const THEME_CACHE_KEY = 'app-theme-cache';
+
+// Função para obter tema cacheado (executada imediatamente)
+const getCachedTheme = (): ThemeColor => {
+  try {
+    const cached = localStorage.getItem(THEME_CACHE_KEY);
+    if (cached && ['netflix', 'neon-blue', 'emerald', 'purple', 'orange'].includes(cached)) {
+      return cached as ThemeColor;
+    }
+  } catch {
+    // localStorage não disponível
+  }
+  return 'netflix';
+};
+
+// Aplicar tema imediatamente para evitar flash
+const initialTheme = getCachedTheme();
+document.documentElement.classList.add(`theme-${initialTheme}`);
+
 interface ThemeContextType {
   theme: ThemeColor;
   setTheme: (theme: ThemeColor) => void;
@@ -14,7 +33,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [localTheme, setLocalTheme] = useState<ThemeColor>('netflix');
+  const [localTheme, setLocalTheme] = useState<ThemeColor>(getCachedTheme);
   
   // Fetch global theme from database
   const { data: globalTheme, isLoading } = useQuery({
@@ -53,10 +72,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Set theme when global theme is loaded
+  // Set theme when global theme is loaded and cache it
   useEffect(() => {
     if (globalTheme) {
       setLocalTheme(globalTheme);
+      try {
+        localStorage.setItem(THEME_CACHE_KEY, globalTheme);
+      } catch {
+        // localStorage não disponível
+      }
     }
   }, [globalTheme]);
 
@@ -91,6 +115,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           const newTheme = payload.new.value as ThemeColor;
           setLocalTheme(newTheme);
           queryClient.setQueryData(['app-theme'], newTheme);
+          try {
+            localStorage.setItem(THEME_CACHE_KEY, newTheme);
+          } catch {
+            // localStorage não disponível
+          }
         }
       )
       .subscribe();
