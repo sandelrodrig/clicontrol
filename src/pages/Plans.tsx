@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Package, DollarSign, Clock, Edit, Trash2, Monitor, RefreshCw, Crown, PlusCircle, X } from 'lucide-react';
+import { Plus, Package, DollarSign, Clock, Edit, Trash2, Monitor, RefreshCw, Crown, PlusCircle, X, Sparkles, Box } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Plan {
@@ -39,6 +39,14 @@ interface Plan {
   screens: number;
 }
 
+interface CustomProduct {
+  id: string;
+  name: string;
+  icon: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 // Default categories - Premium is special for monthly subscription accounts
 const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Premium'];
 
@@ -48,11 +56,14 @@ export default function Plans() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [durationFilter, setDurationFilter] = useState<DurationFilter>('all');
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newProductName, setNewProductName] = useState('');
+  const [newProductIcon, setNewProductIcon] = useState('📦');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -79,11 +90,92 @@ export default function Plans() {
     enabled: !!user?.id,
   });
 
-  // Get all unique categories (default + from plans)
+  // Fetch custom products
+  const { data: customProducts = [] } = useQuery({
+    queryKey: ['custom-products', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('custom_products')
+        .select('*')
+        .eq('seller_id', user!.id)
+        .order('name');
+      if (error) throw error;
+      return data as CustomProduct[];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Get all unique categories (default + custom products)
   const allCategories = [...new Set([
     ...DEFAULT_CATEGORIES,
+    ...customProducts.map(p => p.name),
     ...plans.map(p => p.category).filter(Boolean)
   ])];
+
+  // Create custom product mutation
+  const createProductMutation = useMutation({
+    mutationFn: async (data: { name: string; icon: string }) => {
+      // 1. Create the custom product
+      const { error: productError } = await supabase
+        .from('custom_products')
+        .insert([{
+          name: data.name,
+          icon: data.icon,
+          seller_id: user!.id,
+        }]);
+      if (productError) throw productError;
+
+      // 2. Call database function to create templates
+      const { error: templateError } = await supabase.rpc('create_templates_for_custom_product', {
+        p_seller_id: user!.id,
+        p_product_name: data.name,
+      });
+      if (templateError) console.error('Error creating templates:', templateError);
+
+      // 3. Call database function to create default plans
+      const { error: planError } = await supabase.rpc('create_plans_for_custom_product', {
+        p_seller_id: user!.id,
+        p_product_name: data.name,
+      });
+      if (planError) console.error('Error creating plans:', planError);
+
+      return data.name;
+    },
+    onSuccess: (name) => {
+      queryClient.invalidateQueries({ queryKey: ['custom-products'] });
+      queryClient.invalidateQueries({ queryKey: ['plans'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-templates'] });
+      toast.success(`Produto "${name}" criado com planos e templates!`);
+      setIsProductDialogOpen(false);
+      setNewProductName('');
+      setNewProductIcon('📦');
+    },
+    onError: (error: Error) => {
+      if (error.message.includes('duplicate')) {
+        toast.error('Já existe um produto com esse nome');
+      } else {
+        toast.error(error.message);
+      }
+    },
+  });
+
+  // Delete custom product mutation
+  const deleteProductMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('custom_products')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['custom-products'] });
+      toast.success('Produto removido!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; description?: string | null; price: number; duration_days: number; is_active: boolean; category: string; screens: number }) => {
@@ -280,6 +372,18 @@ export default function Plans() {
     setIsDialogOpen(true);
   };
 
+  const handleCreateProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProductName.trim()) {
+      toast.error('Digite o nome do produto');
+      return;
+    }
+    createProductMutation.mutate({
+      name: newProductName.trim(),
+      icon: newProductIcon,
+    });
+  };
+
   const filteredPlans = plans.filter(plan => {
     const matchesCategory = categoryFilter === 'all' || plan.category === categoryFilter;
     const matchesDuration = durationFilter === 'all' || plan.duration_days === durationFilter;
@@ -310,15 +414,24 @@ export default function Plans() {
     return 'border-l-border';
   };
 
+  const isCustomCategory = (cat: string) => !DEFAULT_CATEGORIES.includes(cat);
+  const getProductIcon = (cat: string) => {
+    const product = customProducts.find(p => p.name === cat);
+    return product?.icon || '📦';
+  };
+
+  // Common emoji options for products
+  const emojiOptions = ['📦', '🎬', '🎵', '🎮', '📺', '🎥', '📱', '💎', '⭐', '🔥', '✨', '🎯'];
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Planos</h1>
-          <p className="text-muted-foreground">Gerencie planos de IPTV, SSH e Contas Premium (Netflix, Spotify...)</p>
+          <p className="text-muted-foreground">Gerencie planos de IPTV, SSH e produtos personalizados</p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button 
             variant="outline" 
             className="gap-2"
@@ -326,8 +439,88 @@ export default function Plans() {
             disabled={syncAllClientsMutation.isPending}
           >
             <RefreshCw className={cn("h-4 w-4", syncAllClientsMutation.isPending && "animate-spin")} />
-            {syncAllClientsMutation.isPending ? 'Sincronizando...' : 'Sincronizar Clientes'}
+            {syncAllClientsMutation.isPending ? 'Sincronizando...' : 'Sincronizar'}
           </Button>
+
+          {/* New Product Dialog */}
+          <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                Novo Produto
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Box className="h-5 w-5" />
+                  Criar Novo Produto
+                </DialogTitle>
+                <DialogDescription>
+                  Crie um novo tipo de produto. Planos e templates serão gerados automaticamente!
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateProduct} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="productName">Nome do Produto *</Label>
+                  <Input
+                    id="productName"
+                    value={newProductName}
+                    onChange={(e) => setNewProductName(e.target.value)}
+                    placeholder="Ex: Netflix, Spotify, Disney+"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Este será o nome da categoria e aparecerá nos filtros
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Ícone</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {emojiOptions.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setNewProductIcon(emoji)}
+                        className={cn(
+                          "w-10 h-10 rounded-lg border-2 text-xl flex items-center justify-center transition-all",
+                          newProductIcon === emoji
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        )}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-lg bg-success/10 border border-success/20">
+                  <div className="flex items-center gap-2 text-success">
+                    <Sparkles className="h-4 w-4" />
+                    <span className="text-sm font-medium">Geração Automática</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Ao criar o produto, serão gerados automaticamente:
+                  </p>
+                  <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside">
+                    <li>4 planos (Mensal, Trimestral, Semestral, Anual)</li>
+                    <li>8 templates de mensagem (boas-vindas, vencimento, cobrança, etc.)</li>
+                  </ul>
+                </div>
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsProductDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createProductMutation.isPending}>
+                    {createProductMutation.isPending ? 'Criando...' : 'Criar Produto'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
 
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             // Prevent closing while mutation is pending
@@ -392,7 +585,7 @@ export default function Plans() {
                       <div className="flex gap-2">
                         <Input
                           value={newCategoryName}
-                          onChange={(e) => setNewCategoryName(e.target.value.toUpperCase())}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
                           placeholder="Nome da categoria"
                           className="flex-1"
                         />
@@ -440,6 +633,7 @@ export default function Plans() {
                           {allCategories.map((cat) => (
                             <SelectItem key={cat} value={cat}>
                               <span className="flex items-center gap-2">
+                                {isCustomCategory(cat) && <span>{getProductIcon(cat)}</span>}
                                 {cat === 'Premium' && <Crown className="h-3 w-3 text-amber-500" />}
                                 {cat}
                                 {cat === 'Premium' && <span className="text-xs text-muted-foreground">(Netflix, Spotify...)</span>}
@@ -456,7 +650,7 @@ export default function Plans() {
                       </Select>
                     )}
                   </div>
-                  {formData.category !== 'Premium' && (
+                  {formData.category !== 'Premium' && !isCustomCategory(formData.category) && (
                     <div className="space-y-2">
                       <Label>{formData.category === 'SSH' ? 'Número de Conexões' : 'Número de Telas'}</Label>
                       <Select
@@ -490,14 +684,22 @@ export default function Plans() {
                   )}
                 </div>
 
-                {formData.category === 'Premium' && (
+                {(formData.category === 'Premium' || isCustomCategory(formData.category)) && (
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                      <Crown className="h-4 w-4" />
-                      <span className="text-sm font-medium">Conta Premium</span>
+                      {isCustomCategory(formData.category) ? (
+                        <span className="text-lg">{getProductIcon(formData.category)}</span>
+                      ) : (
+                        <Crown className="h-4 w-4" />
+                      )}
+                      <span className="text-sm font-medium">
+                        {isCustomCategory(formData.category) ? formData.category : 'Conta Premium'}
+                      </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Ideal para contas mensais como Netflix, Spotify, YouTube Premium, Disney+, etc.
+                      {isCustomCategory(formData.category) 
+                        ? 'Produto personalizado com templates próprios'
+                        : 'Ideal para contas mensais como Netflix, Spotify, YouTube Premium, Disney+, etc.'}
                     </p>
                   </div>
                 )}
@@ -556,6 +758,47 @@ export default function Plans() {
         </div>
       </div>
 
+      {/* Custom Products Section */}
+      {customProducts.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Seus Produtos Personalizados
+            </CardTitle>
+            <CardDescription>Produtos que você criou com planos e templates automáticos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {customProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border"
+                >
+                  <span className="text-lg">{product.icon}</span>
+                  <span className="font-medium">{product.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({plans.filter(p => p.category === product.name).length} planos)
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive hover:text-destructive"
+                    onClick={() => {
+                      if (confirm(`Remover o produto "${product.name}"? Os planos e templates não serão excluídos.`)) {
+                        deleteProductMutation.mutate(product.id);
+                      }
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       {plans.length > 0 && (
         <div className="space-y-3">
@@ -565,9 +808,10 @@ export default function Plans() {
               <TabsTrigger value="all">Todos ({plans.length})</TabsTrigger>
               {allCategories.map((cat) => {
                 const count = plans.filter(p => p.category === cat).length;
-                if (count === 0 && !DEFAULT_CATEGORIES.includes(cat)) return null;
+                if (count === 0 && !DEFAULT_CATEGORIES.includes(cat) && !customProducts.find(p => p.name === cat)) return null;
                 return (
                   <TabsTrigger key={cat} value={cat} className="gap-1">
+                    {isCustomCategory(cat) && <span>{getProductIcon(cat)}</span>}
                     {cat === 'Premium' && <Crown className="h-3 w-3 text-amber-500" />}
                     {cat} ({count})
                   </TabsTrigger>
@@ -614,8 +858,18 @@ export default function Plans() {
             <Package className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Nenhum plano cadastrado</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Crie seu primeiro plano de assinatura
+              Crie seu primeiro plano ou produto personalizado
             </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsProductDialogOpen(true)}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Novo Produto
+              </Button>
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Plano
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -639,8 +893,10 @@ export default function Plans() {
                         plan.category === 'IPTV' ? 'bg-primary/10 text-primary' : 
                         plan.category === 'P2P' ? 'bg-primary/10 text-primary' : 
                         plan.category === 'Premium' ? 'bg-amber-500/10 text-amber-600' :
+                        isCustomCategory(plan.category) ? 'bg-purple-500/10 text-purple-600' :
                         'bg-secondary text-secondary-foreground'
                       )}>
+                        {isCustomCategory(plan.category) && <span>{getProductIcon(plan.category)}</span>}
                         {plan.category === 'Premium' && <Crown className="h-3 w-3" />}
                         {plan.category}
                       </span>
@@ -650,7 +906,7 @@ export default function Plans() {
                       )}>
                         {getDurationLabel(plan.duration_days)}
                       </span>
-                      {plan.category !== 'Premium' && (
+                      {plan.category !== 'Premium' && !isCustomCategory(plan.category) && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
                           <Monitor className="h-3 w-3" />
                           {plan.screens || 1} {plan.category === 'SSH' ? (plan.screens === 1 ? 'Conexão' : 'Conexões') : (plan.screens === 1 ? 'Tela' : 'Telas')}
