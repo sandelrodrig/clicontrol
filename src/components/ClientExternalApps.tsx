@@ -110,7 +110,7 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
 
   // Initialize local apps from linked apps when editing
   useEffect(() => {
-    if (clientId && linkedApps.length > 0 && localApps.length === 0) {
+    if (clientId && linkedApps.length > 0) {
       setLocalApps(linkedApps.map(la => ({
         appId: la.external_app_id,
         devices: la.devices || [],

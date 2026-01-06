@@ -947,6 +947,10 @@ export default function Clients() {
   const handleEdit = async (client: Client) => {
     setEditingClient(client);
     
+    // Reset external apps and shared credits so they reload from the database
+    setExternalApps([]);
+    setSelectedSharedCredit(null);
+    
     // Decrypt credentials for editing
     let decryptedLogin = '';
     let decryptedPassword = '';
