@@ -401,7 +401,7 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
                           Data de Vencimento
                         </Label>
                         <div className="flex flex-wrap items-center gap-2">
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 flex-wrap">
                             <Button
                               type="button"
                               variant="outline"
@@ -420,6 +420,22 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
                             >
                               1 ano
                             </Button>
+                            {/* Quick year selectors - show next 4 years */}
+                            {[2027, 2028, 2029, 2030].map((year) => (
+                              <Button
+                                key={year}
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => {
+                                  const date = new Date(year, 0, 1);
+                                  updateApp(appIndex, { expirationDate: format(date, 'yyyy-MM-dd') });
+                                }}
+                              >
+                                {year}
+                              </Button>
+                            ))}
                           </div>
                           <Popover>
                             <PopoverTrigger asChild>

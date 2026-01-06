@@ -1768,7 +1768,7 @@ export default function Clients() {
                       <PopoverContent className="w-auto p-0 z-[100]" align="start" sideOffset={5}>
                         <CalendarPicker
                           mode="single"
-                          selected={formData.expiration_date ? new Date(formData.expiration_date) : undefined}
+                          selected={formData.expiration_date ? new Date(formData.expiration_date + 'T12:00:00') : undefined}
                           onSelect={(date) => {
                             if (date) {
                               setFormData({ ...formData, expiration_date: format(date, "yyyy-MM-dd") });
