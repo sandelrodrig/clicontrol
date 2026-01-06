@@ -1971,8 +1971,8 @@ export default function Clients() {
                 </div>
               </div>
 
-              {/* Shared Credit Picker - Show for IPTV/P2P/SSH */}
-              {!editingClient && formData.server_id && (formData.category === 'IPTV' || formData.category === 'P2P' || formData.category === 'SSH') && user && (
+              {/* Shared Credit Picker - Show for IPTV/P2P/SSH (both new and existing clients) */}
+              {formData.server_id && (formData.category === 'IPTV' || formData.category === 'P2P' || formData.category === 'SSH') && user && (
                 <SharedCreditPicker
                   sellerId={user.id}
                   category={formData.category}
