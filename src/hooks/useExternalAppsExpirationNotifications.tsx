@@ -65,6 +65,11 @@ export function useExternalAppsExpirationNotifications() {
       return days > 7 && days <= 15;
     });
 
+    const expiringIn30Days = apps.filter(a => {
+      const days = differenceInDays(new Date(a.expiration_date), today);
+      return days > 15 && days <= 30;
+    });
+
     // Priority: Apps expiring today
     if (expiringToday.length > 0) {
       const names = expiringToday.slice(0, 2).map(a => `${a.client_name} - ${a.app_name}`).join(', ');
@@ -123,7 +128,7 @@ export function useExternalAppsExpirationNotifications() {
       }, 4000);
     }
 
-    // Apps expiring in 15 days (only once per week)
+    // Apps expiring in 15 days
     const lastWeeklyCheck = localStorage.getItem('last_weekly_apps_check');
     const todayStr = today.toISOString().split('T')[0];
     const daysSinceLastWeekly = lastWeeklyCheck 
@@ -146,6 +151,33 @@ export function useExternalAppsExpirationNotifications() {
         
         localStorage.setItem('last_weekly_apps_check', todayStr);
       }, 6000);
+    }
+
+    // Apps expiring in 30 days (1 month ahead - weekly notification)
+    const lastMonthlyCheck = localStorage.getItem('last_monthly_apps_check');
+    const daysSinceLastMonthly = lastMonthlyCheck 
+      ? differenceInDays(today, new Date(lastMonthlyCheck)) 
+      : 7;
+
+    if (expiringIn30Days.length > 0 && daysSinceLastMonthly >= 7) {
+      setTimeout(async () => {
+        const names = expiringIn30Days.slice(0, 2).map(a => `${a.client_name} - ${a.app_name}`).join(', ');
+        const extra = expiringIn30Days.length > 2 ? ` +${expiringIn30Days.length - 2}` : '';
+
+        new Notification('📅 Apps vencendo em 30 dias', {
+          body: `${expiringIn30Days.length} app(s) vencem no próximo mês: ${names}${extra}`,
+          icon: '/icon-192.png',
+          tag: 'external-apps-expiring-30days',
+        });
+
+        await sendPushNotification(
+          '📅 Apps vencendo em 30 dias',
+          `${expiringIn30Days.length} app(s) vencem no próximo mês: ${names}${extra}`,
+          'external-apps-expiring-30days'
+        );
+        
+        localStorage.setItem('last_monthly_apps_check', todayStr);
+      }, 8000);
     }
   }, [isNotificationsEnabled, sendPushNotification]);
 
@@ -179,7 +211,7 @@ export function useExternalAppsExpirationNotifications() {
       const expiringApps: ExpiringApp[] = (data || [])
         .filter(app => {
           const days = differenceInDays(new Date(app.expiration_date), todayDate);
-          return days >= 0 && days <= 15;
+          return days >= 0 && days <= 30;
         })
         .map(app => ({
           id: app.id,

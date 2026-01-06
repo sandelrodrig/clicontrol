@@ -89,7 +89,7 @@ export function FloatingNotifications() {
     enabled: !!user?.id && isSeller,
   });
 
-  // Fetch external apps expiring soon (0-7 days)
+  // Fetch external apps expiring soon (0-30 days)
   const { data: expiringExternalApps = [] } = useQuery({
     queryKey: ['expiring-external-apps', user?.id],
     queryFn: async () => {
@@ -114,7 +114,8 @@ export function FloatingNotifications() {
         const appData = item.external_app as unknown as { name: string };
         const daysRemaining = differenceInDays(new Date(item.expiration_date), today);
         
-        if (daysRemaining >= 0 && daysRemaining <= 7) {
+        // Show apps expiring within 30 days
+        if (daysRemaining >= 0 && daysRemaining <= 30) {
           result.push({
             clientName: clientData.name,
             clientPhone: clientData.phone,
