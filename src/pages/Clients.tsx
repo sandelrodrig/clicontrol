@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff, CheckCircle, X } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff, CheckCircle, X, DollarSign } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -2469,9 +2469,36 @@ export default function Clients() {
                       </div>
                     </div>
                     {!client.is_paid && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs bg-destructive/10 text-destructive hover:bg-green-500/20 hover:text-green-600 transition-colors"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const { error } = await supabase
+                              .from('clients')
+                              .update({ 
+                                is_paid: true, 
+                                pending_amount: 0,
+                                renewed_at: new Date().toISOString()
+                              })
+                              .eq('id', client.id);
+                            
+                            if (error) throw error;
+                            
+                            toast.success(`${client.name} marcado como pago. Receita atualizada!`);
+                            queryClient.invalidateQueries({ queryKey: ['clients'] });
+                          } catch (error) {
+                            console.error('Error updating payment status:', error);
+                            toast.error("Não foi possível atualizar o status de pagamento.");
+                          }
+                        }}
+                        title="Clique para marcar como pago"
+                      >
+                        <DollarSign className="h-3 w-3 mr-1" />
                         Não Pago
-                      </span>
+                      </Button>
                     )}
                   </div>
 
