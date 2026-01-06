@@ -276,7 +276,23 @@ export default function Clients() {
     enabled: !!user?.id,
   });
 
-  const allCategories = [...DEFAULT_CATEGORIES, ...customCategories.map(c => c.name)];
+  // Fetch custom products (like Netflix, Spotify, etc.)
+  const { data: customProducts = [] } = useQuery({
+    queryKey: ['custom-products', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('custom_products')
+        .select('name, icon')
+        .eq('seller_id', user!.id)
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data as { name: string; icon: string }[];
+    },
+    enabled: !!user?.id,
+  });
+
+  const allCategories = [...DEFAULT_CATEGORIES, ...customProducts.map(p => p.name), ...customCategories.map(c => c.name)];
 
   // Handle shared credit selection - auto-fill all fields
   const handleSharedCreditSelect = useCallback((selection: SharedCreditSelection | null) => {

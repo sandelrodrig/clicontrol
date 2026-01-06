@@ -353,6 +353,36 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_products: {
+        Row: {
+          created_at: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          seller_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          seller_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          seller_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       default_server_icons: {
         Row: {
           created_at: string
@@ -984,6 +1014,14 @@ export type Database = {
       }
       create_default_templates_for_seller: {
         Args: { seller_uuid: string }
+        Returns: undefined
+      }
+      create_plans_for_custom_product: {
+        Args: { p_product_name: string; p_seller_id: string }
+        Returns: undefined
+      }
+      create_templates_for_custom_product: {
+        Args: { p_product_name: string; p_seller_id: string }
         Returns: undefined
       }
       find_server_icon: { Args: { server_name: string }; Returns: string }
