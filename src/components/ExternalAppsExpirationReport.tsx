@@ -37,7 +37,7 @@ export function ExternalAppsExpirationReport() {
       if (!user?.id) return [];
 
       const today = startOfToday();
-      const in15Days = addDays(today, 15);
+      const in30Days = addDays(today, 30);
 
       const { data, error } = await supabase
         .from('client_external_apps')
@@ -53,7 +53,7 @@ export function ExternalAppsExpirationReport() {
         `)
         .eq('seller_id', user.id)
         .not('expiration_date', 'is', null)
-        .lte('expiration_date', in15Days.toISOString().split('T')[0])
+        .lte('expiration_date', in30Days.toISOString().split('T')[0])
         .gte('expiration_date', today.toISOString().split('T')[0])
         .order('expiration_date', { ascending: true });
 
@@ -74,7 +74,8 @@ export function ExternalAppsExpirationReport() {
 
   const apps3Days = filterByDays(expiringApps || [], 3);
   const apps7Days = filterByDays(expiringApps || [], 7);
-  const apps15Days = expiringApps || [];
+  const apps15Days = filterByDays(expiringApps || [], 15);
+  const apps30Days = expiringApps || [];
 
   const getDaysLabel = (expirationDate: string) => {
     const days = differenceInDays(new Date(expirationDate), today);
@@ -185,31 +186,40 @@ export function ExternalAppsExpirationReport() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="3days" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="3days" className="relative">
-              <AlertTriangle className="h-4 w-4 mr-1" />
-              3 dias
+          <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsTrigger value="3days" className="relative text-xs px-2">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              3d
               {apps3Days.length > 0 && (
-                <Badge variant="destructive" className="ml-2 h-5 px-1.5">
+                <Badge variant="destructive" className="ml-1 h-4 px-1 text-[10px]">
                   {apps3Days.length}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="7days" className="relative">
-              <Clock className="h-4 w-4 mr-1" />
-              7 dias
+            <TabsTrigger value="7days" className="relative text-xs px-2">
+              <Clock className="h-3 w-3 mr-1" />
+              7d
               {apps7Days.length > 0 && (
-                <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
                   {apps7Days.length}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="15days" className="relative">
-              <Calendar className="h-4 w-4 mr-1" />
-              15 dias
+            <TabsTrigger value="15days" className="relative text-xs px-2">
+              <Calendar className="h-3 w-3 mr-1" />
+              15d
               {apps15Days.length > 0 && (
-                <Badge variant="outline" className="ml-2 h-5 px-1.5">
+                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
                   {apps15Days.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="30days" className="relative text-xs px-2">
+              <Bell className="h-3 w-3 mr-1" />
+              30d
+              {apps30Days.length > 0 && (
+                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
+                  {apps30Days.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -225,6 +235,10 @@ export function ExternalAppsExpirationReport() {
           
           <TabsContent value="15days" className="mt-0">
             {renderAppsList(apps15Days)}
+          </TabsContent>
+          
+          <TabsContent value="30days" className="mt-0">
+            {renderAppsList(apps30Days)}
           </TabsContent>
         </Tabs>
       </CardContent>
