@@ -192,6 +192,7 @@ export type Database = {
           paid_apps_password: string | null
           password: string | null
           password_2: string | null
+          pending_amount: number | null
           phone: string | null
           plan_id: string | null
           plan_name: string | null
@@ -232,6 +233,7 @@ export type Database = {
           paid_apps_password?: string | null
           password?: string | null
           password_2?: string | null
+          pending_amount?: number | null
           phone?: string | null
           plan_id?: string | null
           plan_name?: string | null
@@ -272,6 +274,7 @@ export type Database = {
           paid_apps_password?: string | null
           password?: string | null
           password_2?: string | null
+          pending_amount?: number | null
           phone?: string | null
           plan_id?: string | null
           plan_name?: string | null
