@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
-import { Search, UserCog, Calendar, Plus, Shield, Trash2, Key, UserPlus, Copy, Check, RefreshCw, FlaskConical } from 'lucide-react';
+import { Search, UserCog, Calendar, Plus, Shield, Trash2, Key, UserPlus, Copy, Check, RefreshCw, FlaskConical, Users } from 'lucide-react';
 import { format, addDays, isBefore, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -40,6 +40,7 @@ interface Seller {
   is_permanent: boolean;
   is_active: boolean;
   created_at: string;
+  client_count?: number;
 }
 
 type FilterType = 'all' | 'active' | 'expired';
@@ -101,7 +102,20 @@ export default function Sellers() {
 
       const adminIds = roles?.filter(r => r.role === 'admin').map(r => r.user_id) || [];
       
-      return (profiles as Seller[]).filter(p => !adminIds.includes(p.id));
+      // Get client counts for each seller
+      const { data: clientCounts } = await supabase
+        .from('clients')
+        .select('seller_id')
+        .eq('is_archived', false);
+
+      const countMap: Record<string, number> = {};
+      clientCounts?.forEach(c => {
+        countMap[c.seller_id] = (countMap[c.seller_id] || 0) + 1;
+      });
+      
+      return (profiles as Seller[])
+        .filter(p => !adminIds.includes(p.id))
+        .map(p => ({ ...p, client_count: countMap[p.id] || 0 }));
     },
   });
 
@@ -453,6 +467,10 @@ export default function Sellers() {
                       {seller.whatsapp && (
                         <p className="text-sm text-muted-foreground">{seller.whatsapp}</p>
                       )}
+                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {seller.client_count || 0} clientes
+                      </p>
                       {seller.subscription_expires_at && !seller.is_permanent && (
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                           <Calendar className="h-3.5 w-3.5" />
