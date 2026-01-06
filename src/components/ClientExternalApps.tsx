@@ -537,10 +537,23 @@ export function ClientExternalAppsDisplay({ clientId, sellerId }: { clientId: st
         <div key={app.id} className="space-y-1.5 p-2 rounded-lg bg-violet-500/5 border border-violet-500/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AppWindow className="h-3.5 w-3.5 text-violet-500" />
-              <span className="text-xs font-medium text-violet-600 dark:text-violet-400">
-                {app.external_app?.name}
-              </span>
+              {/* App name as clickable link like servers */}
+              {app.external_app?.website_url ? (
+                <span 
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 cursor-pointer hover:bg-violet-500/20 transition-colors"
+                  onClick={() => window.open(app.external_app?.website_url!, '_blank')}
+                  title={`Abrir painel ${app.external_app?.name}`}
+                >
+                  <AppWindow className="h-3.5 w-3.5" />
+                  {app.external_app?.name}
+                  <ExternalLink className="h-3 w-3 opacity-60" />
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+                  <AppWindow className="h-3.5 w-3.5" />
+                  {app.external_app?.name}
+                </span>
+              )}
               {(app as unknown as { expiration_date?: string }).expiration_date && (
                 <Badge variant="outline" className="text-[10px] px-1.5 border-violet-500/30 text-violet-600 dark:text-violet-400">
                   <CalendarIcon className="h-2.5 w-2.5 mr-0.5" />
@@ -548,17 +561,6 @@ export function ClientExternalAppsDisplay({ clientId, sellerId }: { clientId: st
                 </Badge>
               )}
             </div>
-            {app.external_app?.website_url && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-xs text-violet-600 dark:text-violet-400 hover:bg-violet-500/10"
-                onClick={() => window.open(app.external_app?.website_url!, '_blank')}
-              >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                Site
-              </Button>
-            )}
           </div>
           
           {/* MAC + Device Key display */}
