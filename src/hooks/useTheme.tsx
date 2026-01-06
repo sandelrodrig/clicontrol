@@ -74,7 +74,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Set theme when global theme is loaded and cache it
   useEffect(() => {
-    if (globalTheme) {
+    if (globalTheme && !isLoading) {
       setLocalTheme(globalTheme);
       try {
         localStorage.setItem(THEME_CACHE_KEY, globalTheme);
@@ -82,7 +82,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         // localStorage não disponível
       }
     }
-  }, [globalTheme]);
+  }, [globalTheme, isLoading]);
 
   // Apply theme class to document
   useEffect(() => {
