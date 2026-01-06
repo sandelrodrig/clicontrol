@@ -40,10 +40,10 @@ export function useTheme() {
   return context;
 }
 
-export const themes: { id: ThemeColor; name: string; color: string }[] = [
-  { id: 'netflix', name: 'Netflix Red', color: 'hsl(0, 84%, 50%)' },
-  { id: 'neon-blue', name: 'Neon Blue', color: 'hsl(210, 100%, 50%)' },
-  { id: 'emerald', name: 'Emerald', color: 'hsl(160, 84%, 40%)' },
-  { id: 'purple', name: 'Purple', color: 'hsl(270, 76%, 55%)' },
-  { id: 'orange', name: 'Orange', color: 'hsl(25, 95%, 53%)' },
+export const themes: { id: ThemeColor; name: string; color: string; description: string; isDark: boolean }[] = [
+  { id: 'netflix', name: 'Cinema', color: 'hsl(0, 84%, 50%)', description: 'Escuro cinematográfico', isDark: true },
+  { id: 'neon-blue', name: 'Cyberpunk', color: 'hsl(200, 100%, 50%)', description: 'Azul neon futurista', isDark: true },
+  { id: 'emerald', name: 'Clean', color: 'hsl(160, 84%, 35%)', description: 'Claro e elegante', isDark: false },
+  { id: 'purple', name: 'Luxo', color: 'hsl(280, 80%, 60%)', description: 'Roxo premium', isDark: true },
+  { id: 'orange', name: 'Sunset', color: 'hsl(25, 95%, 50%)', description: 'Quente e acolhedor', isDark: false },
 ];
