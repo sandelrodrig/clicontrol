@@ -74,6 +74,7 @@ interface Client {
   premium_password: string | null;
   category: string | null;
   is_paid: boolean;
+  pending_amount: number | null;
   notes: string | null;
   has_paid_apps: boolean | null;
   paid_apps_duration: string | null;
@@ -191,6 +192,7 @@ export default function Clients() {
     premium_password: '',
     category: 'IPTV',
     is_paid: true,
+    pending_amount: '',
     notes: '',
     has_paid_apps: false,
     paid_apps_duration: '',
@@ -759,6 +761,7 @@ export default function Clients() {
       premium_password: '',
       category: 'IPTV',
       is_paid: true,
+      pending_amount: '',
       notes: '',
       has_paid_apps: false,
       paid_apps_duration: '',
@@ -881,6 +884,7 @@ export default function Clients() {
       premium_password: formData.premium_password || null,
       category: formData.category || 'IPTV',
       is_paid: formData.is_paid,
+      pending_amount: formData.pending_amount ? parseFloat(formData.pending_amount) : 0,
       notes: formData.notes || null,
       has_paid_apps: formData.has_paid_apps || false,
       paid_apps_duration: formData.paid_apps_duration || null,
@@ -958,6 +962,7 @@ export default function Clients() {
       premium_password: client.premium_password || '',
       category: client.category || 'IPTV',
       is_paid: client.is_paid,
+      pending_amount: (client as any).pending_amount?.toString() || '',
       notes: client.notes || '',
       has_paid_apps: client.has_paid_apps || false,
       paid_apps_duration: client.paid_apps_duration || '',
@@ -1958,7 +1963,7 @@ export default function Clients() {
                   <Label htmlFor="is_paid">Status de Pagamento</Label>
                   <Select
                     value={formData.is_paid ? 'paid' : 'unpaid'}
-                    onValueChange={(v) => setFormData({ ...formData, is_paid: v === 'paid' })}
+                    onValueChange={(v) => setFormData({ ...formData, is_paid: v === 'paid', pending_amount: v === 'paid' ? '' : formData.pending_amount })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -1968,6 +1973,21 @@ export default function Clients() {
                       <SelectItem value="unpaid">Não Pago</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pending_amount">Valor Pendente (R$)</Label>
+                  <Input
+                    id="pending_amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.pending_amount}
+                    onChange={(e) => setFormData({ ...formData, pending_amount: e.target.value })}
+                    placeholder="Ex: 20.00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Valor que o cliente ainda deve pagar (pagamento parcial).
+                  </p>
                 </div>
               </div>
 
