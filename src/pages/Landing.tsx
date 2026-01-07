@@ -41,19 +41,21 @@ const platforms = [
 export default function Landing() {
   const navigate = useNavigate();
 
-  // Fetch dynamic app price from database
-  const { data: appPrice } = useQuery({
-    queryKey: ['app-price-landing'],
+  // Fetch dynamic app settings from database
+  const { data: appSettings } = useQuery({
+    queryKey: ['app-settings-landing'],
     queryFn: async () => {
       const { data } = await supabase
         .from('app_settings')
-        .select('value')
-        .eq('key', 'app_monthly_price')
-        .single();
-      return data?.value || '25';
+        .select('key, value')
+        .in('key', ['app_monthly_price', 'seller_trial_days']);
+      return data || [];
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
+
+  const appPrice = appSettings?.find(s => s.key === 'app_monthly_price')?.value || '25';
+  const trialDays = appSettings?.find(s => s.key === 'seller_trial_days')?.value || '5';
 
   const features = [
     {
@@ -160,7 +162,7 @@ export default function Landing() {
                 <span className="text-muted-foreground">/mês</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Teste grátis por 5 dias • Sem cartão
+                Teste grátis por {trialDays} dias • Sem cartão
               </p>
             </div>
 
@@ -258,7 +260,7 @@ export default function Landing() {
               Pronto para organizar seu negócio?
             </h2>
             <p className="text-lg text-muted-foreground">
-              Comece agora com 5 dias grátis. Sem compromisso, sem cartão de crédito.
+              Comece agora com {trialDays} dias grátis. Sem compromisso, sem cartão de crédito.
             </p>
             <Button 
               size="lg" 

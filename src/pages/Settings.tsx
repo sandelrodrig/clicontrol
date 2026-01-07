@@ -105,8 +105,10 @@ export default function Settings() {
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showPriceSettings, setShowPriceSettings] = useState(false);
+  const [showTrialSettings, setShowTrialSettings] = useState(false);
   const [showGerenciaAppSettings, setShowGerenciaAppSettings] = useState(false);
   const [appPrice, setAppPrice] = useState('25');
+  const [trialDays, setTrialDays] = useState('5');
   const [gerenciaAppPanelUrl, setGerenciaAppPanelUrl] = useState('https://gerenciapp.top');
   const [gerenciaAppRegisterUrl, setGerenciaAppRegisterUrl] = useState('');
   const queryClient = useQueryClient();
@@ -135,6 +137,9 @@ export default function Settings() {
     if (appSettings) {
       const price = appSettings.find(s => s.key === 'app_monthly_price')?.value;
       if (price) setAppPrice(price);
+      
+      const trial = appSettings.find(s => s.key === 'seller_trial_days')?.value;
+      if (trial) setTrialDays(trial);
       
       const panelUrl = appSettings.find(s => s.key === 'gerencia_app_panel_url')?.value;
       if (panelUrl) setGerenciaAppPanelUrl(panelUrl);
@@ -195,6 +200,29 @@ export default function Settings() {
       toast.error(error.message);
     },
   });
+
+  const updateTrialDaysMutation = useMutation({
+    mutationFn: async (newDays: string) => {
+      const { error } = await supabase
+        .from('app_settings')
+        .update({ value: newDays })
+        .eq('key', 'seller_trial_days');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['app-settings'] });
+      toast.success('Dias de teste atualizados!');
+      setShowTrialSettings(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const handleTrialDaysSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateTrialDaysMutation.mutate(trialDays);
+  };
 
   const handlePriceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -302,6 +330,47 @@ export default function Settings() {
     const message = 'Olá! Preciso de ajuda com o PSControl.';
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
+
+  // Trial days settings view (Admin only)
+  if (showTrialSettings && isAdmin) {
+    return (
+      <div className="space-y-6 animate-fade-in max-w-lg mx-auto">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => setShowTrialSettings(false)}>
+            ← Voltar
+          </Button>
+          <h1 className="text-xl font-bold">Dias de Teste</h1>
+        </div>
+
+        <form onSubmit={handleTrialDaysSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="trial_days">Dias de Teste para Novos Revendedores</Label>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Input
+                id="trial_days"
+                type="number"
+                value={trialDays}
+                onChange={(e) => setTrialDays(e.target.value)}
+                placeholder="5"
+                min="1"
+                max="30"
+                step="1"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Novos revendedores terão acesso gratuito por este número de dias
+            </p>
+          </div>
+
+          <Button type="submit" className="w-full" disabled={updateTrialDaysMutation.isPending}>
+            <Save className="h-4 w-4 mr-2" />
+            Salvar Dias de Teste
+          </Button>
+        </form>
+      </div>
+    );
+  }
 
   // Price settings view (Admin only)
   if (showPriceSettings && isAdmin) {
@@ -608,6 +677,12 @@ export default function Settings() {
             title="Valor do Aplicativo"
             description={`R$ ${appPrice},00/mês`}
             onClick={() => setShowPriceSettings(true)}
+          />
+          <SettingItem
+            icon={Calendar}
+            title="Dias de Teste"
+            description={`${trialDays} dias para novos revendedores`}
+            onClick={() => setShowTrialSettings(true)}
           />
           <SettingItem
             icon={Monitor}
