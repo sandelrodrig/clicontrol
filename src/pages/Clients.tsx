@@ -84,6 +84,7 @@ interface Client {
   is_archived: boolean | null;
   archived_at: string | null;
   created_at: string | null;
+  renewed_at: string | null;
   gerencia_app_mac: string | null;
   gerencia_app_devices: MacDevice[] | null;
 }
