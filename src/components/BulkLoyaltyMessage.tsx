@@ -13,14 +13,6 @@ import { Heart, Users, Send, CheckCircle, X, Play, Pause, RotateCcw, Gift, Star,
 import { cn } from '@/lib/utils';
 import { useSentMessages } from '@/hooks/useSentMessages';
 
-interface Client {
-  id: string;
-  name: string;
-  phone: string | null;
-  telegram: string | null;
-  is_archived: boolean | null;
-}
-
 interface Template {
   id: string;
   name: string;
@@ -28,10 +20,18 @@ interface Template {
   message: string;
 }
 
+interface ClientBase {
+  id: string;
+  name: string;
+  phone: string | null;
+  telegram: string | null;
+  is_archived: boolean | null;
+}
+
 interface BulkLoyaltyMessageProps {
-  clients: Client[];
+  clients: ClientBase[];
   templates: Template[];
-  onSendMessage: (client: Client, template: Template) => void;
+  onSendMessage: (client: ClientBase) => void;
   isDialogOpen: boolean;
 }
 
@@ -55,7 +55,7 @@ export function BulkLoyaltyMessage({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [dailyLimit, setDailyLimit] = useState<number>(10);
   const [dailyProgress, setDailyProgress] = useState<DailyProgress>({ date: '', count: 0, templateType: '' });
-  const [queue, setQueue] = useState<Client[]>([]);
+  const [queue, setQueue] = useState<ClientBase[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(true);
   
@@ -165,12 +165,11 @@ export function BulkLoyaltyMessage({
   useEffect(() => {
     if (!isPaused && queue.length > 0 && currentIndex < queue.length) {
       const client = queue[currentIndex];
-      const template = templates.find(t => t.id === selectedTemplateId);
-      if (client && template) {
-        onSendMessage(client, template);
+      if (client) {
+        onSendMessage(client);
       }
     }
-  }, [currentIndex, isPaused, queue]);
+  }, [currentIndex, isPaused, queue, onSendMessage]);
 
   // Cancel bulk sending
   const cancelBulkSending = () => {
