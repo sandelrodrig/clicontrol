@@ -55,6 +55,53 @@ function formatExpirationMessage(client: ExpiringClient, today: Date): { title: 
   };
 }
 
+interface ExpiringSeller {
+  id: string;
+  full_name: string | null;
+  email: string;
+  subscription_expires_at: string;
+}
+
+function formatSellerExpirationMessage(seller: ExpiringSeller, today: Date): { title: string; body: string; urgency: string } {
+  const expDate = new Date(seller.subscription_expires_at);
+  const todayStart = new Date(today);
+  todayStart.setHours(0, 0, 0, 0);
+  expDate.setHours(0, 0, 0, 0);
+  
+  const diffTime = expDate.getTime() - todayStart.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  const expDateFormatted = expDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  
+  let urgency: string;
+  let emoji: string;
+  let timeText: string;
+  
+  if (diffDays <= 0) {
+    urgency = 'expired';
+    emoji = '🔴';
+    timeText = 'Sua assinatura venceu!';
+  } else if (diffDays === 1) {
+    urgency = 'critical';
+    emoji = '🟠';
+    timeText = 'Sua assinatura vence amanhã!';
+  } else if (diffDays === 2) {
+    urgency = 'warning';
+    emoji = '🟡';
+    timeText = 'Sua assinatura vence em 2 dias';
+  } else {
+    urgency = 'info';
+    emoji = '🔵';
+    timeText = `Sua assinatura vence em ${diffDays} dias`;
+  }
+  
+  return {
+    title: `${emoji} Renovação Necessária`,
+    body: `${timeText} • ${expDateFormatted}`,
+    urgency
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -80,6 +127,80 @@ serve(async (req) => {
 
     console.log('[check-expirations] Checking from', todayStr, 'to', threeDaysStr);
 
+    // ========== CHECK SELLER SUBSCRIPTIONS ==========
+    console.log('[check-expirations] Checking seller subscriptions...');
+    
+    // Get sellers with expiring subscriptions (next 3 days)
+    const { data: expiringSellers, error: sellersError } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, subscription_expires_at')
+      .not('subscription_expires_at', 'is', null)
+      .eq('is_permanent', false)
+      .gte('subscription_expires_at', today.toISOString())
+      .lte('subscription_expires_at', threeDaysFromNow.toISOString());
+
+    if (sellersError) {
+      console.error('[check-expirations] Error fetching expiring sellers:', sellersError);
+    }
+
+    console.log('[check-expirations] Found expiring sellers:', expiringSellers?.length || 0);
+
+    let sellerNotificationsSent = 0;
+
+    // Send notifications to expiring sellers
+    if (expiringSellers && expiringSellers.length > 0) {
+      for (const seller of expiringSellers) {
+        // Check if seller has push subscription
+        const { data: sellerSub } = await supabase
+          .from('push_subscriptions')
+          .select('endpoint')
+          .eq('user_id', seller.id)
+          .limit(1);
+
+        if (!sellerSub || sellerSub.length === 0) {
+          console.log(`[check-expirations] Seller ${seller.email} has no push subscription`);
+          continue;
+        }
+
+        const { title, body, urgency } = formatSellerExpirationMessage(seller, today);
+
+        try {
+          const response = await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              userId: seller.id,
+              title,
+              body,
+              tag: `seller-subscription-${seller.id}`,
+              data: { 
+                type: 'seller-subscription-expiration', 
+                sellerId: seller.id,
+                expirationDate: seller.subscription_expires_at,
+                urgency
+              }
+            }),
+          });
+
+          const result = await response.json();
+          
+          if (result.sent > 0) {
+            sellerNotificationsSent++;
+            console.log(`[check-expirations] ✓ Notified seller: ${seller.email} (${urgency})`);
+          }
+        } catch (error) {
+          console.error(`[check-expirations] Error notifying seller ${seller.email}:`, error);
+        }
+
+        // Small delay between notifications
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    // ========== CHECK CLIENT EXPIRATIONS ==========
     // Get all expiring clients
     const { data: expiringClients, error: clientsError } = await supabase
       .from('clients')
@@ -97,8 +218,9 @@ serve(async (req) => {
 
     if (!expiringClients || expiringClients.length === 0) {
       return new Response(JSON.stringify({ 
-        message: 'No expiring clients found',
-        notificationsSent: 0 
+        message: 'Expiration check completed',
+        sellerNotificationsSent,
+        clientNotificationsSent: 0 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -195,13 +317,15 @@ serve(async (req) => {
       results.push({ sellerId, clientsNotified, totalClients: clients.length });
     }
 
-    console.log('[check-expirations] Completed. Total notifications sent:', notificationsSent);
+    console.log('[check-expirations] Completed. Client notifications sent:', notificationsSent, 'Seller notifications sent:', sellerNotificationsSent);
 
     return new Response(JSON.stringify({ 
       message: 'Expiration check completed',
       totalExpiringClients: expiringClients.length,
+      totalExpiringSellers: expiringSellers?.length || 0,
       sellersChecked: sellerIds.length,
-      notificationsSent,
+      clientNotificationsSent: notificationsSent,
+      sellerNotificationsSent,
       results
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
