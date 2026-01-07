@@ -6,6 +6,7 @@ interface SentMessage {
   clientId: string;
   sentAt: string;
   templateName?: string;
+  templateType?: string;
   platform: 'whatsapp' | 'telegram';
 }
 
@@ -33,43 +34,107 @@ export function useSentMessages() {
     }
   }, []);
 
-  const markAsSent = useCallback((clientId: string, templateName?: string, platform: 'whatsapp' | 'telegram' = 'whatsapp') => {
+  const markAsSent = useCallback((
+    clientId: string, 
+    templateName?: string, 
+    platform: 'whatsapp' | 'telegram' = 'whatsapp',
+    templateType?: string
+  ) => {
     setSentMessages(prev => {
-      // Remove existing entry for this client (we keep only the latest)
-      const filtered = prev.filter(m => m.clientId !== clientId);
-      const updated = [...filtered, {
-        clientId,
-        sentAt: new Date().toISOString(),
-        templateName,
-        platform
-      }];
+      // For loyalty/referral templates, we track separately by type
+      // So a client can have multiple sent marks for different template types
+      let updated: SentMessage[];
+      
+      if (templateType === 'loyalty' || templateType === 'referral') {
+        // Remove existing entry for this client AND this specific type
+        const filtered = prev.filter(m => 
+          !(m.clientId === clientId && m.templateType === templateType)
+        );
+        updated = [...filtered, {
+          clientId,
+          sentAt: new Date().toISOString(),
+          templateName,
+          templateType,
+          platform
+        }];
+      } else {
+        // Default behavior: keep only the latest for this client (general messages)
+        const filtered = prev.filter(m => m.clientId !== clientId || m.templateType === 'loyalty' || m.templateType === 'referral');
+        updated = [...filtered, {
+          clientId,
+          sentAt: new Date().toISOString(),
+          templateName,
+          templateType,
+          platform
+        }];
+      }
+      
       saveToStorage(updated);
       return updated;
     });
   }, [saveToStorage]);
 
-  const clearSentMark = useCallback((clientId: string) => {
+  const clearSentMark = useCallback((clientId: string, templateType?: string) => {
     setSentMessages(prev => {
-      const updated = prev.filter(m => m.clientId !== clientId);
+      let updated: SentMessage[];
+      if (templateType) {
+        // Clear only the specific template type for this client
+        updated = prev.filter(m => !(m.clientId === clientId && m.templateType === templateType));
+      } else {
+        // Clear all non-loyalty/referral marks for this client
+        updated = prev.filter(m => m.clientId !== clientId || m.templateType === 'loyalty' || m.templateType === 'referral');
+      }
       saveToStorage(updated);
       return updated;
     });
   }, [saveToStorage]);
 
-  const clearAllSentMarks = useCallback(() => {
-    setSentMessages([]);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+  const clearAllSentMarks = useCallback((templateType?: string) => {
+    if (templateType) {
+      // Clear only marks for a specific template type
+      setSentMessages(prev => {
+        const updated = prev.filter(m => m.templateType !== templateType);
+        saveToStorage(updated);
+        return updated;
+      });
+    } else {
+      // Clear all marks
+      setSentMessages([]);
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [saveToStorage]);
 
-  const isSent = useCallback((clientId: string): boolean => {
-    return sentMessages.some(m => m.clientId === clientId);
+  const isSent = useCallback((clientId: string, templateType?: string): boolean => {
+    if (templateType) {
+      return sentMessages.some(m => m.clientId === clientId && m.templateType === templateType);
+    }
+    // Check for any non-loyalty/referral message
+    return sentMessages.some(m => m.clientId === clientId && m.templateType !== 'loyalty' && m.templateType !== 'referral');
   }, [sentMessages]);
 
-  const getSentInfo = useCallback((clientId: string): SentMessage | undefined => {
-    return sentMessages.find(m => m.clientId === clientId);
+  const getSentInfo = useCallback((clientId: string, templateType?: string): SentMessage | undefined => {
+    if (templateType) {
+      return sentMessages.find(m => m.clientId === clientId && m.templateType === templateType);
+    }
+    // Get the most recent non-loyalty/referral message
+    return sentMessages.find(m => m.clientId === clientId && m.templateType !== 'loyalty' && m.templateType !== 'referral');
   }, [sentMessages]);
 
-  const sentCount = sentMessages.length;
+  // Get clients that have been sent a specific template type
+  const getClientsSentByType = useCallback((templateType: string): string[] => {
+    return sentMessages
+      .filter(m => m.templateType === templateType)
+      .map(m => m.clientId);
+  }, [sentMessages]);
+
+  // Get count of clients sent a specific template type
+  const getSentCountByType = useCallback((templateType: string): number => {
+    return sentMessages.filter(m => m.templateType === templateType).length;
+  }, [sentMessages]);
+
+  const sentCount = sentMessages.filter(m => m.templateType !== 'loyalty' && m.templateType !== 'referral').length;
+  const loyaltySentCount = sentMessages.filter(m => m.templateType === 'loyalty').length;
+  const referralSentCount = sentMessages.filter(m => m.templateType === 'referral').length;
 
   return {
     sentMessages,
@@ -78,6 +143,10 @@ export function useSentMessages() {
     clearAllSentMarks,
     isSent,
     getSentInfo,
-    sentCount
+    getClientsSentByType,
+    getSentCountByType,
+    sentCount,
+    loyaltySentCount,
+    referralSentCount
   };
 }
