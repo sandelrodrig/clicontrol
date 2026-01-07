@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useNavigate, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Users, 
   LogIn,
@@ -17,6 +19,20 @@ import {
 
 export default function Landing() {
   const navigate = useNavigate();
+
+  // Fetch dynamic app price from database
+  const { data: appPrice } = useQuery({
+    queryKey: ['app-price-landing'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'app_monthly_price')
+        .single();
+      return data?.value || '25';
+    },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
 
   const features = [
     {
@@ -119,7 +135,7 @@ export default function Landing() {
             {/* Pricing Badge */}
             <div className="inline-flex flex-col items-center gap-1 p-4 rounded-2xl bg-card border border-border shadow-lg animate-fade-in">
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl sm:text-4xl font-bold text-primary">R$ 25</span>
+                <span className="text-3xl sm:text-4xl font-bold text-primary">R$ {appPrice || '25'}</span>
                 <span className="text-muted-foreground">/mês</span>
               </div>
               <p className="text-sm text-muted-foreground">
