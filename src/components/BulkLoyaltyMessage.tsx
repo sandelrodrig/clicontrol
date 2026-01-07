@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Heart, Users, Send, CheckCircle, X, Play, Pause, RotateCcw, Gift, Star, Phone } from 'lucide-react';
+import { Heart, Users, CheckCircle, X, Play, Pause, RotateCcw, Gift, Phone, Calendar, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSentMessages } from '@/hooks/useSentMessages';
+import { differenceInDays, parseISO } from 'date-fns';
 
 interface Template {
   id: string;
@@ -26,6 +27,8 @@ interface ClientBase {
   phone: string | null;
   telegram: string | null;
   is_archived: boolean | null;
+  created_at?: string | null;
+  renewed_at?: string | null;
 }
 
 interface BulkLoyaltyMessageProps {
@@ -60,7 +63,6 @@ export function BulkLoyaltyMessage({
   const [isPaused, setIsPaused] = useState(true);
   
   const { 
-    isSent, 
     getSentCountByType, 
     getClientsSentByType,
     clearAllSentMarks 
@@ -92,9 +94,46 @@ export function BulkLoyaltyMessage({
   // Get active (non-archived) clients with phone
   const activeClients = clients.filter(c => !c.is_archived && c.phone);
 
-  // Get clients not yet contacted for the selected template type
+  // Filter eligible clients:
+  // 1. Has phone number
+  // 2. Client for at least 30 days (created_at > 30 days ago)
+  // 3. Has renewed at least once (renewed_at exists and is after created_at)
+  // 4. Not already sent this template type
+  const today = new Date();
   const sentClientIds = getClientsSentByType(selectedTemplateType);
-  const pendingClients = activeClients.filter(c => !sentClientIds.includes(c.id));
+  
+  const eligibleClients = activeClients.filter(c => {
+    // Must have created_at
+    if (!c.created_at) return false;
+    
+    // Must be a client for at least 30 days
+    const createdDate = parseISO(c.created_at);
+    const daysSinceCreation = differenceInDays(today, createdDate);
+    if (daysSinceCreation < 30) return false;
+    
+    // Must have renewed at least once (renewed_at after created_at)
+    if (!c.renewed_at) return false;
+    const renewedDate = parseISO(c.renewed_at);
+    if (renewedDate <= createdDate) return false;
+    
+    // Not already sent this message type
+    if (sentClientIds.includes(c.id)) return false;
+    
+    return true;
+  });
+
+  // Clients who don't qualify yet (new or not renewed)
+  const notEligibleYet = activeClients.filter(c => {
+    if (!c.created_at) return true;
+    const createdDate = parseISO(c.created_at);
+    const daysSinceCreation = differenceInDays(today, createdDate);
+    if (daysSinceCreation < 30) return true;
+    if (!c.renewed_at) return true;
+    const renewedDate = parseISO(c.renewed_at);
+    if (renewedDate <= createdDate) return true;
+    return false;
+  });
+
   const sentClients = activeClients.filter(c => sentClientIds.includes(c.id));
 
   // Calculate remaining for today
@@ -122,7 +161,7 @@ export function BulkLoyaltyMessage({
       return;
     }
     
-    const clientsToSend = pendingClients.slice(0, remainingToday);
+    const clientsToSend = eligibleClients.slice(0, remainingToday);
     if (clientsToSend.length === 0) {
       toast.info('Não há clientes pendentes ou você atingiu o limite diário!');
       return;
@@ -279,7 +318,7 @@ export function BulkLoyaltyMessage({
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Card>
               <CardContent className="p-4 text-center">
                 <Users className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
@@ -290,8 +329,15 @@ export function BulkLoyaltyMessage({
             <Card>
               <CardContent className="p-4 text-center">
                 <Phone className="h-6 w-6 mx-auto mb-2 text-orange-500" />
-                <p className="text-2xl font-bold">{pendingClients.length}</p>
-                <p className="text-xs text-muted-foreground">Pendentes</p>
+                <p className="text-2xl font-bold">{eligibleClients.length}</p>
+                <p className="text-xs text-muted-foreground">Elegíveis</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Calendar className="h-6 w-6 mx-auto mb-2 text-yellow-500" />
+                <p className="text-2xl font-bold">{notEligibleYet.length}</p>
+                <p className="text-xs text-muted-foreground">Novos/Sem Renovar</p>
               </CardContent>
             </Card>
             <Card>
@@ -324,11 +370,11 @@ export function BulkLoyaltyMessage({
             {queue.length === 0 ? (
               <Button 
                 onClick={startBulkSending} 
-                disabled={!selectedTemplateId || remainingToday === 0 || pendingClients.length === 0}
+                disabled={!selectedTemplateId || remainingToday === 0 || eligibleClients.length === 0}
                 className="flex-1 gap-2"
               >
                 <Play className="h-4 w-4" />
-                Iniciar Envio ({Math.min(pendingClients.length, remainingToday)} clientes)
+                Iniciar Envio ({Math.min(eligibleClients.length, remainingToday)} clientes)
               </Button>
             ) : (
               <>
@@ -360,15 +406,15 @@ export function BulkLoyaltyMessage({
             </Button>
           </div>
 
-          {/* Pending Clients Preview */}
-          {pendingClients.length > 0 && (
+          {/* Eligible Clients Preview */}
+          {eligibleClients.length > 0 && (
             <div className="space-y-2">
               <Label className="text-muted-foreground">
-                Próximos na fila ({Math.min(pendingClients.length, 5)} de {pendingClients.length})
+                Próximos na fila ({Math.min(eligibleClients.length, 5)} de {eligibleClients.length})
               </Label>
               <ScrollArea className="h-32 rounded-md border p-2">
                 <div className="space-y-1">
-                  {pendingClients.slice(0, 5).map((client, i) => (
+                  {eligibleClients.slice(0, 5).map((client, i) => (
                     <div 
                       key={client.id} 
                       className={cn(
@@ -381,15 +427,27 @@ export function BulkLoyaltyMessage({
                       <span className="text-muted-foreground text-xs">{client.phone}</span>
                     </div>
                   ))}
-                  {pendingClients.length > 5 && (
+                  {eligibleClients.length > 5 && (
                     <p className="text-xs text-muted-foreground text-center py-2">
-                      +{pendingClients.length - 5} clientes...
+                      +{eligibleClients.length - 5} clientes...
                     </p>
                   )}
                 </div>
               </ScrollArea>
             </div>
           )}
+
+          {/* Info about eligibility */}
+          <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg space-y-1">
+            <p className="font-medium flex items-center gap-1">
+              <RefreshCw className="h-3 w-3" /> Critérios para aparecer na lista:
+            </p>
+            <ul className="list-disc list-inside space-y-0.5 ml-1">
+              <li>Cliente há pelo menos 30 dias</li>
+              <li>Já renovou pelo menos 1 vez</li>
+              <li>Ainda não recebeu esta mensagem</li>
+            </ul>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -477,7 +477,8 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
     }
 
     // Mark as sent (works offline too - stored in localStorage)
-    markAsSent(client.id, templateName, platform);
+    // Pass templateType for loyalty/referral tracking
+    markAsSent(client.id, templateName, platform, messageType);
 
     if (platform === 'whatsapp' && client.phone) {
       // Open WhatsApp
