@@ -113,8 +113,8 @@ export default function Landing() {
 
             {/* Subtitle */}
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto animate-fade-in">
-              O aplicativo definitivo para revendedores de IPTV, P2P e serviços digitais. 
-              Gerencie seus clientes, controle vencimentos e envie cobranças automaticamente.
+              O aplicativo definitivo para revendedores de IPTV, P2P, contas Premium e serviços digitais. 
+              Gerencie clientes de Netflix, Spotify, Disney+, IPTV, P2P e muito mais em um só lugar.
               <span className="block mt-2 font-medium text-foreground">
                 Porque seu negócio merece funcionar no automático.
               </span>
@@ -190,8 +190,9 @@ export default function Landing() {
 
             <div className="space-y-4">
               {[
-                'Gerencie clientes de qualquer serviço: IPTV, P2P, SSH, VPN, Premium e mais',
-                'Crie planos e controle preços automaticamente',
+                'Gerencie IPTV, P2P, SSH, VPN e qualquer serviço de streaming',
+                'Controle contas Premium: Netflix, Spotify, Disney+, HBO Max e mais',
+                'Crie planos personalizados e controle preços automaticamente',
                 'Templates prontos de mensagem para WhatsApp e Telegram',
                 'Chave PIX integrada nas mensagens de cobrança',
                 'Sistema de indicação com descontos automáticos',
