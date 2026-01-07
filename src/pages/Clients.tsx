@@ -44,6 +44,7 @@ import { SharedCreditPicker, SharedCreditSelection } from '@/components/SharedCr
 import { Badge } from '@/components/ui/badge';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { ClientExternalApps, ClientExternalAppsDisplay } from '@/components/ClientExternalApps';
+import { BulkLoyaltyMessage } from '@/components/BulkLoyaltyMessage';
 
 // Interface for MAC devices
 interface MacDevice {
@@ -312,6 +313,22 @@ export default function Clients() {
   });
 
   const allCategories = [...DEFAULT_CATEGORIES, ...customProducts.map(p => p.name), ...customCategories.map(c => c.name)];
+
+  // Fetch templates for bulk loyalty messages
+  const { data: templates = [] } = useQuery({
+    queryKey: ['templates-loyalty', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('whatsapp_templates')
+        .select('id, name, type, message')
+        .eq('seller_id', user!.id)
+        .in('type', ['loyalty', 'referral'])
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
   // Handle shared credit selection - auto-fill all fields
   const handleSharedCreditSelect = useCallback((selection: SharedCreditSelection | null) => {
@@ -2376,6 +2393,20 @@ export default function Clients() {
               Enviar para Não Chamados ({expiredNotCalledCount})
             </Button>
           )}
+          
+          {/* Bulk Loyalty/Referral Campaign */}
+          <BulkLoyaltyMessage
+            clients={activeClients}
+            templates={templates}
+            onSendMessage={(client) => {
+              // Find the full client object to pass to SendMessageDialog
+              const fullClient = activeClients.find(c => c.id === client.id);
+              if (fullClient) {
+                setMessageClient(fullClient);
+              }
+            }}
+            isDialogOpen={!!messageClient}
+          />
           
           {/* Bulk messaging progress indicator */}
           {isBulkMessaging && (
