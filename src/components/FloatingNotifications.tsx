@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Bell, Clock, AlertTriangle, MessageCircle, ChevronDown, Calendar, Repeat, AppWindow } from 'lucide-react';
+import { X, Bell, Clock, AlertTriangle, MessageCircle, ChevronDown, Calendar, Repeat, AppWindow, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { differenceInDays, startOfToday, format, getDate, addMonths, setDate, isBefore, isAfter } from 'date-fns';
 import { Link } from 'react-router-dom';
+
+const PUSH_SUBSCRIPTION_STORAGE = 'push_subscription_active';
 
 interface Client {
   id: string;
@@ -52,13 +54,24 @@ interface ExpiringExternalApp {
   isAnnual: false;
 }
 
-type NotificationItem = AnnualClientReminder | ExpiringClient | ExpiringExternalApp;
+interface SellerSubscriptionWarning {
+  daysRemaining: number;
+  expirationDate: string;
+  isSellerWarning: true;
+  isExternalApp: false;
+  isAnnual: false;
+}
+
+type NotificationItem = AnnualClientReminder | ExpiringClient | ExpiringExternalApp | SellerSubscriptionWarning;
 
 export function FloatingNotifications() {
-  const { user, isSeller } = useAuth();
+  const { user, isSeller, profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [hasNewNotifications, setHasNewNotifications] = useState(true);
+  
+  // Check if push notifications are enabled
+  const isPushEnabled = localStorage.getItem(PUSH_SUBSCRIPTION_STORAGE) === 'true';
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients-notifications', user?.id],
@@ -208,8 +221,29 @@ export function FloatingNotifications() {
     isAnnual: false as const
   }));
 
+  // Seller subscription warning (only show if push is NOT enabled)
+  const sellerSubscriptionWarning: SellerSubscriptionWarning | null = (() => {
+    if (!isSeller || !profile?.subscription_expires_at || profile?.is_permanent) return null;
+    if (isPushEnabled) return null; // Don't show in-app if push is enabled
+    
+    const expirationDate = new Date(profile.subscription_expires_at);
+    const daysRemaining = differenceInDays(expirationDate, today);
+    
+    if (daysRemaining >= 0 && daysRemaining <= 3) {
+      return {
+        daysRemaining,
+        expirationDate: profile.subscription_expires_at,
+        isSellerWarning: true as const,
+        isExternalApp: false as const,
+        isAnnual: false as const
+      };
+    }
+    return null;
+  })();
+
   const allNotifications: NotificationItem[] = [
-    ...annualClientReminders, // Annual reminders first
+    ...(sellerSubscriptionWarning ? [sellerSubscriptionWarning] : []), // Seller warning first
+    ...annualClientReminders, // Annual reminders
     ...externalAppNotifications, // External apps expiring
     ...urgentClients
   ];
@@ -307,7 +341,53 @@ export function FloatingNotifications() {
           {/* Notification List */}
           <div className="max-h-72 overflow-y-auto">
             {allNotifications.slice(0, 10).map((item, index) => {
-              // Handle external app notifications differently
+              // Handle seller subscription warning
+              if ('isSellerWarning' in item && item.isSellerWarning) {
+                const sellerItem = item as SellerSubscriptionWarning;
+                return (
+                  <div
+                    key="seller-subscription-warning"
+                    className="px-4 py-3 flex items-center gap-3 bg-destructive/10 border-b border-border/50"
+                  >
+                    {/* Day Badge */}
+                    <div className={cn(
+                      "flex-shrink-0 w-14 h-10 rounded-lg flex flex-col items-center justify-center text-xs font-bold",
+                      sellerItem.daysRemaining === 0 ? "text-destructive bg-destructive/20" :
+                      sellerItem.daysRemaining === 1 ? "text-destructive/80 bg-destructive/15" :
+                      "text-warning bg-warning/20"
+                    )}>
+                      <UserX className="h-4 w-4" />
+                      <span className="text-[10px]">{getDayLabel(sellerItem.daysRemaining)}</span>
+                    </div>
+
+                    {/* Warning Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm text-destructive">Sua Assinatura</p>
+                      <p className="text-xs text-muted-foreground">
+                        {sellerItem.daysRemaining === 0 
+                          ? 'Vence HOJE! Renove agora.'
+                          : sellerItem.daysRemaining === 1 
+                          ? 'Vence amanhã! Renove para não perder acesso.'
+                          : `Vence em ${sellerItem.daysRemaining} dias. Renove para continuar.`
+                        }
+                      </p>
+                    </div>
+
+                    {/* Settings Link */}
+                    <Link to="/settings" onClick={() => setIsOpen(false)}>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-8 text-xs"
+                      >
+                        Renovar
+                      </Button>
+                    </Link>
+                  </div>
+                );
+              }
+              
+              // Handle external app notifications
               if (item.isExternalApp) {
                 const appItem = item as ExpiringExternalApp;
                 return (
@@ -358,7 +438,7 @@ export function FloatingNotifications() {
                   key={clientItem.client.id}
                   className={cn(
                     "px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0",
-                    index === 0 && !item.isExternalApp && "bg-destructive/5"
+                    index === 0 && !item.isExternalApp && !('isSellerWarning' in item) && "bg-destructive/5"
                   )}
                 >
                   {/* Day Badge */}
