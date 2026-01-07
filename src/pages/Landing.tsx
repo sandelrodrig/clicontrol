@@ -14,8 +14,29 @@ import {
   Smartphone,
   CheckCircle2,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Tv,
+  Wifi
 } from 'lucide-react';
+
+// Platform icons as simple styled components
+const PlatformIcon = ({ name, color, bgColor }: { name: string; color: string; bgColor: string }) => (
+  <div 
+    className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg shadow-md transition-transform hover:scale-110"
+    style={{ backgroundColor: bgColor, color: color }}
+  >
+    {name}
+  </div>
+);
+
+const platforms = [
+  { name: 'N', label: 'Netflix', color: '#fff', bgColor: '#E50914' },
+  { name: 'S', label: 'Spotify', color: '#fff', bgColor: '#1DB954' },
+  { name: 'D+', label: 'Disney+', color: '#fff', bgColor: '#113CCF' },
+  { name: 'H', label: 'HBO Max', color: '#fff', bgColor: '#5822B4' },
+  { name: 'P+', label: 'Prime', color: '#fff', bgColor: '#00A8E1' },
+  { name: 'TV', label: 'IPTV', color: '#fff', bgColor: 'hsl(var(--primary))' },
+];
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -141,6 +162,19 @@ export default function Landing() {
               <p className="text-sm text-muted-foreground">
                 Teste grátis por 5 dias • Sem cartão
               </p>
+            </div>
+
+            {/* Platform Icons */}
+            <div className="animate-fade-in pt-4">
+              <p className="text-sm text-muted-foreground mb-4">Gerencie todas as plataformas</p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {platforms.map((platform) => (
+                  <div key={platform.label} className="flex flex-col items-center gap-1">
+                    <PlatformIcon name={platform.name} color={platform.color} bgColor={platform.bgColor} />
+                    <span className="text-xs text-muted-foreground">{platform.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
