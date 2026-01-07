@@ -62,6 +62,8 @@ const MESSAGE_TYPES = [
   { value: 'expired', label: 'Vencido', icon: '❌' },
   { value: 'renewal', label: 'Renovação', icon: '✅' },
   { value: 'credentials', label: 'Credenciais', icon: '🔐' },
+  { value: 'loyalty', label: 'Fidelização', icon: '💝' },
+  { value: 'referral', label: 'Indicação', icon: '🤝' },
   { value: 'custom', label: 'Personalizado', icon: '📝' },
 ];
 
@@ -275,6 +277,8 @@ export default function Templates() {
     expired: 'bg-destructive/10 text-destructive',
     renewal: 'bg-blue-500/10 text-blue-500',
     credentials: 'bg-primary/10 text-primary',
+    loyalty: 'bg-pink-500/10 text-pink-500',
+    referral: 'bg-purple-500/10 text-purple-500',
     custom: 'bg-muted text-muted-foreground',
   };
 
