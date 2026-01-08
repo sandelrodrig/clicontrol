@@ -92,6 +92,8 @@ const sellerVariables = [
   { name: '{whatsapp}', description: 'WhatsApp do vendedor' },
   { name: '{vencimento}', description: 'Data de vencimento da assinatura' },
   { name: '{pix}', description: 'Chave PIX do Admin' },
+  { name: '{valor}', description: 'Valor da mensalidade (dinâmico)' },
+  { name: '{empresa}', description: 'Nome da empresa do Admin' },
 ];
 
 
