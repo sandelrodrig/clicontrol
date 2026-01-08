@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { PlanSelector } from '@/components/PlanSelector';
 import { toast } from 'sonner';
 import { Plus, Trash2, Mail, Key, CalendarIcon, Sparkles, Copy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,15 +22,6 @@ export interface PremiumAccount {
   notes: string;
 }
 
-interface Plan {
-  id: string;
-  name: string;
-  price: number;
-  duration_days: number;
-  is_active: boolean;
-  category: string;
-}
-
 interface ClientPremiumAccountsProps {
   sellerId: string;
   onChange?: (accounts: PremiumAccount[]) => void;
@@ -43,22 +31,6 @@ interface ClientPremiumAccountsProps {
 export function ClientPremiumAccounts({ sellerId, onChange, initialAccounts = [] }: ClientPremiumAccountsProps) {
   const [localAccounts, setLocalAccounts] = useState<PremiumAccount[]>(initialAccounts);
   const [openCalendars, setOpenCalendars] = useState<Record<number, boolean>>({});
-
-  // Fetch plans for premium category
-  const { data: plans = [] } = useQuery({
-    queryKey: ['plans-premium', sellerId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('plans')
-        .select('*')
-        .eq('seller_id', sellerId)
-        .eq('is_active', true)
-        .order('name');
-      if (error) throw error;
-      return data as Plan[];
-    },
-    enabled: !!sellerId,
-  });
 
   // Sync with onChange when local accounts change
   useEffect(() => {
@@ -95,18 +67,6 @@ export function ClientPremiumAccounts({ sellerId, onChange, initialAccounts = []
     setLocalAccounts(newAccounts);
   };
 
-  const handlePlanChange = (index: number, planId: string) => {
-    const plan = plans.find(p => p.id === planId);
-    if (plan) {
-      const newExpDate = format(addDays(new Date(), plan.duration_days), 'yyyy-MM-dd');
-      updateAccount(index, { 
-        planId: plan.id, 
-        planName: plan.name,
-        price: plan.price.toString(),
-        expirationDate: newExpDate
-      });
-    }
-  };
 
   const setQuickExpiration = (accountIndex: number, type: 'months' | 'years', value: number) => {
     const newDate = type === 'months' 
@@ -191,14 +151,11 @@ export function ClientPremiumAccounts({ sellerId, onChange, initialAccounts = []
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Plano Premium</Label>
-                  <PlanSelector
-                    plans={plans}
-                    value={account.planId}
-                    onValueChange={(planId) => handlePlanChange(index, planId)}
-                    placeholder="Selecione (Netflix, Spotify...)"
-                    showFilters={true}
-                    defaultCategory="Premium"
+                  <Label>Nome da Conta</Label>
+                  <Input
+                    value={account.planName}
+                    onChange={(e) => updateAccount(index, { planName: e.target.value })}
+                    placeholder="Ex: Netflix, Spotify, Disney+..."
                   />
                 </div>
 
