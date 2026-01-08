@@ -26,6 +26,7 @@ import Backup from "./pages/Backup";
 import Settings from "./pages/Settings";
 import ExternalApps from "./pages/ExternalApps";
 import ServerIcons from "./pages/ServerIcons";
+import PanelResellers from "./pages/PanelResellers";
 
 import MessageHistory from "./pages/MessageHistory";
 import Tutorials from "./pages/Tutorials";
@@ -71,6 +72,7 @@ const AppRoutes = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/servers" element={<Servers />} />
+          <Route path="/panel-resellers" element={<PanelResellers />} />
           <Route path="/panels" element={<Panels />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/bills" element={<Bills />} />

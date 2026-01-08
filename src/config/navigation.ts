@@ -15,6 +15,7 @@ import {
   History,
   Globe,
   AppWindow,
+  UsersRound,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -45,6 +46,7 @@ export const navGroups: NavGroup[] = [
       { title: 'Clientes', href: '/clients', icon: Users, sellerOnly: true },
       { title: 'Apps Pagos', href: '/external-apps', icon: AppWindow, sellerOnly: true },
       { title: 'Servidores', href: '/servers', icon: Server, sellerOnly: true },
+      { title: 'Revendedores', href: '/panel-resellers', icon: UsersRound, sellerOnly: true },
       { title: 'Painéis', href: '/panels', icon: Globe, sellerOnly: true },
       { title: 'Planos', href: '/plans', icon: Package, sellerOnly: true },
     ],

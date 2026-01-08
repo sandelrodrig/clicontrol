@@ -1061,6 +1061,10 @@ export type Database = {
         Args: { seller_uuid: string }
         Returns: undefined
       }
+      create_panel_reseller_templates_for_seller: {
+        Args: { seller_uuid: string }
+        Returns: undefined
+      }
       create_plans_for_custom_product: {
         Args: { p_product_name: string; p_seller_id: string }
         Returns: undefined
