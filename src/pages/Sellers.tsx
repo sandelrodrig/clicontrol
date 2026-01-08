@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -26,10 +27,17 @@ import {
 } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { toast } from 'sonner';
-import { Search, UserCog, Calendar, Plus, Shield, Trash2, Key, UserPlus, Copy, Check, RefreshCw, FlaskConical, Users } from 'lucide-react';
+import { Search, UserCog, Calendar, Plus, Shield, Trash2, Key, UserPlus, Copy, Check, RefreshCw, FlaskConical, Users, MessageCircle, Send } from 'lucide-react';
 import { format, addDays, isBefore, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  type: string;
+  message: string;
+}
 
 interface Seller {
   id: string;
@@ -76,6 +84,17 @@ export default function Sellers() {
     sellerId: '',
     sellerName: ''
   });
+  const [messageDialog, setMessageDialog] = useState<{ 
+    open: boolean; 
+    seller: Seller | null;
+    selectedTemplate: string;
+    message: string;
+  }>({
+    open: false,
+    seller: null,
+    selectedTemplate: '',
+    message: ''
+  });
 
   // Create seller form
   const [newSellerEmail, setNewSellerEmail] = useState('');
@@ -116,6 +135,53 @@ export default function Sellers() {
       return (profiles as Seller[])
         .filter(p => !adminIds.includes(p.id))
         .map(p => ({ ...p, client_count: countMap[p.id] || 0 }));
+    },
+  });
+
+  // Fetch admin templates for sellers
+  const { data: sellerTemplates = [] } = useQuery({
+    queryKey: ['admin-seller-templates', session?.user?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return [];
+      const { data, error } = await supabase
+        .from('whatsapp_templates')
+        .select('*')
+        .eq('seller_id', session.user.id)
+        .like('name', 'Vendedor%')
+        .order('name');
+      if (error) throw error;
+      return data as WhatsAppTemplate[];
+    },
+    enabled: !!session?.user?.id,
+  });
+
+  // Fetch admin profile for PIX key
+  const { data: adminProfile } = useQuery({
+    queryKey: ['admin-profile', session?.user?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('pix_key, company_name')
+        .eq('id', session.user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session?.user?.id,
+  });
+
+  // Fetch app monthly price
+  const { data: appPrice } = useQuery({
+    queryKey: ['app-monthly-price'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'app_monthly_price')
+        .single();
+      if (error) return '25';
+      return data?.value || '25';
     },
   });
 
@@ -260,6 +326,61 @@ export default function Sellers() {
     setCopiedPassword(true);
     toast.success('Senha copiada!');
     setTimeout(() => setCopiedPassword(false), 2000);
+  };
+
+  const replaceSellerVariables = (template: string, seller: Seller) => {
+    const expirationDate = seller.subscription_expires_at 
+      ? format(new Date(seller.subscription_expires_at), "dd/MM/yyyy")
+      : 'Não definido';
+    
+    return template
+      .replace(/{nome}/g, seller.full_name || seller.email.split('@')[0])
+      .replace(/{email}/g, seller.email)
+      .replace(/{whatsapp}/g, seller.whatsapp || 'Não informado')
+      .replace(/{vencimento}/g, expirationDate)
+      .replace(/{pix}/g, adminProfile?.pix_key || 'Não configurado')
+      .replace(/{empresa}/g, adminProfile?.company_name || '')
+      .replace(/{valor}/g, `R$ ${appPrice || '25'},00`);
+  };
+
+  const handleOpenMessageDialog = (seller: Seller) => {
+    setMessageDialog({
+      open: true,
+      seller,
+      selectedTemplate: '',
+      message: ''
+    });
+  };
+
+  const handleTemplateSelect = (templateId: string) => {
+    const template = sellerTemplates.find(t => t.id === templateId);
+    if (template && messageDialog.seller) {
+      const processedMessage = replaceSellerVariables(template.message, messageDialog.seller);
+      setMessageDialog(prev => ({
+        ...prev,
+        selectedTemplate: templateId,
+        message: processedMessage
+      }));
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!messageDialog.seller?.whatsapp || !messageDialog.message) {
+      toast.error('WhatsApp ou mensagem não disponível');
+      return;
+    }
+
+    const phone = messageDialog.seller.whatsapp.replace(/\D/g, '');
+    const encodedMessage = encodeURIComponent(messageDialog.message);
+    window.open(`https://wa.me/${phone}?text=${encodedMessage}`, '_blank');
+    
+    setMessageDialog({ open: false, seller: null, selectedTemplate: '', message: '' });
+    toast.success('WhatsApp aberto!');
+  };
+
+  const copyMessage = () => {
+    navigator.clipboard.writeText(messageDialog.message);
+    toast.success('Mensagem copiada!');
   };
 
   const today = startOfToday();
@@ -480,6 +601,19 @@ export default function Sellers() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      {/* WhatsApp Button */}
+                      {seller.whatsapp && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-success hover:text-success"
+                          onClick={() => handleOpenMessageDialog(seller)}
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          WhatsApp
+                        </Button>
+                      )}
+                      
                       {/* Renovar Button with Select */}
                       <div className="flex items-center gap-1">
                         <Select
@@ -634,6 +768,73 @@ export default function Sellers() {
           setDeleteDialog({ open: false, sellerId: '', sellerName: '' });
         }}
       />
+
+      {/* WhatsApp Message Dialog */}
+      <Dialog 
+        open={messageDialog.open} 
+        onOpenChange={(open) => !open && setMessageDialog({ open: false, seller: null, selectedTemplate: '', message: '' })}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-success" />
+              Enviar WhatsApp
+            </DialogTitle>
+            <DialogDescription>
+              {messageDialog.seller?.full_name || messageDialog.seller?.email}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Selecionar Template</Label>
+              <Select value={messageDialog.selectedTemplate} onValueChange={handleTemplateSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Escolha um template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {sellerTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mensagem</Label>
+              <Textarea
+                value={messageDialog.message}
+                onChange={(e) => setMessageDialog(prev => ({ ...prev, message: e.target.value }))}
+                rows={8}
+                placeholder="Selecione um template ou digite sua mensagem..."
+              />
+            </div>
+
+            {sellerTemplates.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-2">
+                Nenhum template de vendedor encontrado. Crie templates em "Mensagens" → "Templates".
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={copyMessage} disabled={!messageDialog.message}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copiar
+            </Button>
+            <Button 
+              onClick={handleSendWhatsApp} 
+              disabled={!messageDialog.message || !messageDialog.seller?.whatsapp}
+              className="bg-success hover:bg-success/90"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Enviar WhatsApp
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
