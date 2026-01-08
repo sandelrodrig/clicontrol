@@ -167,6 +167,48 @@ export type Database = {
           },
         ]
       }
+      client_premium_accounts: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          email: string | null
+          expiration_date: string | null
+          id: string
+          notes: string | null
+          password: string | null
+          plan_name: string
+          price: number | null
+          seller_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          email?: string | null
+          expiration_date?: string | null
+          id?: string
+          notes?: string | null
+          password?: string | null
+          plan_name: string
+          price?: number | null
+          seller_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          email?: string | null
+          expiration_date?: string | null
+          id?: string
+          notes?: string | null
+          password?: string | null
+          plan_name?: string
+          price?: number | null
+          seller_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           app_name: string | null
