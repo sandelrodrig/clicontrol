@@ -84,6 +84,13 @@ const TYPE_FILTERS = [
   { value: 'other', label: 'Outros' },
 ];
 
+interface PremiumAccountData {
+  plan_name: string;
+  email: string | null;
+  password: string | null;
+  decryptedPassword?: string;
+}
+
 export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }: SendMessageDialogProps) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
@@ -106,10 +113,14 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
     premium_password: string;
   }>>({});
   
+  // Cache for decrypted premium accounts
+  const [premiumAccountsCache, setPremiumAccountsCache] = useState<Record<string, PremiumAccountData[]>>({});
+  
   const clientSentInfo = getSentInfo(client.id);
   
   // Get cached credentials or null
   const decryptedCredentials = credentialsCache[client.id] || null;
+  const decryptedPremiumAccounts = premiumAccountsCache[client.id] || [];
 
   // Monitor online/offline status
   useEffect(() => {
@@ -195,6 +206,74 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
       isCancelled = true;
     };
   }, [open, client.id, client.login, client.password, client.premium_password, decrypt, isPrivacyMode, credentialsCache]);
+
+  // Fetch premium accounts for this client
+  const { data: premiumAccounts = [] } = useQuery({
+    queryKey: ['client-premium-accounts-dialog', client.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('client_premium_accounts')
+        .select('plan_name, email, password')
+        .eq('client_id', client.id)
+        .order('created_at');
+      if (error) throw error;
+      return data as PremiumAccountData[];
+    },
+    enabled: !!client.id && open && client.category === 'Contas Premium',
+  });
+
+  // Decrypt premium accounts passwords
+  useEffect(() => {
+    if (!open || premiumAccounts.length === 0 || premiumAccountsCache[client.id]) return;
+    
+    if (isPrivacyMode) {
+      setPremiumAccountsCache(prev => ({
+        ...prev,
+        [client.id]: premiumAccounts.map(acc => ({
+          ...acc,
+          decryptedPassword: '●●●●●●●●',
+        }))
+      }));
+      return;
+    }
+    
+    let isCancelled = false;
+    
+    const decryptPremiumPasswords = async () => {
+      try {
+        const decrypted = await Promise.all(
+          premiumAccounts.map(async (acc) => ({
+            ...acc,
+            decryptedPassword: acc.password ? await decrypt(acc.password) : '',
+          }))
+        );
+        
+        if (!isCancelled) {
+          setPremiumAccountsCache(prev => ({
+            ...prev,
+            [client.id]: decrypted,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to decrypt premium passwords:', error);
+        if (!isCancelled) {
+          setPremiumAccountsCache(prev => ({
+            ...prev,
+            [client.id]: premiumAccounts.map(acc => ({
+              ...acc,
+              decryptedPassword: acc.password || '',
+            }))
+          }));
+        }
+      }
+    };
+    
+    decryptPremiumPasswords();
+    
+    return () => {
+      isCancelled = true;
+    };
+  }, [open, client.id, premiumAccounts, decrypt, isPrivacyMode, premiumAccountsCache]);
 
   // Get profile with pix_key and company_name
   const sellerProfile = profile as { 
@@ -396,13 +475,35 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
     // Get premium account name from plan_name when it's a premium category
     const contaPremium = client.plan_name || '';
 
+    // Generate premium accounts text for multiple accounts
+    let premiumAccountsText = '';
+    let allPremiumEmails = '';
+    let allPremiumPasswords = '';
+    
+    if (client.category === 'Contas Premium' && decryptedPremiumAccounts.length > 0) {
+      // Format all premium accounts
+      premiumAccountsText = decryptedPremiumAccounts.map(acc => 
+        `🏷️ *${acc.plan_name}*\n📧 Email: ${acc.email || ''}\n🔐 Senha: ${acc.decryptedPassword || ''}`
+      ).join('\n\n');
+      
+      // Also provide individual lists
+      allPremiumEmails = decryptedPremiumAccounts.map(acc => 
+        `${acc.plan_name}: ${acc.email || ''}`
+      ).join('\n');
+      
+      allPremiumPasswords = decryptedPremiumAccounts.map(acc => 
+        `${acc.plan_name}: ${acc.decryptedPassword || ''}`
+      ).join('\n');
+    }
+
     return text
       .replace(/{nome}/gi, client.name)
       .replace(/{login}/gi, login)
       .replace(/{senha}/gi, password)
       .replace(/{conta_premium}/gi, contaPremium)
-      .replace(/{email_premium}/gi, client.email || '')
-      .replace(/{senha_premium}/gi, premiumPassword)
+      .replace(/{contas_premium}/gi, premiumAccountsText)
+      .replace(/{email_premium}/gi, allPremiumEmails || client.email || '')
+      .replace(/{senha_premium}/gi, allPremiumPasswords || premiumPassword)
       .replace(/{vencimento}/gi, format(expDate, 'dd/MM/yyyy'))
       .replace(/{vencimento_dinamico}/gi, dynamicDate)
       .replace(/{preco}/gi, client.plan_price?.toFixed(2) || '0.00')
