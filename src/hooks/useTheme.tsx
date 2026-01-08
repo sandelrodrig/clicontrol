@@ -6,8 +6,8 @@ export type ThemeColor = 'netflix' | 'neon-blue' | 'emerald' | 'purple' | 'orang
 
 const THEME_CACHE_KEY = 'app-theme-cache';
 
-// Função para obter tema cacheado (executada imediatamente)
-const getCachedTheme = (): ThemeColor => {
+// Função para obter tema cacheado
+const getCachedTheme = (): ThemeColor | null => {
   try {
     const cached = localStorage.getItem(THEME_CACHE_KEY);
     if (cached && ['netflix', 'neon-blue', 'emerald', 'purple', 'orange'].includes(cached)) {
@@ -16,12 +16,8 @@ const getCachedTheme = (): ThemeColor => {
   } catch {
     // localStorage não disponível
   }
-  return 'netflix';
+  return null;
 };
-
-// Aplicar tema imediatamente para evitar flash
-const initialTheme = getCachedTheme();
-document.documentElement.classList.add(`theme-${initialTheme}`);
 
 interface ThemeContextType {
   theme: ThemeColor;
@@ -33,7 +29,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [localTheme, setLocalTheme] = useState<ThemeColor>(getCachedTheme);
+  const [localTheme, setLocalTheme] = useState<ThemeColor>(getCachedTheme() || 'netflix');
   
   // Fetch global theme from database
   const { data: globalTheme, isLoading } = useQuery({
