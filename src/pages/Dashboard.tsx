@@ -120,16 +120,40 @@ export default function Dashboard() {
   });
 
   const { data: sellers = [] } = useQuery({
-    queryKey: ['sellers-count'],
+    queryKey: ['admin-sellers-dashboard'],
     queryFn: async () => {
       if (!isAdmin) return [];
-      const { data, error } = await supabase
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, subscription_expires_at, is_permanent');
+        .select('id, subscription_expires_at, is_permanent, is_active, full_name, email');
+      if (profilesError) throw profilesError;
+
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      const adminIds = roles?.filter(r => r.role === 'admin').map(r => r.user_id) || [];
+      
+      return (profiles || []).filter(p => !adminIds.includes(p.id) && p.is_active !== false);
+    },
+    enabled: isAdmin,
+  });
+
+  // Fetch admin monthly profits for tracking reseller renewals
+  const { data: adminMonthlyProfits = [] } = useQuery({
+    queryKey: ['admin-monthly-profits', user?.id],
+    queryFn: async () => {
+      if (!user?.id || !isAdmin) return [];
+      const { data, error } = await supabase
+        .from('monthly_profits')
+        .select('*')
+        .eq('seller_id', user.id)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: isAdmin,
+    enabled: !!user?.id && isAdmin,
   });
 
   // Fetch app settings (price)
@@ -270,6 +294,22 @@ export default function Dashboard() {
     const date = new Date(s.subscription_expires_at);
     return !isNaN(date.getTime()) && isBefore(date, today);
   });
+
+  // Admin financial calculations
+  const currentMonth = today.getMonth() + 1;
+  const currentYear = today.getFullYear();
+  const currentMonthProfit = adminMonthlyProfits.find(p => p.month === currentMonth && p.year === currentYear);
+  
+  // Total revenue from all saved months (historical)
+  const adminTotalRevenue = adminMonthlyProfits.reduce((sum, p) => sum + (p.revenue || 0), 0);
+  
+  // Current month revenue (from saved profit or calculate potential)
+  const adminMonthlyRevenue = currentMonthProfit?.revenue || 0;
+  
+  // Estimated profit from active sellers (potential monthly income)
+  const pricePerMonth = parseFloat(appMonthlyPrice) || 25;
+  const payingSellersCount = activeSellers.filter(s => !s.is_permanent).length;
+  const adminEstimatedMonthlyProfit = payingSellersCount * pricePerMonth;
 
   // Subscription days remaining for seller
   const subscriptionDaysRemaining = profile?.subscription_expires_at 
@@ -746,6 +786,7 @@ export default function Dashboard() {
       {/* Admin Dashboard */}
       {isAdmin && (
         <>
+          {/* Admin Stats Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
               title="Total de Vendedores"
@@ -772,6 +813,62 @@ export default function Dashboard() {
               variant="default"
             />
           </div>
+
+          {/* Admin Financial Stats */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="border-success/30 bg-gradient-to-br from-success/5 to-success/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Total Arrecadado
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-success">
+                  {isPrivacyMode ? 'R$ ●●●' : `R$ ${adminTotalRevenue.toFixed(2).replace('.', ',')}`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Soma de todas as renovações salvas
+                </p>
+                {adminMonthlyRevenue > 0 && (
+                  <p className="text-sm text-success/80 mt-2">
+                    +R$ {adminMonthlyRevenue.toFixed(2).replace('.', ',')} este mês
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Lucro Estimado Mensal
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-primary">
+                  {isPrivacyMode ? 'R$ ●●●' : `R$ ${adminEstimatedMonthlyProfit.toFixed(2).replace('.', ',')}`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {payingSellersCount} vendedores pagantes × R$ {pricePerMonth.toFixed(2).replace('.', ',')}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Monthly Profit History for Admin */}
+          {user?.id && (
+            <MonthlyProfitHistory 
+              sellerId={user.id}
+              currentRevenue={adminMonthlyRevenue}
+              currentServerCosts={0}
+              currentBillsCosts={0}
+              currentNetProfit={adminMonthlyRevenue}
+              currentActiveClients={payingSellersCount}
+              isPrivacyMode={isPrivacyMode}
+              maskData={maskData}
+            />
+          )}
 
           {/* GerenciaApp Admin Card */}
           <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10">
