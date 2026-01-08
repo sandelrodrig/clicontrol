@@ -44,6 +44,7 @@ import { SharedCreditPicker, SharedCreditSelection } from '@/components/SharedCr
 import { Badge } from '@/components/ui/badge';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { ClientExternalApps, ClientExternalAppsDisplay } from '@/components/ClientExternalApps';
+import { ClientPremiumAccounts, ClientPremiumAccountsDisplay, PremiumAccount } from '@/components/ClientPremiumAccounts';
 import { BulkLoyaltyMessage } from '@/components/BulkLoyaltyMessage';
 
 // Interface for MAC devices
@@ -161,6 +162,7 @@ export default function Clients() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [selectedSharedCredit, setSelectedSharedCredit] = useState<SharedCreditSelection | null>(null);
   const [externalApps, setExternalApps] = useState<{ appId: string; devices: { name: string; mac: string; device_key?: string }[]; email: string; password: string; expirationDate: string }[]>([]);
+  const [premiumAccounts, setPremiumAccounts] = useState<PremiumAccount[]>([]);
   // State for popovers inside the dialog
   const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [expirationPopoverOpen, setExpirationPopoverOpen] = useState(false);
@@ -604,6 +606,28 @@ export default function Clients() {
         }
       }
       
+      // Save premium accounts for this client (only for Contas Premium category)
+      if (premiumAccounts.length > 0 && insertedData?.id) {
+        for (const account of premiumAccounts) {
+          if (!account.planName && !account.email) continue;
+          
+          const { error: premiumError } = await supabase.from('client_premium_accounts').insert([{
+            client_id: insertedData.id,
+            seller_id: user!.id,
+            plan_name: account.planName || null,
+            email: account.email || null,
+            password: account.password || null,
+            price: account.price ? parseFloat(account.price) : 0,
+            expiration_date: account.expirationDate || null,
+            notes: account.notes || null,
+          }]);
+          
+          if (premiumError) {
+            console.error('Error saving premium account:', premiumError);
+          }
+        }
+      }
+      
       return insertedData;
     },
     onSuccess: () => {
@@ -674,6 +698,32 @@ export default function Clients() {
             }
           }
         }
+        
+        // Save/update premium accounts for this client
+        // Delete existing premium accounts
+        await supabase.from('client_premium_accounts').delete().eq('client_id', id);
+        
+        // Insert updated premium accounts
+        if (premiumAccounts.length > 0) {
+          for (const account of premiumAccounts) {
+            if (!account.planName && !account.email) continue;
+            
+            const { error: premiumError } = await supabase.from('client_premium_accounts').insert([{
+              client_id: id,
+              seller_id: user.id,
+              plan_name: account.planName || null,
+              email: account.email || null,
+              password: account.password || null,
+              price: account.price ? parseFloat(account.price) : 0,
+              expiration_date: account.expirationDate || null,
+              notes: account.notes || null,
+            }]);
+            
+            if (premiumError) {
+              console.error('Error saving premium account:', premiumError);
+            }
+          }
+        }
       }
 
       // Clear cached decrypted credentials for this client
@@ -686,6 +736,7 @@ export default function Clients() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['client-external-apps'] });
+      queryClient.invalidateQueries({ queryKey: ['client-premium-accounts'] });
       toast.success('Cliente atualizado!');
       resetForm();
       setIsDialogOpen(false);
@@ -848,6 +899,7 @@ export default function Clients() {
     });
     setSelectedSharedCredit(null);
     setExternalApps([]);
+    setPremiumAccounts([]);
   };
 
   const handlePlanChange = (planId: string) => {
@@ -934,16 +986,29 @@ export default function Clients() {
       }
     }
 
+    // For Contas Premium, calculate total price from premium accounts
+    const isPremiumCategory = formData.category === 'Contas Premium';
+    const premiumTotalPrice = isPremiumCategory 
+      ? premiumAccounts.reduce((sum, acc) => sum + (parseFloat(acc.price) || 0), 0)
+      : null;
+    
+    // Get the earliest expiration date from premium accounts if category is Premium
+    const premiumExpirationDate = isPremiumCategory && premiumAccounts.length > 0
+      ? premiumAccounts
+          .filter(acc => acc.expirationDate)
+          .sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime())[0]?.expirationDate
+      : null;
+
     const data: Record<string, unknown> = {
       name: formData.name,
       phone: formData.phone || null,
       telegram: formData.telegram || null,
       email: formData.email || null,
       device: formData.device || null,
-      expiration_date: formData.expiration_date,
+      expiration_date: isPremiumCategory && premiumExpirationDate ? premiumExpirationDate : formData.expiration_date,
       plan_id: formData.plan_id || null,
       plan_name: formData.plan_name || null,
-      plan_price: formData.plan_price ? parseFloat(formData.plan_price) : null,
+      plan_price: isPremiumCategory ? premiumTotalPrice : (formData.plan_price ? parseFloat(formData.plan_price) : null),
       premium_price: formData.premium_price ? parseFloat(formData.premium_price) : null,
       server_id: formData.server_id || null,
       server_name: formData.server_name || null,
@@ -982,9 +1047,30 @@ export default function Clients() {
   const handleEdit = async (client: Client) => {
     setEditingClient(client);
     
-    // Reset external apps and shared credits so they reload from the database
+    // Reset external apps, premium accounts and shared credits so they reload from the database
     setExternalApps([]);
+    setPremiumAccounts([]);
     setSelectedSharedCredit(null);
+    
+    // Load premium accounts for this client
+    if (client.id) {
+      const { data: existingPremiumAccounts } = await supabase
+        .from('client_premium_accounts')
+        .select('*')
+        .eq('client_id', client.id);
+      
+      if (existingPremiumAccounts && existingPremiumAccounts.length > 0) {
+        setPremiumAccounts(existingPremiumAccounts.map(acc => ({
+          planId: acc.plan_name || '', // Using plan_name as planId since we store the name
+          planName: acc.plan_name || '',
+          email: acc.email || '',
+          password: acc.password || '',
+          price: acc.price?.toString() || '',
+          expirationDate: acc.expiration_date || '',
+          notes: acc.notes || '',
+        })));
+      }
+    }
     
     // Decrypt credentials for editing
     let decryptedLogin = '';
@@ -1513,60 +1599,15 @@ export default function Clients() {
                   />
                 </div>
 
-                {/* Premium Account Fields - Only show for Contas Premium category */}
-                {formData.category === 'Contas Premium' && (
-                  <>
-                    <div className="md:col-span-2 p-4 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Sparkles className="h-5 w-5 text-amber-500" />
-                        <h4 className="font-semibold text-amber-600 dark:text-amber-400">Dados da Conta Premium</h4>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Plano Premium</Label>
-                          <PlanSelector
-                            plans={plans}
-                            value={formData.plan_id || ''}
-                            onValueChange={handlePlanChange}
-                            placeholder="Selecione a conta (Netflix, Spotify...)"
-                            showFilters={true}
-                            defaultCategory="Premium"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="plan_price">Valor (R$)</Label>
-                          <Input
-                            id="plan_price"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.plan_price}
-                            onChange={(e) => setFormData({ ...formData, plan_price: e.target.value })}
-                            placeholder="Ex: 15.00"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="email">Email da Conta</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            placeholder="email@premium.com"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="premium_password">Senha da Conta</Label>
-                          <Input
-                            id="premium_password"
-                            value={formData.premium_password}
-                            onChange={(e) => setFormData({ ...formData, premium_password: e.target.value })}
-                            placeholder="Senha da conta"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </>
+                {/* Premium Accounts - Multiple accounts for Contas Premium category */}
+                {formData.category === 'Contas Premium' && user && (
+                  <div className="md:col-span-2 p-4 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30">
+                    <ClientPremiumAccounts
+                      sellerId={user.id}
+                      onChange={setPremiumAccounts}
+                      initialAccounts={premiumAccounts}
+                    />
+                  </div>
                 )}
                 
                 <div className="space-y-2 md:col-span-2">
