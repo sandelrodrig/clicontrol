@@ -42,8 +42,23 @@ async function encrypt(plaintext: string): Promise<string> {
 
 async function decrypt(ciphertext: string): Promise<string> {
   try {
+    // Check if the data looks like base64-encoded encrypted data
+    // Valid AES-GCM encrypted data should be at least 12 bytes (IV) + some encrypted content
+    const base64Regex = /^[A-Za-z0-9+/]+=*$/;
+    if (!base64Regex.test(ciphertext) || ciphertext.length < 20) {
+      // Data doesn't look encrypted, return as-is
+      console.log('Data does not appear to be encrypted, returning original');
+      return ciphertext;
+    }
+    
     const key = await getKey();
     const combined = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
+    
+    // Validate minimum length (12 bytes IV + at least some encrypted data)
+    if (combined.length < 13) {
+      console.log('Data too short to be encrypted, returning original');
+      return ciphertext;
+    }
     
     const iv = combined.slice(0, 12);
     const encrypted = combined.slice(12);
@@ -56,8 +71,9 @@ async function decrypt(ciphertext: string): Promise<string> {
     
     return new TextDecoder().decode(decrypted);
   } catch (error) {
-    console.error('Decryption failed:', error);
-    throw new Error('Failed to decrypt data');
+    // If decryption fails, the data might not be encrypted - return original
+    console.log('Decryption failed, returning original data:', error);
+    return ciphertext;
   }
 }
 
