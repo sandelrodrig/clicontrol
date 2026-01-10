@@ -29,7 +29,7 @@ import {
   Monitor,
   ExternalLink,
 } from 'lucide-react';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ThemeSelector } from '@/components/ThemeSelector';
@@ -630,6 +630,30 @@ export default function Settings() {
               <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
             ) : undefined
           }
+        />
+        <SettingItem
+          icon={Trash2}
+          title="Limpar Cache"
+          description="Resolver problemas de dados antigos"
+          onClick={() => {
+            // Clear all localStorage except essential items
+            const keysToKeep = ['app-theme-cache'];
+            const allKeys = Object.keys(localStorage);
+            allKeys.forEach(key => {
+              if (!keysToKeep.includes(key)) {
+                localStorage.removeItem(key);
+              }
+            });
+            
+            // Clear sessionStorage
+            sessionStorage.clear();
+            
+            // Clear React Query cache
+            queryClient.clear();
+            
+            toast.success('Cache limpo! Recarregando...');
+            setTimeout(() => window.location.reload(), 1000);
+          }}
         />
         <SettingItem
           icon={RefreshCw}
