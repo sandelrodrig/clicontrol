@@ -2536,7 +2536,7 @@ export default function Clients() {
                         </span>
                         {client.category && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                            {client.category}
+                            {typeof client.category === 'object' ? (client.category as any)?.name : client.category}
                           </span>
                         )}
                       </div>
