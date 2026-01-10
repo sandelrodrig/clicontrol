@@ -480,7 +480,8 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
     let allPremiumEmails = '';
     let allPremiumPasswords = '';
     
-    if (client.category === 'Contas Premium' && decryptedPremiumAccounts.length > 0) {
+    const categoryName = typeof client.category === 'object' ? (client.category as any)?.name : client.category;
+    if (categoryName === 'Contas Premium' && decryptedPremiumAccounts.length > 0) {
       // Format all premium accounts
       premiumAccountsText = decryptedPremiumAccounts.map(acc => 
         `🏷️ *${acc.plan_name}*\n📧 Email: ${acc.email || ''}\n🔐 Senha: ${acc.decryptedPassword || ''}`

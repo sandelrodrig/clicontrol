@@ -618,10 +618,10 @@ export function BulkImportClients({ plans }: BulkImportClientsProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium truncate">{client.name || '(sem nome)'}</span>
-                        {client.valid && (
+                        {client.valid && client.category && (
                           <>
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
-                              {client.category}
+                              {typeof client.category === 'object' ? (client.category as any)?.name : client.category}
                             </Badge>
                             {client.detected_plan_name && (
                               <Badge 
