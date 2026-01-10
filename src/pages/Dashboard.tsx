@@ -229,18 +229,24 @@ export default function Dashboard() {
     };
   }).sort((a, b) => b.profit - a.profit);
 
-  // Get all unique categories from clients
-  const allCategories = [...new Set(clients.map(c => c.category || 'Sem categoria'))];
+  // Get all unique categories from clients (handle object categories)
+  const getCategoryString = (cat: unknown): string => {
+    if (!cat) return 'Sem categoria';
+    if (typeof cat === 'object') return (cat as { name?: string })?.name || 'Sem categoria';
+    return String(cat);
+  };
+  
+  const allCategories = [...new Set(clients.map(c => getCategoryString(c.category)))];
 
   // Calculate revenue per category (based on monthly renewals)
   const categoryProfits = allCategories.map(category => {
     const categoryClients = clients.filter(c => {
-      if ((c.category || 'Sem categoria') !== category || !c.is_paid || !c.renewed_at) return false;
+      if (getCategoryString(c.category) !== category || !c.is_paid || !c.renewed_at) return false;
       const renewedDate = new Date(c.renewed_at);
       return !isBefore(renewedDate, monthStart) && !isBefore(new Date(c.expiration_date), today);
     });
     const categoryRevenue = categoryClients.reduce((sum, c) => sum + (c.plan_price || 0) + (c.premium_price || 0), 0);
-    const totalCategoryClients = clients.filter(c => (c.category || 'Sem categoria') === category).length;
+    const totalCategoryClients = clients.filter(c => getCategoryString(c.category) === category).length;
     
     return {
       category,

@@ -219,7 +219,7 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
       if (error) throw error;
       return data as PremiumAccountData[];
     },
-    enabled: !!client.id && open && client.category === 'Contas Premium',
+    enabled: !!client.id && open && (typeof client.category === 'object' ? (client.category as any)?.name : client.category) === 'Contas Premium',
   });
 
   // Decrypt premium accounts passwords
