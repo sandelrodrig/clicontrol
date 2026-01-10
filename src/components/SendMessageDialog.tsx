@@ -296,9 +296,11 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
     enabled: !!user?.id,
   });
 
-  // Get custom categories
+  // Get custom categories (names only)
+  // IMPORTANT: use a dedicated queryKey to avoid React Query cache collisions with pages
+  // that fetch full category objects.
   const { data: customCategories = [] } = useQuery({
-    queryKey: ['client-categories', user?.id],
+    queryKey: ['client-categories-names', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('client_categories')
@@ -306,7 +308,7 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
         .eq('seller_id', user!.id)
         .order('name');
       if (error) throw error;
-      return data.map(c => c.name);
+      return (data || []).map((c: { name: string | null }) => c.name).filter(Boolean) as string[];
     },
     enabled: !!user?.id,
   });
