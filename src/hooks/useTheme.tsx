@@ -39,16 +39,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         .from('app_settings')
         .select('value')
         .eq('key', 'app_theme')
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching theme:', error);
-        return 'netflix' as ThemeColor;
+        return getCachedTheme() || 'netflix' as ThemeColor;
       }
       
-      return (data?.value as ThemeColor) || 'netflix';
+      return (data?.value as ThemeColor) || getCachedTheme() || 'netflix';
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1,
   });
 
   // Mutation to update theme in database
