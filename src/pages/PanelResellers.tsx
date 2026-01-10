@@ -406,7 +406,7 @@ export default function PanelResellers() {
       return (
         reseller.name.toLowerCase().includes(searchLower) ||
         reseller.whatsapp.includes(search) ||
-        (reseller.server_name?.toLowerCase().includes(searchLower))
+        (reseller.server_name || '').toLowerCase().includes(searchLower)
       );
     }
     return true;

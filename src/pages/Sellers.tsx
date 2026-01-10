@@ -394,10 +394,11 @@ export default function Sellers() {
 
   const filteredSellers = sellers.filter((seller) => {
     if (!seller.is_active) return false;
-    
+
+    const searchLower = search.toLowerCase();
     const matchesSearch =
-      seller.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      seller.email.toLowerCase().includes(search.toLowerCase());
+      (seller.full_name || '').toLowerCase().includes(searchLower) ||
+      seller.email.toLowerCase().includes(searchLower);
 
     if (!matchesSearch) return false;
 

@@ -1247,23 +1247,23 @@ export default function Clients() {
     const normalizedSearch = normalizeText(rawSearch);
     const normalizedName = normalizeText(client.name);
 
-    // Check decrypted credentials if available
+    // Check decrypted credentials if available (safe string fallbacks)
     const clientCredentials = decryptedCredentials[client.id];
-    const loginMatch = clientCredentials?.login?.toLowerCase().includes(searchLower) || false;
-    const passwordMatch = clientCredentials?.password?.toLowerCase().includes(searchLower) || false;
-    const login2Match = clientCredentials?.login_2?.toLowerCase().includes(searchLower) || false;
-    const password2Match = clientCredentials?.password_2?.toLowerCase().includes(searchLower) || false;
+    const loginMatch = (clientCredentials?.login || '').toLowerCase().includes(searchLower);
+    const passwordMatch = (clientCredentials?.password || '').toLowerCase().includes(searchLower);
+    const login2Match = (clientCredentials?.login_2 || '').toLowerCase().includes(searchLower);
+    const password2Match = (clientCredentials?.password_2 || '').toLowerCase().includes(searchLower);
 
-    // Also check raw login/password for unencrypted data
-    const rawLoginMatch = client.login?.toLowerCase().includes(searchLower) || false;
-    const rawPasswordMatch = client.password?.toLowerCase().includes(searchLower) || false;
-    const rawLogin2Match = client.login_2?.toLowerCase().includes(searchLower) || false;
-    const rawPassword2Match = client.password_2?.toLowerCase().includes(searchLower) || false;
+    // Also check raw login/password for unencrypted data (safe string fallbacks)
+    const rawLoginMatch = (client.login || '').toLowerCase().includes(searchLower);
+    const rawPasswordMatch = (client.password || '').toLowerCase().includes(searchLower);
+    const rawLogin2Match = (client.login_2 || '').toLowerCase().includes(searchLower);
+    const rawPassword2Match = (client.password_2 || '').toLowerCase().includes(searchLower);
 
     const matchesSearch =
       normalizedName.includes(normalizedSearch) ||
       client.phone?.includes(rawSearch) ||
-      client.email?.toLowerCase().includes(searchLower) ||
+      (client.email || '').toLowerCase().includes(searchLower) ||
       loginMatch ||
       passwordMatch ||
       login2Match ||
