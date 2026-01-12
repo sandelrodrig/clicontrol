@@ -1905,8 +1905,8 @@ export default function Clients() {
                   </p>
                 </div>
 
-                {/* IPTV/SSH Login and Password - Only show for IPTV, P2P, or SSH categories */}
-                {(formData.category === 'IPTV' || formData.category === 'P2P' || formData.category === 'SSH') && (
+                {/* IPTV/SSH Login and Password - Only show for IPTV, P2P, SSH, or Revendedor categories */}
+                {(formData.category === 'IPTV' || formData.category === 'P2P' || formData.category === 'SSH' || formData.category === 'Revendedor') && (
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="login" className="flex items-center gap-1">
@@ -2112,8 +2112,8 @@ export default function Clients() {
                 </div>
               </div>
 
-              {/* Shared Credit Picker - Show for IPTV/P2P/SSH (both new and existing clients) */}
-              {formData.server_id && (formData.category === 'IPTV' || formData.category === 'P2P' || formData.category === 'SSH') && user && (
+              {/* Shared Credit Picker - Show for IPTV/P2P/SSH/Revendedor (both new and existing clients) */}
+              {formData.server_id && (formData.category === 'IPTV' || formData.category === 'P2P' || formData.category === 'SSH' || formData.category === 'Revendedor') && user && (
                 <SharedCreditPicker
                   sellerId={user.id}
                   category={formData.category}
