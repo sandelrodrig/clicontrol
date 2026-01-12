@@ -2961,13 +2961,26 @@ export default function Clients() {
                         <Button
                           variant="outline"
                           size="sm"
+                          className="h-7 text-xs gap-1 text-warning hover:text-warning"
+                          onClick={() => {
+                            if (confirm('Mover cliente para a lixeira?')) {
+                              archiveMutation.mutate(client.id);
+                            }
+                          }}
+                          title="Mover para lixeira"
+                        >
+                          <Archive className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="h-7 text-xs gap-1 text-destructive hover:text-destructive"
                           onClick={() => {
-                            if (confirm('Tem certeza que deseja excluir este cliente?')) {
+                            if (confirm('Tem certeza que deseja excluir este cliente permanentemente?')) {
                               deleteMutation.mutate(client.id);
                             }
                           }}
-                          title="Excluir cliente"
+                          title="Excluir permanentemente"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>

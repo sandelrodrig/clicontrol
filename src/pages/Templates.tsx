@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, MessageSquare, Edit, Trash2, Copy, Info, Tv, Wifi, Crown, Tag, Send, Users } from 'lucide-react';
+import { Plus, MessageSquare, Edit, Trash2, Copy, Info, Tv, Wifi, Crown, Tag, Send, Users, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Template {
@@ -178,6 +178,21 @@ export default function Templates() {
       toast.success('Template criado com sucesso!');
       resetForm();
       setIsDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('client_categories').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['template-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['client-categories'] });
+      toast.success('Categoria excluída!');
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -490,12 +505,24 @@ const getCategoryIcon = (name: string) => {
             </Button>
           </div>
           {customCategories.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2 items-center">
               <span className="text-sm text-muted-foreground">Suas categorias:</span>
               {customCategories.map((cat) => (
-                <span key={cat.id} className="text-xs bg-muted px-2 py-1 rounded">
-                  {cat.name}
-                </span>
+                <div key={cat.id} className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded group">
+                  <span>{cat.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`Excluir categoria "${cat.name}"?`)) {
+                        deleteCategoryMutation.mutate(cat.id);
+                      }
+                    }}
+                    className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                    title="Excluir categoria"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
