@@ -42,8 +42,8 @@ interface TemplateCategory {
   seller_id: string;
 }
 
-// Default categories (Vendedores is admin-only)
-const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Contas Premium'] as const;
+// Default categories (Vendedores is admin-only, Revendedor is seller-only)
+const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Contas Premium', 'Revendedor'] as const;
 const ADMIN_CATEGORIES = ['Vendedores'] as const;
 
 // Platforms for message sending
@@ -84,6 +84,19 @@ const clientVariables = [
   { name: '{servidor}', description: 'Nome do servidor' },
   { name: '{pix}', description: 'Chave PIX para pagamento' },
   { name: '{telegram}', description: 'Username do Telegram (@usuario)' },
+];
+
+// Available variables for reseller templates (Revendedor category)
+const resellerVariables = [
+  { name: '{nome}', description: 'Nome do revendedor' },
+  { name: '{link_painel}', description: 'Link do painel do revendedor' },
+  { name: '{usuario}', description: 'Usuário do painel' },
+  { name: '{senha}', description: 'Senha do painel' },
+  { name: '{valor}', description: 'Valor do plano (apenas cobrança)' },
+  { name: '{vencimento}', description: 'Data de vencimento' },
+  { name: '{servidor}', description: 'Nome do servidor' },
+  { name: '{pix}', description: 'Chave PIX para pagamento' },
+  { name: '{empresa}', description: 'Nome da sua empresa' },
 ];
 
 // Available variables for seller templates (Admin only)
@@ -285,13 +298,14 @@ export default function Templates() {
     custom: 'bg-muted text-muted-foreground',
   };
 
-  const getCategoryIcon = (name: string) => {
+const getCategoryIcon = (name: string) => {
     switch (name) {
       case 'IPTV': return <Tv className="h-4 w-4" />;
       case 'P2P': return <Wifi className="h-4 w-4" />;
       case 'SSH': return <Wifi className="h-4 w-4" />;
       case 'Contas Premium': return <Crown className="h-4 w-4" />;
       case 'Vendedores': return <Users className="h-4 w-4" />;
+      case 'Revendedor': return <Users className="h-4 w-4" />;
       default: return <Tag className="h-4 w-4" />;
     }
   };
@@ -313,9 +327,10 @@ export default function Templates() {
       if (categoryFilter === 'SSH' && !templateName.includes('ssh')) return false;
       if (categoryFilter === 'Contas Premium' && !templateName.includes('premium')) return false;
       if (categoryFilter === 'Vendedores' && !templateName.includes('vendedor')) return false;
+      if (categoryFilter === 'Revendedor' && !templateName.includes('revendedor')) return false;
       
       // For custom categories, check if template name contains the category name
-      if (!['IPTV', 'P2P', 'SSH', 'Contas Premium', 'Vendedores'].includes(categoryFilter)) {
+      if (!['IPTV', 'P2P', 'SSH', 'Contas Premium', 'Vendedores', 'Revendedor'].includes(categoryFilter)) {
         if (!templateName.includes(filterLower)) return false;
       }
     }

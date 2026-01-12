@@ -42,6 +42,7 @@ interface Client {
   plan_id: string | null;
   plan_name: string | null;
   plan_price: number | null;
+  server_id: string | null;
   server_name: string | null;
   login: string | null;
   password: string | null;
@@ -64,7 +65,7 @@ interface SendMessageDialogProps {
 }
 
 // Default categories
-const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Contas Premium'];
+const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'SSH', 'Contas Premium', 'Revendedor'];
 
 // Duration options for filtering
 const DURATION_FILTERS = [
@@ -327,6 +328,19 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
     enabled: !!user?.id,
   });
 
+  // Get servers to get panel_url for reseller templates
+  const { data: servers = [] } = useQuery({
+    queryKey: ['servers-panel-url', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('servers')
+        .select('id, name, panel_url')
+        .eq('seller_id', user!.id);
+      if (error) throw error;
+      return data as { id: string; name: string; panel_url: string | null }[];
+    },
+    enabled: !!user?.id,
+  });
   // Get client's plan duration
   const clientPlanDuration = client.plan_id 
     ? plans.find(p => p.id === client.plan_id)?.duration_days 
@@ -345,6 +359,7 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
       case 'P2P': return <Wifi className="h-3 w-3" />;
       case 'SSH': return <Wifi className="h-3 w-3" />;
       case 'Contas Premium': return <Crown className="h-3 w-3" />;
+      case 'Revendedor': return <Tag className="h-3 w-3" />;
       default: return <Tag className="h-3 w-3" />;
     }
   };
@@ -420,6 +435,7 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
       if (categoryFilter === 'P2P' && !templateName.includes('p2p')) return false;
       if (categoryFilter === 'SSH' && !templateName.includes('ssh')) return false;
       if (categoryFilter === 'Contas Premium' && !templateName.includes('premium')) return false;
+      if (categoryFilter === 'Revendedor' && !templateName.includes('revendedor')) return false;
       
       // For custom categories
       if (!DEFAULT_CATEGORIES.includes(categoryFilter)) {
@@ -499,10 +515,16 @@ export function SendMessageDialog({ client, open, onOpenChange, onMessageSent }:
       ).join('\n');
     }
 
+    // Get panel URL for reseller category
+    const clientServer = client.server_id ? servers.find(s => s.id === client.server_id) : null;
+    const panelUrl = clientServer?.panel_url || '';
+
     return text
       .replace(/{nome}/gi, client.name)
       .replace(/{login}/gi, login)
       .replace(/{senha}/gi, password)
+      .replace(/{usuario}/gi, login) // Alias for reseller templates
+      .replace(/{link_painel}/gi, panelUrl) // Panel URL for resellers
       .replace(/{conta_premium}/gi, contaPremium)
       .replace(/{contas_premium}/gi, premiumAccountsText)
       .replace(/{email_premium}/gi, allPremiumEmails || client.email || '')

@@ -125,7 +125,7 @@ interface ServerData {
 type FilterType = 'all' | 'active' | 'expiring' | 'expired' | 'expired_not_called' | 'unpaid' | 'with_paid_apps' | 'archived';
 type CategoryFilterType = 'all' | 'IPTV' | 'P2P' | 'Contas Premium' | 'SSH' | 'custom';
 
-const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH'] as const;
+const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH', 'Revendedor'] as const;
 
 const DEVICE_OPTIONS = [
   { value: 'Smart TV', label: 'Smart TV', icon: Tv },
@@ -138,7 +138,7 @@ const DEVICE_OPTIONS = [
 ] as const;
 
 export default function Clients() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { encrypt, decrypt } = useCrypto();
   const { isPrivacyMode, maskData } = usePrivacyMode();
   const { isOffline, lastSync, syncClients: syncOfflineClients, loading: offlineLoading } = useOfflineClients();
@@ -2512,15 +2512,20 @@ export default function Clients() {
             const isDecrypting = decrypting === client.id;
             const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
             const isRecentlyAdded = client.created_at && new Date(client.created_at) > twoHoursAgo;
+            const categoryName = typeof client.category === 'object' ? (client.category as any)?.name : client.category;
+            const isReseller = categoryName === 'Revendedor';
             
             return (
               <Card
                 key={client.id}
                 className={cn(
                   'border-l-4 transition-all duration-200 hover:shadow-lg animate-slide-up',
-                  statusColors[status],
+                  // Different border color for resellers (only for sellers, not admin)
+                  isReseller && !isAdmin ? 'border-l-purple-500' : statusColors[status],
                   !client.is_paid && 'ring-1 ring-destructive/50',
-                  isRecentlyAdded && 'ring-2 ring-primary/50 bg-primary/5'
+                  isRecentlyAdded && 'ring-2 ring-primary/50 bg-primary/5',
+                  // Subtle background for resellers (only for sellers)
+                  isReseller && !isAdmin && 'bg-purple-500/5'
                 )}
               >
                 <CardContent className="p-4">
@@ -2539,8 +2544,13 @@ export default function Clients() {
                           {statusLabels[status]} {daysLeft > 0 && status !== 'expired' && `(${daysLeft}d)`}
                         </span>
                         {client.category && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                            {typeof client.category === 'object' ? (client.category as any)?.name : client.category}
+                          <span className={cn(
+                            'text-xs px-2 py-0.5 rounded-full',
+                            isReseller && !isAdmin 
+                              ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400' 
+                              : 'bg-primary/10 text-primary'
+                          )}>
+                            {categoryName}
                           </span>
                         )}
                       </div>
