@@ -46,6 +46,7 @@ import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { ClientExternalApps, ClientExternalAppsDisplay } from '@/components/ClientExternalApps';
 import { ClientPremiumAccounts, ClientPremiumAccountsDisplay, PremiumAccount } from '@/components/ClientPremiumAccounts';
 import { BulkLoyaltyMessage } from '@/components/BulkLoyaltyMessage';
+import { ExpirationDaySummary } from '@/components/ExpirationDaySummary';
 
 // Interface for MAC devices
 interface MacDevice {
@@ -2472,6 +2473,9 @@ export default function Clients() {
           )}
         </div>
       </div>
+
+      {/* Expiration Day Summary - Shows clients expiring in the next 5 days */}
+      <ExpirationDaySummary clients={clients} isPrivacyMode={isPrivacyMode} />
 
       {/* Clients Grid */}
       {isLoading ? (
