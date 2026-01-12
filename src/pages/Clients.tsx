@@ -490,13 +490,73 @@ export default function Clients() {
     }
   }, [clients, decryptedCredentials, allCredentialsDecrypted]);
 
+  // Helper function to find existing client with same credentials on same server
+  const findExistingClientWithCredentials = async (
+    serverId: string,
+    plainLogin: string,
+    plainPassword: string
+  ): Promise<{ encryptedLogin: string; encryptedPassword: string; clientCount: number } | null> => {
+    if (!serverId || !plainLogin) return null;
+
+    // Fetch all clients on this server with credentials
+    const { data: serverClients, error } = await supabase
+      .from('clients')
+      .select('id, login, password, category')
+      .eq('seller_id', user!.id)
+      .eq('server_id', serverId)
+      .eq('is_archived', false)
+      .not('login', 'is', null);
+
+    if (error || !serverClients) return null;
+
+    // Decrypt and compare each client's credentials
+    for (const client of serverClients) {
+      if (!client.login) continue;
+      try {
+        const decryptedLogin = await decrypt(client.login);
+        const decryptedPassword = client.password ? await decrypt(client.password) : '';
+        
+        // Check if this matches the new credentials
+        if (decryptedLogin === plainLogin && decryptedPassword === plainPassword) {
+          // Count all clients with these same encrypted credentials on this server
+          const matchingClients = serverClients.filter(c => 
+            c.login === client.login && c.password === client.password
+          );
+          
+          return {
+            encryptedLogin: client.login,
+            encryptedPassword: client.password || '',
+            clientCount: matchingClients.length,
+          };
+        }
+      } catch (e) {
+        // Decryption failed, try plain text comparison
+        if (client.login === plainLogin && (client.password || '') === plainPassword) {
+          const matchingClients = serverClients.filter(c => 
+            c.login === client.login && c.password === client.password
+          );
+          return {
+            encryptedLogin: client.login,
+            encryptedPassword: client.password || '',
+            clientCount: matchingClients.length,
+          };
+        }
+      }
+    }
+
+    return null;
+  };
+
+  // Maximum clients per shared credential (global limit)
+  const MAX_CLIENTS_PER_CREDENTIAL = 3;
+
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null; screens?: string; category?: string | null; has_paid_apps?: boolean; paid_apps_duration?: string | null; paid_apps_expiration?: string | null; telegram?: string | null; premium_password?: string | null }) => {
       // Extract screens before spreading - it's not a column in the clients table
       const { screens, ...clientData } = data;
       
       // If using shared credit, use the ORIGINAL encrypted credentials to ensure matching
-      // Otherwise, encrypt the new credentials
+      // Otherwise, check if credentials already exist and use those, or encrypt new ones
       let finalLogin: string | null;
       let finalPassword: string | null;
       
@@ -504,8 +564,33 @@ export default function Clients() {
         // Use original encrypted credentials from shared credit (avoids re-encryption mismatch)
         finalLogin = selectedSharedCredit.encryptedLogin;
         finalPassword = selectedSharedCredit.encryptedPassword || null;
+      } else if (data.server_id && data.login) {
+        // Check if there's already a client with these credentials on this server
+        const existingCredentials = await findExistingClientWithCredentials(
+          data.server_id,
+          data.login,
+          data.password || ''
+        );
+        
+        if (existingCredentials) {
+          // Validate that we haven't exceeded the maximum clients per credential
+          if (existingCredentials.clientCount >= MAX_CLIENTS_PER_CREDENTIAL) {
+            throw new Error(`Este login já possui ${existingCredentials.clientCount} clientes vinculados. Limite máximo: ${MAX_CLIENTS_PER_CREDENTIAL} clientes por vaga.`);
+          }
+          
+          // Use existing encrypted credentials to ensure proper grouping
+          finalLogin = existingCredentials.encryptedLogin;
+          finalPassword = existingCredentials.encryptedPassword || null;
+          
+          console.log(`Using existing credentials for slot grouping (${existingCredentials.clientCount + 1}/${MAX_CLIENTS_PER_CREDENTIAL} clients)`);
+        } else {
+          // New credentials - encrypt them
+          const encrypted = await encryptCredentials(data.login || null, data.password || null);
+          finalLogin = encrypted.login;
+          finalPassword = encrypted.password;
+        }
       } else {
-        // Encrypt new credentials
+        // No server or no login - encrypt normally
         const encrypted = await encryptCredentials(data.login || null, data.password || null);
         finalLogin = encrypted.login;
         finalPassword = encrypted.password;
@@ -656,9 +741,55 @@ export default function Clients() {
       updateData = cleanUpdateData;
 
       if (data.login !== undefined || data.password !== undefined) {
-        const encrypted = await encryptCredentials((data.login as any) || null, (data.password as any) || null);
-        (updateData as any).login = encrypted.login;
-        (updateData as any).password = encrypted.password;
+        const serverId = (data as any).server_id;
+        const plainLogin = (data as any).login || '';
+        const plainPassword = (data as any).password || '';
+        
+        // If we have shared credit selected, use those encrypted credentials
+        if (selectedSharedCredit?.encryptedLogin) {
+          (updateData as any).login = selectedSharedCredit.encryptedLogin;
+          (updateData as any).password = selectedSharedCredit.encryptedPassword || null;
+        } else if (serverId && plainLogin) {
+          // Check if credentials already exist on this server (excluding current client)
+          const existingCredentials = await findExistingClientWithCredentials(
+            serverId,
+            plainLogin,
+            plainPassword
+          );
+          
+          if (existingCredentials) {
+            // Exclude current client from count check
+            const currentClientInCount = existingCredentials.clientCount;
+            // The client being edited might already be using these credentials
+            // so we need to check if adding would exceed the limit
+            const { data: currentClient } = await supabase
+              .from('clients')
+              .select('login')
+              .eq('id', id)
+              .single();
+            
+            const isAlreadyUsingThese = currentClient?.login === existingCredentials.encryptedLogin;
+            const effectiveCount = isAlreadyUsingThese ? currentClientInCount : currentClientInCount + 1;
+            
+            if (effectiveCount > MAX_CLIENTS_PER_CREDENTIAL) {
+              throw new Error(`Este login já possui ${existingCredentials.clientCount} clientes vinculados. Limite máximo: ${MAX_CLIENTS_PER_CREDENTIAL} clientes por vaga.`);
+            }
+            
+            // Use existing encrypted credentials
+            (updateData as any).login = existingCredentials.encryptedLogin;
+            (updateData as any).password = existingCredentials.encryptedPassword || null;
+          } else {
+            // New credentials - encrypt them
+            const encrypted = await encryptCredentials(plainLogin || null, plainPassword || null);
+            (updateData as any).login = encrypted.login;
+            (updateData as any).password = encrypted.password;
+          }
+        } else {
+          // No server or no login - encrypt normally
+          const encrypted = await encryptCredentials((data.login as any) || null, (data.password as any) || null);
+          (updateData as any).login = encrypted.login;
+          (updateData as any).password = encrypted.password;
+        }
       }
 
       const { error } = await supabase.from('clients').update(updateData).eq('id', id);
