@@ -28,9 +28,13 @@ import { navItems, filterNavItems } from '@/config/navigation';
 function MobileMenuContent({ onNavigate }: { onNavigate?: () => void }) {
   const { profile, isAdmin, isSeller, signOut } = useAuth();
   const { isPrivacyMode, togglePrivacyMode } = usePrivacyMode();
+  const { menuStyle } = useMenuStyle();
   const location = useLocation();
 
   const filteredNavItems = filterNavItems(navItems, isAdmin, isSeller);
+
+  const isCompact = menuStyle === 'compact';
+  const isIconsOnly = menuStyle === 'icons-only';
 
   return (
     <div className="flex flex-col h-full">
@@ -43,26 +47,53 @@ function MobileMenuContent({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-        {filteredNavItems.map((item: any) => {
-          const isActive = location.pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              to={item.href}
-              onClick={onNavigate}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200',
-                isActive
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-              )}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm font-medium">{item.title}</span>
-            </Link>
-          );
-        })}
+      <nav className={cn(
+        "flex-1 overflow-y-auto py-3",
+        isCompact || isIconsOnly ? "px-3" : "px-2"
+      )}>
+        <div className={cn(
+          isCompact || isIconsOnly ? "grid gap-2" : "space-y-0.5",
+          isCompact && "grid-cols-2",
+          isIconsOnly && "grid-cols-4"
+        )}>
+          {filteredNavItems.map((item: any) => {
+            const isActive = location.pathname === item.href;
+
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  'rounded-lg transition-all duration-200',
+                  isIconsOnly
+                    ? 'h-11 flex items-center justify-center'
+                    : isCompact
+                      ? 'flex flex-col items-center gap-2 p-3'
+                      : 'flex items-center gap-3 px-3 py-2',
+                  isActive
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                )}
+                aria-label={isIconsOnly ? item.title : undefined}
+                title={isIconsOnly ? item.title : undefined}
+              >
+                <item.icon
+                  className={cn(
+                    isIconsOnly ? 'w-5 h-5' : isCompact ? 'w-6 h-6' : 'w-5 h-5 flex-shrink-0'
+                  )}
+                />
+                {isIconsOnly ? (
+                  <span className="sr-only">{item.title}</span>
+                ) : (
+                  <span className={cn(isCompact ? 'text-[11px] font-medium text-center leading-tight' : 'text-sm font-medium')}>
+                    {item.title}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       <div className="p-3 border-t border-sidebar-border space-y-2">
