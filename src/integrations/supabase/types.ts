@@ -216,6 +216,7 @@ export type Database = {
           category: string | null
           created_at: string | null
           device: string | null
+          dns: string | null
           email: string | null
           expiration_date: string
           gerencia_app_devices: Json | null
@@ -257,6 +258,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           device?: string | null
+          dns?: string | null
           email?: string | null
           expiration_date: string
           gerencia_app_devices?: Json | null
@@ -298,6 +300,7 @@ export type Database = {
           category?: string | null
           created_at?: string | null
           device?: string | null
+          dns?: string | null
           email?: string | null
           expiration_date?: string
           gerencia_app_devices?: Json | null

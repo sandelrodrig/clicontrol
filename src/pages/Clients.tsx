@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff, CheckCircle, X, DollarSign } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff, CheckCircle, X, DollarSign, Globe } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -60,6 +60,7 @@ interface Client {
   phone: string | null;
   email: string | null;
   device: string | null;
+  dns: string | null;
   expiration_date: string;
   plan_id: string | null;
   plan_name: string | null;
@@ -129,6 +130,7 @@ const DEFAULT_CATEGORIES = ['IPTV', 'P2P', 'Contas Premium', 'SSH', 'Revendedor'
 
 const DEVICE_OPTIONS = [
   { value: 'Smart TV', label: 'Smart TV', icon: Tv },
+  { value: 'TV Android', label: 'TV Android', icon: Tv },
   { value: 'Celular', label: 'Celular', icon: Smartphone },
   { value: 'TV Box', label: 'TV Box', icon: Monitor },
   { value: 'Video Game', label: 'Video Game', icon: Gamepad2 },
@@ -180,6 +182,7 @@ export default function Clients() {
     telegram: '',
     email: '',
     device: '',
+    dns: '',
     expiration_date: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
     plan_id: '',
     plan_name: '',
@@ -551,7 +554,7 @@ export default function Clients() {
   const MAX_CLIENTS_PER_CREDENTIAL = 3;
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null; screens?: string; category?: string | null; has_paid_apps?: boolean; paid_apps_duration?: string | null; paid_apps_expiration?: string | null; telegram?: string | null; premium_password?: string | null }) => {
+    mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; dns?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null; screens?: string; category?: string | null; has_paid_apps?: boolean; paid_apps_duration?: string | null; paid_apps_expiration?: string | null; telegram?: string | null; premium_password?: string | null }) => {
       // Extract screens before spreading - it's not a column in the clients table
       const { screens, ...clientData } = data;
       
@@ -1001,6 +1004,7 @@ export default function Clients() {
       telegram: '',
       email: '',
       device: '',
+      dns: '',
       expiration_date: format(addDays(new Date(), 30), 'yyyy-MM-dd'),
       plan_id: '',
       plan_name: '',
@@ -1137,6 +1141,7 @@ export default function Clients() {
       telegram: formData.telegram || null,
       email: formData.email || null,
       device: formData.device || null,
+      dns: formData.dns || null,
       expiration_date: isPremiumCategory && premiumExpirationDate ? premiumExpirationDate : formData.expiration_date,
       plan_id: formData.plan_id || null,
       plan_name: formData.plan_name || null,
@@ -1241,6 +1246,7 @@ export default function Clients() {
       telegram: client.telegram || '',
       email: client.email || '',
       device: client.device || '',
+      dns: client.dns || '',
       expiration_date: client.expiration_date,
       plan_id: client.plan_id || '',
       plan_name: client.plan_name || '',
@@ -1392,10 +1398,14 @@ export default function Clients() {
     const rawLogin2Match = (client.login_2 || '').toLowerCase().includes(searchLower);
     const rawPassword2Match = (client.password_2 || '').toLowerCase().includes(searchLower);
 
+    // DNS match
+    const dnsMatch = (client.dns || '').toLowerCase().includes(searchLower);
+
     const matchesSearch =
       normalizedName.includes(normalizedSearch) ||
       client.phone?.includes(rawSearch) ||
       (client.email || '').toLowerCase().includes(searchLower) ||
+      dnsMatch ||
       loginMatch ||
       passwordMatch ||
       login2Match ||
@@ -1791,6 +1801,20 @@ export default function Clients() {
                       </div>
                     </PopoverContent>
                   </Popover>
+                </div>
+
+                {/* DNS Field */}
+                <div className="space-y-2">
+                  <Label htmlFor="dns">DNS (opcional)</Label>
+                  <Input
+                    id="dns"
+                    value={formData.dns}
+                    onChange={(e) => setFormData({ ...formData, dns: e.target.value })}
+                    placeholder="Ex: dns.exemplo.com"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    DNS utilizado pelo cliente. Útil para rastrear problemas de conexão.
+                  </p>
                 </div>
 
                 {/* Plan Select - Not for Contas Premium */}
@@ -2406,7 +2430,7 @@ export default function Clients() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar cliente..."
+            placeholder="Buscar por nome, login, DNS..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 h-9"
@@ -2731,6 +2755,25 @@ export default function Clients() {
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Mail className="h-3.5 w-3.5" />
                         <span className="truncate">{maskData(client.email, 'email')}</span>
+                      </div>
+                    )}
+                    {client.dns && (
+                      <div className="flex items-center gap-2 text-muted-foreground group">
+                        <Globe className="h-3.5 w-3.5 text-blue-500" />
+                        <span className="truncate text-blue-600 dark:text-blue-400 font-medium">{client.dns}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(client.dns!);
+                            toast.success('DNS copiado!');
+                          }}
+                          title="Copiar DNS"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
                       </div>
                     )}
                     <div className="flex items-center gap-2 text-muted-foreground">
