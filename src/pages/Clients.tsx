@@ -160,6 +160,7 @@ export default function Clients() {
   const [allCredentialsDecrypted, setAllCredentialsDecrypted] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [serverFilter, setServerFilter] = useState<string>('all');
+  const [dnsFilter, setDnsFilter] = useState<string>('all');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -1429,6 +1430,11 @@ export default function Clients() {
       return false;
     }
 
+    // Filter by DNS
+    if (dnsFilter !== 'all' && client.dns !== dnsFilter) {
+      return false;
+    }
+
     // For archived filter, just return all archived clients that match search/category
     if (filter === 'archived') return true;
 
@@ -2496,6 +2502,43 @@ export default function Clients() {
             )}
           </div>
         )}
+
+        {/* DNS Filter - Shows unique DNS values */}
+        {(() => {
+          const uniqueDns = [...new Set(clients.filter(c => c.dns).map(c => c.dns!))].sort();
+          if (uniqueDns.length === 0) return null;
+          return (
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-blue-500" />
+              <Select value={dnsFilter} onValueChange={setDnsFilter}>
+                <SelectTrigger className="w-[200px] h-8 text-sm">
+                  <SelectValue placeholder="Filtrar por DNS" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os DNS</SelectItem>
+                  {uniqueDns.map((dns) => {
+                    const count = clients.filter(c => c.dns === dns).length;
+                    return (
+                      <SelectItem key={dns} value={dns}>
+                        {dns} ({count})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {dnsFilter !== 'all' && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setDnsFilter('all')}
+                  className="h-8 px-2 text-xs"
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-2 flex-wrap">
