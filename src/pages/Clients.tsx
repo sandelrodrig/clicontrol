@@ -202,6 +202,7 @@ export default function Clients() {
     category: 'IPTV',
     is_paid: true,
     pending_amount: '',
+    expected_payment_date: '', // Data prevista de pagamento para clientes não pagos
     notes: '',
     has_paid_apps: false,
     paid_apps_duration: '',
@@ -212,6 +213,7 @@ export default function Clients() {
     gerencia_app_mac: '', // MAC do GerenciaApp (campo legado)
     gerencia_app_devices: [] as MacDevice[], // Múltiplos dispositivos MAC
     app_name: '', // Nome do aplicativo usado pelo cliente
+    app_type: 'server' as 'server' | 'own', // Tipo de app: servidor ou próprio
   });
 
 
@@ -1023,6 +1025,7 @@ export default function Clients() {
       category: 'IPTV',
       is_paid: true,
       pending_amount: '',
+      expected_payment_date: '',
       notes: '',
       has_paid_apps: false,
       paid_apps_duration: '',
@@ -1033,6 +1036,7 @@ export default function Clients() {
       gerencia_app_mac: '',
       gerencia_app_devices: [],
       app_name: '',
+      app_type: 'server',
     });
     setSelectedSharedCredit(null);
     setExternalApps([]);
@@ -1161,6 +1165,7 @@ export default function Clients() {
       category: formData.category || 'IPTV',
       is_paid: formData.is_paid,
       pending_amount: formData.pending_amount ? parseFloat(formData.pending_amount) : 0,
+      expected_payment_date: !formData.is_paid && formData.expected_payment_date ? formData.expected_payment_date : null,
       notes: formData.notes || null,
       has_paid_apps: formData.has_paid_apps || false,
       paid_apps_duration: formData.paid_apps_duration || null,
@@ -1170,6 +1175,7 @@ export default function Clients() {
       gerencia_app_mac: formData.gerencia_app_devices.length > 0 ? formData.gerencia_app_devices[0].mac : (formData.gerencia_app_mac || null),
       gerencia_app_devices: formData.gerencia_app_devices.filter(d => d.mac.trim() !== ''),
       app_name: formData.app_name || null,
+      app_type: formData.app_type || 'server',
     };
 
     if (editingClient) {
@@ -1265,6 +1271,7 @@ export default function Clients() {
       category: client.category || 'IPTV',
       is_paid: client.is_paid,
       pending_amount: (client as any).pending_amount?.toString() || '',
+      expected_payment_date: (client as any).expected_payment_date || '',
       notes: client.notes || '',
       has_paid_apps: client.has_paid_apps || false,
       paid_apps_duration: client.paid_apps_duration || '',
@@ -1275,6 +1282,7 @@ export default function Clients() {
       gerencia_app_mac: client.gerencia_app_mac || '',
       gerencia_app_devices: client.gerencia_app_devices || [],
       app_name: (client as any).app_name || '',
+      app_type: (client as any).app_type || 'server',
     });
     setIsDialogOpen(true);
   };
@@ -1903,6 +1911,30 @@ export default function Clients() {
                   </div>
                 )}
 
+                {/* App Type - Server app or own app (only for IPTV) */}
+                {(formData.category === 'IPTV' || formData.category === 'P2P') && (
+                  <div className="space-y-2">
+                    <Label>Tipo de Aplicativo</Label>
+                    <Select
+                      value={formData.app_type}
+                      onValueChange={(v: 'server' | 'own') => setFormData({ ...formData, app_type: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="server">App do Servidor</SelectItem>
+                        <SelectItem value="own">App Próprio (Revendedor)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {formData.app_type === 'server' 
+                        ? 'Cliente usa o aplicativo fornecido pelo servidor.' 
+                        : 'Cliente usa um app personalizado do revendedor.'}
+                    </p>
+                  </div>
+                )}
+
                 {/* Screen Selection for Credit-Based Servers */}
                 {formData.category !== 'Contas Premium' && formData.server_id && selectedServer?.is_credit_based && (
                   <div className="space-y-3 p-4 rounded-lg bg-gradient-to-br from-blue-500/5 to-blue-500/10 border border-blue-500/30">
@@ -2245,7 +2277,12 @@ export default function Clients() {
                   <Label htmlFor="is_paid">Status de Pagamento</Label>
                   <Select
                     value={formData.is_paid ? 'paid' : 'unpaid'}
-                    onValueChange={(v) => setFormData({ ...formData, is_paid: v === 'paid', pending_amount: v === 'paid' ? '' : formData.pending_amount })}
+                    onValueChange={(v) => setFormData({ 
+                      ...formData, 
+                      is_paid: v === 'paid', 
+                      pending_amount: v === 'paid' ? '' : formData.pending_amount,
+                      expected_payment_date: v === 'paid' ? '' : formData.expected_payment_date
+                    })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -2271,6 +2308,49 @@ export default function Clients() {
                     Valor que o cliente ainda deve pagar (pagamento parcial).
                   </p>
                 </div>
+                
+                {/* Data Prevista de Pagamento - Only show when unpaid */}
+                {!formData.is_paid && (
+                  <div className="space-y-2">
+                    <Label htmlFor="expected_payment_date" className="flex items-center gap-1">
+                      <CalendarIcon className="h-3 w-3" />
+                      Data Prevista de Pagamento
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          type="button"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !formData.expected_payment_date && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.expected_payment_date
+                            ? format(new Date(formData.expected_payment_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })
+                            : 'Selecione a data'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarPicker
+                          mode="single"
+                          selected={formData.expected_payment_date ? new Date(formData.expected_payment_date + 'T12:00:00') : undefined}
+                          onSelect={(date) => {
+                            if (date) {
+                              setFormData({ ...formData, expected_payment_date: format(date, 'yyyy-MM-dd') });
+                            }
+                          }}
+                          locale={ptBR}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-xs text-muted-foreground">
+                      Quando o cliente prometeu pagar. Útil para acompanhamento.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Shared Credit Picker - Show for IPTV/P2P/SSH/Revendedor (both new and existing clients) */}

@@ -165,6 +165,16 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
     setLocalApps(newApps);
   };
 
+  // Auto-format MAC address with colons
+  const formatMacAddress = (value: string): string => {
+    // Remove all non-hex characters
+    const cleaned = value.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+    // Add colons every 2 characters
+    const formatted = cleaned.match(/.{1,2}/g)?.join(':') || cleaned;
+    // Limit to 17 characters (XX:XX:XX:XX:XX:XX)
+    return formatted.slice(0, 17);
+  };
+
   const getAppDetails = (appId: string) => availableApps.find(a => a.id === appId);
 
   if (availableApps.length === 0) {
@@ -331,9 +341,10 @@ export function ClientExternalApps({ clientId, sellerId, onChange, initialApps =
                                       <Label className="text-xs text-muted-foreground">MAC</Label>
                                       <Input
                                         value={device.mac}
-                                        onChange={(e) => updateDevice(appIndex, deviceIndex, { mac: e.target.value.toUpperCase() })}
-                                        placeholder="00:1A:2B:3C:4D:5E"
+                                        onChange={(e) => updateDevice(appIndex, deviceIndex, { mac: formatMacAddress(e.target.value) })}
+                                        placeholder="001A2B3C4D5E"
                                         className="h-8 text-sm font-mono"
+                                        maxLength={17}
                                       />
                                     </div>
                                     <div className="space-y-1">
