@@ -2244,12 +2244,17 @@ export default function Clients() {
                                   <Input
                                     value={device.mac}
                                     onChange={(e) => {
+                                      // Auto-format MAC address with colons
+                                      const cleaned = e.target.value.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+                                      const formatted = cleaned.match(/.{1,2}/g)?.join(':') || cleaned;
+                                      const mac = formatted.slice(0, 17);
                                       const newDevices = [...formData.gerencia_app_devices];
-                                      newDevices[index] = { ...newDevices[index], mac: e.target.value.toUpperCase() };
+                                      newDevices[index] = { ...newDevices[index], mac };
                                       setFormData({ ...formData, gerencia_app_devices: newDevices });
                                     }}
-                                    placeholder="00:1A:2B:3C:4D:5E"
+                                    placeholder="001A2B3C4D5E"
                                     className="h-9 font-mono"
+                                    maxLength={17}
                                   />
                                 </div>
                               </div>
