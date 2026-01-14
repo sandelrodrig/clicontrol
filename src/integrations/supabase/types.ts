@@ -212,12 +212,14 @@ export type Database = {
       clients: {
         Row: {
           app_name: string | null
+          app_type: string | null
           archived_at: string | null
           category: string | null
           created_at: string | null
           device: string | null
           dns: string | null
           email: string | null
+          expected_payment_date: string | null
           expiration_date: string
           gerencia_app_devices: Json | null
           gerencia_app_mac: string | null
@@ -254,12 +256,14 @@ export type Database = {
         }
         Insert: {
           app_name?: string | null
+          app_type?: string | null
           archived_at?: string | null
           category?: string | null
           created_at?: string | null
           device?: string | null
           dns?: string | null
           email?: string | null
+          expected_payment_date?: string | null
           expiration_date: string
           gerencia_app_devices?: Json | null
           gerencia_app_mac?: string | null
@@ -296,12 +300,14 @@ export type Database = {
         }
         Update: {
           app_name?: string | null
+          app_type?: string | null
           archived_at?: string | null
           category?: string | null
           created_at?: string | null
           device?: string | null
           dns?: string | null
           email?: string | null
+          expected_payment_date?: string | null
           expiration_date?: string
           gerencia_app_devices?: Json | null
           gerencia_app_mac?: string | null
