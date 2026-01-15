@@ -556,8 +556,47 @@ export default function Clients() {
   // Maximum clients per shared credential (global limit)
   const MAX_CLIENTS_PER_CREDENTIAL = 3;
 
+  // Validate required fields before saving
+  const validateClientData = (data: Record<string, unknown>): string | null => {
+    if (!data.name || (data.name as string).trim() === '') {
+      return 'Nome do cliente é obrigatório';
+    }
+    return null;
+  };
+
+  // Check for duplicate login/mac on the same server
+  const checkDuplicates = async (
+    serverId: string | null,
+    login: string | null,
+    excludeClientId?: string
+  ): Promise<string | null> => {
+    if (!serverId || !login) return null;
+
+    let query = supabase
+      .from('clients')
+      .select('id, login')
+      .eq('seller_id', user!.id)
+      .eq('server_id', serverId)
+      .eq('is_archived', false);
+
+    if (excludeClientId) {
+      query = query.neq('id', excludeClientId);
+    }
+
+    const { data: existingClients } = await query;
+    
+    // We allow shared credentials up to MAX_CLIENTS_PER_CREDENTIAL, so this is handled separately
+    return null;
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; expiration_date: string; phone?: string | null; email?: string | null; device?: string | null; dns?: string | null; plan_id?: string | null; plan_name?: string | null; plan_price?: number | null; server_id?: string | null; server_name?: string | null; login?: string | null; password?: string | null; is_paid?: boolean; notes?: string | null; screens?: string; category?: string | null; has_paid_apps?: boolean; paid_apps_duration?: string | null; paid_apps_expiration?: string | null; telegram?: string | null; premium_password?: string | null }) => {
+      // Validate required fields
+      const validationError = validateClientData(data as Record<string, unknown>);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
       // Extract screens before spreading - it's not a column in the clients table
       const { screens, ...clientData } = data;
       
@@ -658,87 +697,97 @@ export default function Clients() {
             }
           }
           
+          // Run panel entries in background - don't block the response
           if (panelEntries.length > 0) {
-            const { error: panelError } = await supabase.from('panel_clients').insert(panelEntries);
-            if (panelError) {
-              console.error('Error registering credit slots:', panelError);
-            }
+            supabase.from('panel_clients').insert(panelEntries).then(({ error: panelError }) => {
+              if (panelError) {
+                console.error('Error registering credit slots:', panelError);
+              }
+            });
           }
         }
       }
       
-      // Save external apps for this client
+      // Save external apps in background - don't block the response
       if (externalApps.length > 0 && insertedData?.id) {
-        for (const app of externalApps) {
-          if (!app.appId) continue;
-          
-          // Encrypt password if present
-          let encryptedPassword = app.password || null;
-          if (encryptedPassword) {
-            try {
-              encryptedPassword = await encrypt(encryptedPassword);
-            } catch (e) {
-              console.error('Error encrypting app password:', e);
+        (async () => {
+          for (const app of externalApps) {
+            if (!app.appId) continue;
+            
+            // Encrypt password if present
+            let encryptedPassword = app.password || null;
+            if (encryptedPassword) {
+              try {
+                encryptedPassword = await encrypt(encryptedPassword);
+              } catch (e) {
+                console.error('Error encrypting app password:', e);
+              }
             }
+            
+            await supabase.from('client_external_apps').insert([{
+              client_id: insertedData.id,
+              external_app_id: app.appId,
+              seller_id: user!.id,
+              devices: app.devices.filter(d => d.mac.trim() !== ''),
+              email: app.email || null,
+              password: encryptedPassword,
+              expiration_date: app.expirationDate || null,
+            }]);
           }
-          
-          const { error: appError } = await supabase.from('client_external_apps').insert([{
-            client_id: insertedData.id,
-            external_app_id: app.appId,
-            seller_id: user!.id,
-            devices: app.devices.filter(d => d.mac.trim() !== ''),
-            email: app.email || null,
-            password: encryptedPassword,
-            expiration_date: app.expirationDate || null,
-          }]);
-          
-          if (appError) {
-            console.error('Error saving external app:', appError);
-          }
-        }
+        })();
       }
       
-      // Save premium accounts for this client (only for Contas Premium category)
+      // Save premium accounts in background - don't block the response
       if (premiumAccounts.length > 0 && insertedData?.id) {
-        for (const account of premiumAccounts) {
-          if (!account.planName && !account.email) continue;
-          
-          const { error: premiumError } = await supabase.from('client_premium_accounts').insert([{
-            client_id: insertedData.id,
-            seller_id: user!.id,
-            plan_name: account.planName || null,
-            email: account.email || null,
-            password: account.password || null,
-            price: account.price ? parseFloat(account.price) : 0,
-            expiration_date: account.expirationDate || null,
-            notes: account.notes || null,
-          }]);
-          
-          if (premiumError) {
-            console.error('Error saving premium account:', premiumError);
+        (async () => {
+          for (const account of premiumAccounts) {
+            if (!account.planName && !account.email) continue;
+            
+            await supabase.from('client_premium_accounts').insert([{
+              client_id: insertedData.id,
+              seller_id: user!.id,
+              plan_name: account.planName || null,
+              email: account.email || null,
+              password: account.password || null,
+              price: account.price ? parseFloat(account.price) : 0,
+              expiration_date: account.expirationDate || null,
+              notes: account.notes || null,
+            }]);
           }
-        }
+        })();
       }
       
       return insertedData;
     },
+    onMutate: async () => {
+      // Show saving indicator
+      toast.loading('Salvando cliente...', { id: 'saving-client' });
+    },
     onSuccess: () => {
+      toast.dismiss('saving-client');
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['server-credit-clients'] });
       queryClient.invalidateQueries({ queryKey: ['all-panel-clients'] });
       toast.success(selectedSharedCredit 
-        ? 'Cliente criado e vinculado ao crédito compartilhado!' 
-        : 'Cliente criado com sucesso!');
+        ? 'Cliente criado e vinculado ao crédito compartilhado! ✅' 
+        : 'Cliente salvo com sucesso! ✅');
       resetForm();
       setIsDialogOpen(false);
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      toast.dismiss('saving-client');
+      toast.error(`Falha ao salvar: ${error.message}`);
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Client> }) => {
+      // Validate required fields
+      const validationError = validateClientData(data as Record<string, unknown>);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
       // Encrypt login and password if they were changed
       let updateData: Record<string, unknown> = { ...data };
 
@@ -801,67 +850,63 @@ export default function Clients() {
       const { error } = await supabase.from('clients').update(updateData).eq('id', id);
       if (error) throw error;
 
-      // Save/update external apps for this client
+      // Save/update external apps and premium accounts in BACKGROUND - don't block response
       if (user) {
-        // Delete existing apps for this client
-        await supabase.from('client_external_apps').delete().eq('client_id', id);
-        
-        // Insert updated apps
-        if (externalApps.length > 0) {
-          for (const app of externalApps) {
-            if (!app.appId) continue;
-            
-            // Encrypt password if present
-            let encryptedPassword = app.password || null;
-            if (encryptedPassword) {
-              try {
-                encryptedPassword = await encrypt(encryptedPassword);
-              } catch (e) {
-                console.error('Error encrypting app password:', e);
+        (async () => {
+          // Delete existing apps for this client
+          await supabase.from('client_external_apps').delete().eq('client_id', id);
+          
+          // Insert updated apps
+          if (externalApps.length > 0) {
+            for (const app of externalApps) {
+              if (!app.appId) continue;
+              
+              // Encrypt password if present
+              let encryptedPassword = app.password || null;
+              if (encryptedPassword) {
+                try {
+                  encryptedPassword = await encrypt(encryptedPassword);
+                } catch (e) {
+                  console.error('Error encrypting app password:', e);
+                }
               }
-            }
-            
-            const { error: appError } = await supabase.from('client_external_apps').insert([{
-              client_id: id,
-              external_app_id: app.appId,
-              seller_id: user.id,
-              devices: app.devices.filter(d => d.mac.trim() !== ''),
-              email: app.email || null,
-              password: encryptedPassword,
-              expiration_date: app.expirationDate || null,
-            }]);
-            
-            if (appError) {
-              console.error('Error saving external app:', appError);
+              
+              await supabase.from('client_external_apps').insert([{
+                client_id: id,
+                external_app_id: app.appId,
+                seller_id: user.id,
+                devices: app.devices.filter(d => d.mac.trim() !== ''),
+                email: app.email || null,
+                password: encryptedPassword,
+                expiration_date: app.expirationDate || null,
+              }]);
             }
           }
-        }
-        
-        // Save/update premium accounts for this client
-        // Delete existing premium accounts
-        await supabase.from('client_premium_accounts').delete().eq('client_id', id);
-        
-        // Insert updated premium accounts
-        if (premiumAccounts.length > 0) {
-          for (const account of premiumAccounts) {
-            if (!account.planName && !account.email) continue;
-            
-            const { error: premiumError } = await supabase.from('client_premium_accounts').insert([{
-              client_id: id,
-              seller_id: user.id,
-              plan_name: account.planName || null,
-              email: account.email || null,
-              password: account.password || null,
-              price: account.price ? parseFloat(account.price) : 0,
-              expiration_date: account.expirationDate || null,
-              notes: account.notes || null,
-            }]);
-            
-            if (premiumError) {
-              console.error('Error saving premium account:', premiumError);
+          
+          // Save/update premium accounts for this client
+          await supabase.from('client_premium_accounts').delete().eq('client_id', id);
+          
+          if (premiumAccounts.length > 0) {
+            for (const account of premiumAccounts) {
+              if (!account.planName && !account.email) continue;
+              
+              await supabase.from('client_premium_accounts').insert([{
+                client_id: id,
+                seller_id: user.id,
+                plan_name: account.planName || null,
+                email: account.email || null,
+                password: account.password || null,
+                price: account.price ? parseFloat(account.price) : 0,
+                expiration_date: account.expirationDate || null,
+                notes: account.notes || null,
+              }]);
             }
           }
-        }
+          
+          // Invalidate related queries after background work completes
+          queryClient.invalidateQueries({ queryKey: ['client-external-apps'] });
+          queryClient.invalidateQueries({ queryKey: ['client-premium-accounts'] });
+        })();
       }
 
       // Clear cached decrypted credentials for this client
@@ -870,18 +915,47 @@ export default function Clients() {
         delete newState[id];
         return newState;
       });
+      
+      return { id, data: updateData };
+    },
+    onMutate: async ({ id, data }) => {
+      // Show saving indicator
+      toast.loading('Salvando alterações...', { id: 'updating-client' });
+      
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['clients'] });
+      
+      // Snapshot the previous value
+      const previousClients = queryClient.getQueryData<Client[]>(['clients', user?.id]);
+      
+      // Optimistically update the cache
+      if (previousClients) {
+        queryClient.setQueryData<Client[]>(['clients', user?.id], (old) => 
+          old?.map(client => 
+            client.id === id 
+              ? { ...client, ...data, updated_at: new Date().toISOString() } as Client
+              : client
+          ) || []
+        );
+      }
+      
+      return { previousClients };
     },
     onSuccess: () => {
+      toast.dismiss('updating-client');
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      queryClient.invalidateQueries({ queryKey: ['client-external-apps'] });
-      queryClient.invalidateQueries({ queryKey: ['client-premium-accounts'] });
-      toast.success('Cliente atualizado!');
+      toast.success('Cliente salvo com sucesso! ✅');
       resetForm();
       setIsDialogOpen(false);
       setEditingClient(null);
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
+    onError: (error: Error, _variables, context) => {
+      toast.dismiss('updating-client');
+      // Rollback to previous state
+      if (context?.previousClients) {
+        queryClient.setQueryData(['clients', user?.id], context.previousClients);
+      }
+      toast.error(`Falha ao salvar, tente novamente: ${error.message}`);
     },
   });
 
@@ -889,12 +963,29 @@ export default function Clients() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('clients').delete().eq('id', id);
       if (error) throw error;
+      return id;
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['clients'] });
+      const previousClients = queryClient.getQueryData<Client[]>(['clients', user?.id]);
+      
+      // Optimistically remove from cache
+      if (previousClients) {
+        queryClient.setQueryData<Client[]>(['clients', user?.id], (old) => 
+          old?.filter(client => client.id !== id) || []
+        );
+      }
+      
+      return { previousClients };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       toast.success('Cliente excluído!');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _id, context) => {
+      if (context?.previousClients) {
+        queryClient.setQueryData(['clients', user?.id], context.previousClients);
+      }
       toast.error(error.message);
     },
   });
@@ -921,13 +1012,34 @@ export default function Clients() {
         .update({ is_archived: true, archived_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
+      return id;
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['clients'] });
+      const previousClients = queryClient.getQueryData<Client[]>(['clients', user?.id]);
+      
+      // Optimistically update in cache
+      if (previousClients) {
+        queryClient.setQueryData<Client[]>(['clients', user?.id], (old) => 
+          old?.map(client => 
+            client.id === id 
+              ? { ...client, is_archived: true, archived_at: new Date().toISOString() }
+              : client
+          ) || []
+        );
+      }
+      
+      return { previousClients };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['archived-clients-count'] });
       toast.success('Cliente movido para lixeira!');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _id, context) => {
+      if (context?.previousClients) {
+        queryClient.setQueryData(['clients', user?.id], context.previousClients);
+      }
       toast.error(error.message);
     },
   });
@@ -961,13 +1073,33 @@ export default function Clients() {
         .update({ is_archived: false, archived_at: null })
         .eq('id', id);
       if (error) throw error;
+      return id;
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['clients'] });
+      const previousClients = queryClient.getQueryData<Client[]>(['clients', user?.id]);
+      
+      if (previousClients) {
+        queryClient.setQueryData<Client[]>(['clients', user?.id], (old) => 
+          old?.map(client => 
+            client.id === id 
+              ? { ...client, is_archived: false, archived_at: null }
+              : client
+          ) || []
+        );
+      }
+      
+      return { previousClients };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['archived-clients-count'] });
       toast.success('Cliente restaurado!');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _id, context) => {
+      if (context?.previousClients) {
+        queryClient.setQueryData(['clients', user?.id], context.previousClients);
+      }
       toast.error(error.message);
     },
   });
@@ -986,16 +1118,44 @@ export default function Clients() {
         .from('clients')
         .update({ 
           expiration_date: format(newDate, 'yyyy-MM-dd'),
-          is_paid: true 
+          is_paid: true,
+          renewed_at: new Date().toISOString()
         })
         .eq('id', id);
       if (error) throw error;
+      
+      return { id, newDate: format(newDate, 'yyyy-MM-dd') };
+    },
+    onMutate: async ({ id, days }) => {
+      await queryClient.cancelQueries({ queryKey: ['clients'] });
+      const previousClients = queryClient.getQueryData<Client[]>(['clients', user?.id]);
+      
+      const client = previousClients?.find(c => c.id === id);
+      if (client && previousClients) {
+        const baseDate = new Date(client.expiration_date);
+        const newDate = isAfter(baseDate, new Date()) 
+          ? addDays(baseDate, days) 
+          : addDays(new Date(), days);
+        
+        queryClient.setQueryData<Client[]>(['clients', user?.id], (old) => 
+          old?.map(c => 
+            c.id === id 
+              ? { ...c, expiration_date: format(newDate, 'yyyy-MM-dd'), is_paid: true }
+              : c
+          ) || []
+        );
+      }
+      
+      return { previousClients };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      toast.success('Cliente renovado com sucesso!');
+      toast.success('Cliente renovado com sucesso! ✅');
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      if (context?.previousClients) {
+        queryClient.setQueryData(['clients', user?.id], context.previousClients);
+      }
       toast.error(error.message);
     },
   });
