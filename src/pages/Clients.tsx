@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCrypto } from '@/hooks/useCrypto';
+import { useFingerprint } from '@/hooks/useFingerprint';
 import { usePrivacyMode } from '@/hooks/usePrivacyMode';
 import { useOfflineClients } from '@/hooks/useOfflineClients';
 import { useSentMessages } from '@/hooks/useSentMessages';
@@ -142,6 +143,7 @@ const DEVICE_OPTIONS = [
 export default function Clients() {
   const { user, isAdmin } = useAuth();
   const { encrypt, decrypt } = useCrypto();
+  const { generateFingerprint } = useFingerprint();
   const { isPrivacyMode, maskData } = usePrivacyMode();
   const { isOffline, lastSync, syncClients: syncOfflineClients, loading: offlineLoading } = useOfflineClients();
   const { isSent, getSentInfo, clearSentMark, sentCount, clearAllSentMarks } = useSentMessages();
@@ -496,58 +498,40 @@ export default function Clients() {
     }
   }, [clients, decryptedCredentials, allCredentialsDecrypted]);
 
-  // Helper function to find existing client with same credentials on same server
+  // Helper function to find existing client with same credentials on same server using fingerprint
   const findExistingClientWithCredentials = async (
     serverId: string,
     plainLogin: string,
     plainPassword: string
-  ): Promise<{ encryptedLogin: string; encryptedPassword: string; clientCount: number } | null> => {
+  ): Promise<{ encryptedLogin: string; encryptedPassword: string; clientCount: number; fingerprint: string } | null> => {
     if (!serverId || !plainLogin) return null;
 
-    // Fetch all clients on this server with credentials
-    const { data: serverClients, error } = await supabase
+    // Generate fingerprint for the credentials
+    const fingerprint = await generateFingerprint(plainLogin, plainPassword);
+
+    // Query directly by fingerprint - no decryption needed!
+    const { data: matchingClients, error } = await supabase
       .from('clients')
-      .select('id, login, password, category')
+      .select('id, login, password, credentials_fingerprint')
       .eq('seller_id', user!.id)
       .eq('server_id', serverId)
       .eq('is_archived', false)
-      .not('login', 'is', null);
+      .eq('credentials_fingerprint', fingerprint);
 
-    if (error || !serverClients) return null;
+    if (error) {
+      console.error('Error checking credentials:', error);
+      return null;
+    }
 
-    // Decrypt and compare each client's credentials
-    for (const client of serverClients) {
-      if (!client.login) continue;
-      try {
-        const decryptedLogin = await decrypt(client.login);
-        const decryptedPassword = client.password ? await decrypt(client.password) : '';
-        
-        // Check if this matches the new credentials
-        if (decryptedLogin === plainLogin && decryptedPassword === plainPassword) {
-          // Count all clients with these same encrypted credentials on this server
-          const matchingClients = serverClients.filter(c => 
-            c.login === client.login && c.password === client.password
-          );
-          
-          return {
-            encryptedLogin: client.login,
-            encryptedPassword: client.password || '',
-            clientCount: matchingClients.length,
-          };
-        }
-      } catch (e) {
-        // Decryption failed, try plain text comparison
-        if (client.login === plainLogin && (client.password || '') === plainPassword) {
-          const matchingClients = serverClients.filter(c => 
-            c.login === client.login && c.password === client.password
-          );
-          return {
-            encryptedLogin: client.login,
-            encryptedPassword: client.password || '',
-            clientCount: matchingClients.length,
-          };
-        }
-      }
+    if (matchingClients && matchingClients.length > 0) {
+      // Found existing clients with same fingerprint
+      const firstMatch = matchingClients[0];
+      return {
+        encryptedLogin: firstMatch.login || '',
+        encryptedPassword: firstMatch.password || '',
+        clientCount: matchingClients.length,
+        fingerprint,
+      };
     }
 
     return null;
@@ -604,11 +588,16 @@ export default function Clients() {
       // Otherwise, check if credentials already exist and use those, or encrypt new ones
       let finalLogin: string | null;
       let finalPassword: string | null;
+      let credentialsFingerprint: string | null = null;
       
       if (selectedSharedCredit?.encryptedLogin) {
         // Use original encrypted credentials from shared credit (avoids re-encryption mismatch)
         finalLogin = selectedSharedCredit.encryptedLogin;
         finalPassword = selectedSharedCredit.encryptedPassword || null;
+        // Generate fingerprint for shared credit credentials
+        if (data.login) {
+          credentialsFingerprint = await generateFingerprint(data.login, data.password || '');
+        }
       } else if (data.server_id && data.login) {
         // Check if there's already a client with these credentials on this server
         const existingCredentials = await findExistingClientWithCredentials(
@@ -626,25 +615,39 @@ export default function Clients() {
           // Use existing encrypted credentials to ensure proper grouping
           finalLogin = existingCredentials.encryptedLogin;
           finalPassword = existingCredentials.encryptedPassword || null;
+          credentialsFingerprint = existingCredentials.fingerprint;
           
           console.log(`Using existing credentials for slot grouping (${existingCredentials.clientCount + 1}/${MAX_CLIENTS_PER_CREDENTIAL} clients)`);
         } else {
-          // New credentials - encrypt them
-          const encrypted = await encryptCredentials(data.login || null, data.password || null);
+          // New credentials - encrypt them and generate fingerprint
+          const [encrypted, fingerprint] = await Promise.all([
+            encryptCredentials(data.login || null, data.password || null),
+            generateFingerprint(data.login, data.password || '')
+          ]);
           finalLogin = encrypted.login;
           finalPassword = encrypted.password;
+          credentialsFingerprint = fingerprint;
         }
-      } else {
-        // No server or no login - encrypt normally
-        const encrypted = await encryptCredentials(data.login || null, data.password || null);
+      } else if (data.login) {
+        // Has login but no server - encrypt and generate fingerprint
+        const [encrypted, fingerprint] = await Promise.all([
+          encryptCredentials(data.login || null, data.password || null),
+          generateFingerprint(data.login, data.password || '')
+        ]);
         finalLogin = encrypted.login;
         finalPassword = encrypted.password;
+        credentialsFingerprint = fingerprint;
+      } else {
+        // No login - no encryption needed
+        finalLogin = null;
+        finalPassword = null;
       }
       
       const { data: insertedData, error } = await supabase.from('clients').insert([{
         ...clientData,
         login: finalLogin,
         password: finalPassword,
+        credentials_fingerprint: credentialsFingerprint,
         seller_id: user!.id,
         renewed_at: new Date().toISOString(), // Track creation as first renewal for monthly profit
       }]).select('id').single();
@@ -804,6 +807,10 @@ export default function Clients() {
         if (selectedSharedCredit?.encryptedLogin) {
           (updateData as any).login = selectedSharedCredit.encryptedLogin;
           (updateData as any).password = selectedSharedCredit.encryptedPassword || null;
+          // Generate fingerprint for shared credit
+          if (plainLogin) {
+            (updateData as any).credentials_fingerprint = await generateFingerprint(plainLogin, plainPassword);
+          }
         } else if (serverId && plainLogin) {
           // Check if credentials already exist on this server (excluding current client)
           const existingCredentials = await findExistingClientWithCredentials(
@@ -819,11 +826,11 @@ export default function Clients() {
             // so we need to check if adding would exceed the limit
             const { data: currentClient } = await supabase
               .from('clients')
-              .select('login')
+              .select('login, credentials_fingerprint')
               .eq('id', id)
               .single();
             
-            const isAlreadyUsingThese = currentClient?.login === existingCredentials.encryptedLogin;
+            const isAlreadyUsingThese = currentClient?.credentials_fingerprint === existingCredentials.fingerprint;
             const effectiveCount = isAlreadyUsingThese ? currentClientInCount : currentClientInCount + 1;
             
             if (effectiveCount > MAX_CLIENTS_PER_CREDENTIAL) {
@@ -833,17 +840,31 @@ export default function Clients() {
             // Use existing encrypted credentials
             (updateData as any).login = existingCredentials.encryptedLogin;
             (updateData as any).password = existingCredentials.encryptedPassword || null;
+            (updateData as any).credentials_fingerprint = existingCredentials.fingerprint;
           } else {
-            // New credentials - encrypt them
-            const encrypted = await encryptCredentials(plainLogin || null, plainPassword || null);
+            // New credentials - encrypt them and generate fingerprint in parallel
+            const [encrypted, fingerprint] = await Promise.all([
+              encryptCredentials(plainLogin || null, plainPassword || null),
+              generateFingerprint(plainLogin, plainPassword)
+            ]);
             (updateData as any).login = encrypted.login;
             (updateData as any).password = encrypted.password;
+            (updateData as any).credentials_fingerprint = fingerprint;
           }
-        } else {
-          // No server or no login - encrypt normally
-          const encrypted = await encryptCredentials((data.login as any) || null, (data.password as any) || null);
+        } else if (plainLogin) {
+          // Has login but no server - encrypt and generate fingerprint
+          const [encrypted, fingerprint] = await Promise.all([
+            encryptCredentials(plainLogin || null, plainPassword || null),
+            generateFingerprint(plainLogin, plainPassword)
+          ]);
           (updateData as any).login = encrypted.login;
           (updateData as any).password = encrypted.password;
+          (updateData as any).credentials_fingerprint = fingerprint;
+        } else {
+          // No login - clear credentials
+          (updateData as any).login = null;
+          (updateData as any).password = null;
+          (updateData as any).credentials_fingerprint = null;
         }
       }
 

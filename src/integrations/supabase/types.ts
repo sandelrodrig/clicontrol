@@ -216,6 +216,7 @@ export type Database = {
           archived_at: string | null
           category: string | null
           created_at: string | null
+          credentials_fingerprint: string | null
           device: string | null
           dns: string | null
           email: string | null
@@ -260,6 +261,7 @@ export type Database = {
           archived_at?: string | null
           category?: string | null
           created_at?: string | null
+          credentials_fingerprint?: string | null
           device?: string | null
           dns?: string | null
           email?: string | null
@@ -304,6 +306,7 @@ export type Database = {
           archived_at?: string | null
           category?: string | null
           created_at?: string | null
+          credentials_fingerprint?: string | null
           device?: string | null
           dns?: string | null
           email?: string | null
