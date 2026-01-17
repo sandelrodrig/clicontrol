@@ -1130,8 +1130,11 @@ export default function Clients() {
       const client = clients.find(c => c.id === id);
       if (!client) throw new Error('Cliente não encontrado');
       
-      const baseDate = new Date(client.expiration_date);
-      const newDate = isAfter(baseDate, new Date()) 
+      // Validate the expiration date
+      const currentExpDate = client.expiration_date ? new Date(client.expiration_date) : null;
+      const isValidDate = currentExpDate && !isNaN(currentExpDate.getTime());
+      const baseDate = isValidDate ? currentExpDate : new Date();
+      const newDate = isValidDate && isAfter(baseDate, new Date()) 
         ? addDays(baseDate, days) 
         : addDays(new Date(), days);
       
@@ -1487,9 +1490,11 @@ export default function Clients() {
       updateData.plan_price = selectedPlan?.price || null;
     }
     
-    // Calculate new expiration date
-    const baseDate = new Date(renewClient.expiration_date);
-    const newDate = isAfter(baseDate, new Date()) 
+    // Calculate new expiration date - validate the date first
+    const currentExpDate = renewClient.expiration_date ? new Date(renewClient.expiration_date) : null;
+    const isValidDate = currentExpDate && !isNaN(currentExpDate.getTime());
+    const baseDate = isValidDate ? currentExpDate : new Date();
+    const newDate = isValidDate && isAfter(baseDate, new Date()) 
       ? addDays(baseDate, days) 
       : addDays(new Date(), days);
     
@@ -3553,23 +3558,26 @@ export default function Clients() {
               </p>
             </div>
             <div className="p-3 bg-muted rounded-lg text-sm">
-              <p><strong>Vencimento atual:</strong> {renewClient?.expiration_date ? format(new Date(renewClient.expiration_date), "dd/MM/yyyy", { locale: ptBR }) : '-'}</p>
-              {renewPlanId && renewClient && (
-                <p className="text-success mt-1">
-                  <strong>Novo vencimento:</strong> {
-                    format(
-                      addDays(
-                        isAfter(new Date(renewClient.expiration_date), new Date()) 
-                          ? new Date(renewClient.expiration_date) 
-                          : new Date(), 
-                        plans.find(p => p.id === renewPlanId)?.duration_days || 30
-                      ), 
-                      "dd/MM/yyyy", 
-                      { locale: ptBR }
-                    )
-                  }
-                </p>
-              )}
+              <p><strong>Vencimento atual:</strong> {
+                renewClient?.expiration_date && !isNaN(new Date(renewClient.expiration_date).getTime())
+                  ? format(new Date(renewClient.expiration_date), "dd/MM/yyyy", { locale: ptBR }) 
+                  : '-'
+              }</p>
+              {renewPlanId && renewClient && (() => {
+                const currentExpDate = renewClient.expiration_date ? new Date(renewClient.expiration_date) : null;
+                const isValidDate = currentExpDate && !isNaN(currentExpDate.getTime());
+                const baseDate = isValidDate && isAfter(currentExpDate, new Date()) 
+                  ? currentExpDate 
+                  : new Date();
+                const daysToAdd = plans.find(p => p.id === renewPlanId)?.duration_days || 30;
+                const newExpDate = addDays(baseDate, daysToAdd);
+                
+                return (
+                  <p className="text-success mt-1">
+                    <strong>Novo vencimento:</strong> {format(newExpDate, "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                );
+              })()}
             </div>
           </div>
           <DialogFooter>
