@@ -1156,8 +1156,11 @@ export default function Clients() {
       
       const client = previousClients?.find(c => c.id === id);
       if (client && previousClients) {
-        const baseDate = new Date(client.expiration_date);
-        const newDate = isAfter(baseDate, new Date()) 
+        // Validate the expiration date
+        const currentExpDate = client.expiration_date ? new Date(client.expiration_date) : null;
+        const isValidDate = currentExpDate && !isNaN(currentExpDate.getTime());
+        const baseDate = isValidDate ? currentExpDate : new Date();
+        const newDate = isValidDate && isAfter(baseDate, new Date()) 
           ? addDays(baseDate, days) 
           : addDays(new Date(), days);
         
