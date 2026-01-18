@@ -301,6 +301,19 @@ export default function Clients() {
           }
         }
 
+        // Format expiration date to DD/MM/YYYY
+        let formattedExpDate = '';
+        if (client.expiration_date) {
+          try {
+            const expDate = new Date(client.expiration_date + 'T12:00:00');
+            if (!isNaN(expDate.getTime())) {
+              formattedExpDate = format(expDate, 'dd/MM/yyyy');
+            }
+          } catch {
+            formattedExpDate = client.expiration_date;
+          }
+        }
+
         const row = [
           client.name || '',
           client.phone || '',
@@ -315,7 +328,7 @@ export default function Clients() {
           password2,
           client.plan_name || '',
           client.plan_price?.toString() || '',
-          client.expiration_date || '',
+          formattedExpDate,
           client.device || '',
           client.dns || '',
           client.is_paid ? 'Sim' : 'Não',
