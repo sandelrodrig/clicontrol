@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff, CheckCircle, X, DollarSign, Globe } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff, CheckCircle, X, DollarSign, Globe, Download } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -218,6 +218,133 @@ export default function Clients() {
     app_type: 'server' as 'server' | 'own', // Tipo de app: servidor ou próprio
   });
 
+  // Export all clients to CSV
+  const [isExporting, setIsExporting] = useState(false);
+  
+  const handleExportClients = async () => {
+    if (!clients.length) {
+      toast.error('Nenhum cliente para exportar');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      // Decrypt all credentials if not already done
+      if (!allCredentialsDecrypted) {
+        await decryptAllCredentials();
+      }
+
+      // Wait a bit for state to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Build CSV with all relevant fields
+      const headers = [
+        'Nome',
+        'Telefone',
+        'Email',
+        'Telegram',
+        'Categoria',
+        'Servidor',
+        'Login',
+        'Senha',
+        'Servidor 2',
+        'Login 2',
+        'Senha 2',
+        'Plano',
+        'Preço',
+        'Data Vencimento',
+        'Dispositivo',
+        'DNS',
+        'Pago',
+        'Valor Pendente',
+        'Observações'
+      ];
+
+      const csvRows = [headers.join(';')];
+
+      for (const client of clients) {
+        const creds = decryptedCredentials[client.id] || { login: '', password: '', login_2: '', password_2: '' };
+        
+        // Get decrypted credentials (if available, otherwise try to decrypt)
+        let login = creds.login || '';
+        let password = creds.password || '';
+        let login2 = creds.login_2 || '';
+        let password2 = creds.password_2 || '';
+
+        // If not in cache, decrypt now
+        if (client.login && !login) {
+          try {
+            login = await decrypt(client.login);
+          } catch {
+            login = client.login;
+          }
+        }
+        if (client.password && !password) {
+          try {
+            password = await decrypt(client.password);
+          } catch {
+            password = client.password;
+          }
+        }
+        if (client.login_2 && !login2) {
+          try {
+            login2 = await decrypt(client.login_2);
+          } catch {
+            login2 = client.login_2;
+          }
+        }
+        if (client.password_2 && !password2) {
+          try {
+            password2 = await decrypt(client.password_2);
+          } catch {
+            password2 = client.password_2;
+          }
+        }
+
+        const row = [
+          client.name || '',
+          client.phone || '',
+          client.email || '',
+          client.telegram || '',
+          client.category || '',
+          client.server_name || '',
+          login,
+          password,
+          client.server_name_2 || '',
+          login2,
+          password2,
+          client.plan_name || '',
+          client.plan_price?.toString() || '',
+          client.expiration_date || '',
+          client.device || '',
+          client.dns || '',
+          client.is_paid ? 'Sim' : 'Não',
+          client.pending_amount?.toString() || '',
+          client.notes?.replace(/[\n\r;]/g, ' ') || ''
+        ].map(field => `"${field.replace(/"/g, '""')}"`);
+
+        csvRows.push(row.join(';'));
+      }
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `clientes-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`${clients.length} clientes exportados com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+      toast.error('Erro ao exportar clientes');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ['clients', user?.id],
@@ -1833,6 +1960,20 @@ export default function Clients() {
               </Button>
             )}
             <BulkImportClients plans={plans} />
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="gap-1"
+              onClick={handleExportClients}
+              disabled={isExporting || clients.length === 0}
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
