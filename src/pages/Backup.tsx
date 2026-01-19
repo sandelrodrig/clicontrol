@@ -50,6 +50,7 @@ interface BackupData {
     custom_products?: unknown[];
     app_settings?: unknown[];
     monthly_profits?: unknown[];
+    default_server_icons?: unknown[];
   };
 }
 
@@ -109,6 +110,7 @@ export default function Backup() {
     app_settings: true,
     monthly_profits: true,
     message_history: false,
+    default_server_icons: true,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const completeFileInputRef = useRef<HTMLInputElement>(null);
@@ -517,6 +519,7 @@ export default function Backup() {
     app_settings: { label: 'Configurações', icon: <Database className="h-4 w-4" /> },
     monthly_profits: { label: 'Lucros Mensais', icon: <CreditCard className="h-4 w-4" /> },
     message_history: { label: 'Histórico de Mensagens', icon: <MessageSquare className="h-4 w-4" /> },
+    default_server_icons: { label: 'Ícones de Servidores (ADM)', icon: <Server className="h-4 w-4" /> },
   };
 
   return (
@@ -722,6 +725,7 @@ export default function Backup() {
                 <li>✓ Templates, automações e regras</li>
                 <li>✓ Lucros mensais e contas</li>
                 <li>✓ Configurações gerais do sistema</li>
+                <li>✓ <strong>Ícones padrão de servidores (ADM)</strong></li>
               </ul>
             </div>
 
