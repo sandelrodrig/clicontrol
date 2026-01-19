@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.check-expirations]
 verify_jwt = false
+
+[functions.complete-backup]
+verify_jwt = false
+
+[functions.complete-restore]
+verify_jwt = false
