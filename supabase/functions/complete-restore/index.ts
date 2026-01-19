@@ -103,6 +103,7 @@ serve(async (req) => {
       await supabase.from('external_apps').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('custom_products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       await supabase.from('monthly_profits').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabase.from('default_server_icons').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       // Don't delete profiles as they are linked to auth.users
     }
 
@@ -712,6 +713,48 @@ serve(async (req) => {
         }
       }
       results.restored.message_history = msgCount;
+    }
+
+    // 19. Restore default server icons (Admin only)
+    if (shouldRestore('default_server_icons') && backup.data.default_server_icons) {
+      for (const icon of backup.data.default_server_icons) {
+        // Check if icon with same name_normalized exists
+        const { data: existing } = await supabase
+          .from('default_server_icons')
+          .select('id')
+          .eq('name_normalized', icon.name_normalized)
+          .maybeSingle();
+
+        if (existing) {
+          // Update existing
+          const { error } = await supabase
+            .from('default_server_icons')
+            .update({ 
+              name: icon.name,
+              icon_url: icon.icon_url,
+            })
+            .eq('id', existing.id);
+
+          if (!error) {
+            results.restored.default_server_icons = (results.restored.default_server_icons || 0) + 1;
+          }
+        } else {
+          // Insert new
+          const { error } = await supabase
+            .from('default_server_icons')
+            .insert({
+              name: icon.name,
+              name_normalized: icon.name_normalized,
+              icon_url: icon.icon_url,
+            });
+
+          if (error) {
+            results.errors.push(`Ícone servidor "${icon.name}": ${error.message}`);
+          } else {
+            results.restored.default_server_icons = (results.restored.default_server_icons || 0) + 1;
+          }
+        }
+      }
     }
 
     console.log('Complete restore finished:', results);

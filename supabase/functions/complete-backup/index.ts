@@ -73,6 +73,7 @@ serve(async (req) => {
       customProductsResult,
       appSettingsResult,
       monthlyProfitsResult,
+      defaultServerIconsResult,
     ] = await Promise.all([
       supabase.from('profiles').select('*'),
       supabase.from('clients').select('*'),
@@ -92,6 +93,7 @@ serve(async (req) => {
       supabase.from('custom_products').select('*'),
       supabase.from('app_settings').select('*'),
       supabase.from('monthly_profits').select('*'),
+      supabase.from('default_server_icons').select('*'),
     ]);
 
     // Create ID to logical key mappings
@@ -423,6 +425,14 @@ serve(async (req) => {
       updated_at: mp.updated_at,
     });
 
+    const transformDefaultServerIcon = (icon: any) => ({
+      name: icon.name,
+      name_normalized: icon.name_normalized,
+      icon_url: icon.icon_url,
+      created_at: icon.created_at,
+      updated_at: icon.updated_at,
+    });
+
     const backup = {
       version: '3.0-complete-clean',
       format: 'clean-logical-keys',
@@ -449,6 +459,7 @@ serve(async (req) => {
         custom_products: (customProductsResult.data || []).length,
         app_settings: (appSettingsResult.data || []).length,
         monthly_profits: (monthlyProfitsResult.data || []).length,
+        default_server_icons: (defaultServerIconsResult.data || []).length,
       },
       
       data: {
@@ -470,6 +481,7 @@ serve(async (req) => {
         custom_products: (customProductsResult.data || []).map(transformCustomProduct),
         app_settings: (appSettingsResult.data || []).map(transformAppSetting),
         monthly_profits: (monthlyProfitsResult.data || []).map(transformMonthlyProfit),
+        default_server_icons: (defaultServerIconsResult.data || []).map(transformDefaultServerIcon),
       },
     };
 
