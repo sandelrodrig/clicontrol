@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff, CheckCircle, X, DollarSign, Globe, Download } from 'lucide-react';
+import { Plus, Search, Phone, Mail, Calendar as CalendarIcon, CreditCard, User, Trash2, Edit, Eye, EyeOff, MessageCircle, RefreshCw, Lock, Loader2, Monitor, Smartphone, Tv, Gamepad2, Laptop, Flame, ChevronDown, ExternalLink, AppWindow, Send, Archive, RotateCcw, Sparkles, Server, Copy, UserPlus, WifiOff, CheckCircle, X, DollarSign, Globe, Download, FileDown } from 'lucide-react';
 import { BulkImportClients } from '@/components/BulkImportClients';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -220,6 +220,109 @@ export default function Clients() {
 
   // Export all clients to CSV
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingBulk, setIsExportingBulk] = useState(false);
+
+  // Export in bulk format (blocks of 20 clients) - compatible with BulkImportClients
+  const handleExportBulkFormat = async () => {
+    if (!clients.length) {
+      toast.error('Nenhum cliente para exportar');
+      return;
+    }
+
+    setIsExportingBulk(true);
+    try {
+      // Decrypt all credentials if not already done
+      if (!allCredentialsDecrypted) {
+        await decryptAllCredentials();
+      }
+
+      // Wait a bit for state to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Header: Nome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade
+      const HEADER = 'Nome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade';
+      const BLOCK_SIZE = 20;
+      
+      const csvBlocks: string[] = [];
+      
+      for (let i = 0; i < clients.length; i += BLOCK_SIZE) {
+        const block = clients.slice(i, i + BLOCK_SIZE);
+        const blockRows: string[] = [HEADER];
+        
+        for (const client of block) {
+          const creds = decryptedCredentials[client.id] || { login: '', password: '', login_2: '', password_2: '' };
+          
+          // Get decrypted credentials
+          let login = creds.login || '';
+          let password = creds.password || '';
+
+          // If not in cache, decrypt now
+          if (client.login && !login) {
+            try {
+              login = await decrypt(client.login);
+            } catch {
+              login = client.login;
+            }
+          }
+          if (client.password && !password) {
+            try {
+              password = await decrypt(client.password);
+            } catch {
+              password = client.password;
+            }
+          }
+
+          // Format expiration date to DD/MM/YYYY
+          let formattedExpDate = '';
+          if (client.expiration_date) {
+            try {
+              const expDate = new Date(client.expiration_date + 'T12:00:00');
+              if (!isNaN(expDate.getTime())) {
+                formattedExpDate = format(expDate, 'dd/MM/yyyy');
+              }
+            } catch {
+              formattedExpDate = client.expiration_date;
+            }
+          }
+
+          // Format: Nome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade
+          const row = [
+            client.name || '',
+            client.phone || '',
+            login,
+            password,
+            client.category || '',
+            client.server_name || '',
+            client.plan_price?.toString() || '',
+            formattedExpDate
+          ].map(field => `${field.replace(/,/g, ' ').replace(/\n/g, ' ')}`);
+
+          blockRows.push(row.join(','));
+        }
+        
+        csvBlocks.push(blockRows.join('\n'));
+      }
+
+      // Join blocks with blank line separator
+      const csvContent = csvBlocks.join('\n\n');
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `clientes-blocos-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(`${clients.length} clientes exportados em ${Math.ceil(clients.length / BLOCK_SIZE)} bloco(s) de 20!`);
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+      toast.error('Erro ao exportar clientes');
+    } finally {
+      setIsExportingBulk(false);
+    }
+  };
   
   const handleExportClients = async () => {
     if (!clients.length) {
@@ -1973,20 +2076,60 @@ export default function Clients() {
               </Button>
             )}
             <BulkImportClients plans={plans} />
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="gap-1"
-              onClick={handleExportClients}
-              disabled={isExporting || clients.length === 0}
-            >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              <span className="hidden sm:inline">Exportar</span>
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="gap-1"
+                  disabled={(isExporting || isExportingBulk) || clients.length === 0}
+                >
+                  {(isExporting || isExportingBulk) ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Exportar</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2" align="end">
+                <div className="space-y-1">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="w-full justify-start gap-2"
+                    onClick={() => {
+                      handleExportClients();
+                      document.body.click(); // Close popover
+                    }}
+                    disabled={isExporting}
+                  >
+                    <Download className="h-4 w-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Exportar Completo</div>
+                      <div className="text-xs text-muted-foreground">CSV com todos os campos</div>
+                    </div>
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="w-full justify-start gap-2"
+                    onClick={() => {
+                      handleExportBulkFormat();
+                      document.body.click(); // Close popover
+                    }}
+                    disabled={isExportingBulk}
+                  >
+                    <FileDown className="h-4 w-4" />
+                    <div className="text-left">
+                      <div className="font-medium">Blocos de 20</div>
+                      <div className="text-xs text-muted-foreground">Compatível com importação em massa</div>
+                    </div>
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
