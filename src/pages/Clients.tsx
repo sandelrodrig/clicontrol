@@ -221,6 +221,7 @@ export default function Clients() {
   // Export all clients to CSV
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingBulk, setIsExportingBulk] = useState(false);
+  const [exportBlockSize, setExportBlockSize] = useState<number>(20);
 
   // Export in bulk format (blocks of 20 clients) - compatible with BulkImportClients
   const handleExportBulkFormat = async () => {
@@ -241,7 +242,7 @@ export default function Clients() {
 
       // Header: Nome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade
       const HEADER = 'Nome,Telefone,Usuário,Senha,Categoria,Servidor,Valor,Validade';
-      const BLOCK_SIZE = 20;
+      const BLOCK_SIZE = exportBlockSize;
       
       const csvBlocks: string[] = [];
       
@@ -315,7 +316,7 @@ export default function Clients() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success(`${clients.length} clientes exportados em ${Math.ceil(clients.length / BLOCK_SIZE)} bloco(s) de 20!`);
+      toast.success(`${clients.length} clientes exportados em ${Math.ceil(clients.length / BLOCK_SIZE)} bloco(s) de ${BLOCK_SIZE}!`);
     } catch (error) {
       console.error('Erro ao exportar:', error);
       toast.error('Erro ao exportar clientes');
@@ -2094,7 +2095,7 @@ export default function Clients() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-64 p-2" align="end">
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <Button 
                     variant="ghost" 
                     size="sm"
@@ -2111,22 +2112,39 @@ export default function Clients() {
                       <div className="text-xs text-muted-foreground">CSV com todos os campos</div>
                     </div>
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="w-full justify-start gap-2"
-                    onClick={() => {
-                      handleExportBulkFormat();
-                      document.body.click(); // Close popover
-                    }}
-                    disabled={isExportingBulk}
-                  >
-                    <FileDown className="h-4 w-4" />
-                    <div className="text-left">
-                      <div className="font-medium">Blocos de 20</div>
-                      <div className="text-xs text-muted-foreground">Compatível com importação em massa</div>
+                  
+                  <div className="border-t pt-2">
+                    <div className="px-2 pb-2">
+                      <div className="text-sm font-medium mb-2">Exportar em Blocos</div>
+                      <div className="text-xs text-muted-foreground mb-2">Compatível com importação em massa</div>
+                      <div className="flex gap-1 mb-2">
+                        {[10, 20, 30, 50].map((size) => (
+                          <Button
+                            key={size}
+                            variant={exportBlockSize === size ? "default" : "outline"}
+                            size="sm"
+                            className="flex-1 h-7 text-xs"
+                            onClick={() => setExportBlockSize(size)}
+                          >
+                            {size}
+                          </Button>
+                        ))}
+                      </div>
+                      <Button 
+                        variant="secondary" 
+                        size="sm"
+                        className="w-full gap-2"
+                        onClick={() => {
+                          handleExportBulkFormat();
+                          document.body.click(); // Close popover
+                        }}
+                        disabled={isExportingBulk}
+                      >
+                        <FileDown className="h-4 w-4" />
+                        Exportar em blocos de {exportBlockSize}
+                      </Button>
                     </div>
-                  </Button>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>
