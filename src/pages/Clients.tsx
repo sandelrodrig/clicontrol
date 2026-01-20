@@ -309,7 +309,7 @@ export default function Clients() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `clientes-blocos-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `clientes-blocos-${new Date().toISOString().split('T')[0]}.txt`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
